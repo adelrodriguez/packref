@@ -1,21 +1,21 @@
 {
-  "name": "pastry",
-  "version": "0.2.2",
-  "description": "A simple template to build libraries with Bun",
+  "name": "packref",
+  "version": "0.0.0",
+  "description": "Local, versioned package references for your agents",
   "keywords": [
     "bun",
     "library",
     "template"
   ],
-  "homepage": "https://github.com/adelrodriguez/pastry#readme",
+  "homepage": "https://github.com/adelrodriguez/packref#readme",
   "bugs": {
-    "url": "https://github.com/adelrodriguez/pastry/issues"
+    "url": "https://github.com/adelrodriguez/packref/issues"
   },
   "license": "MIT",
   "author": "Adel Rodríguez",
   "repository": {
     "type": "git",
-    "url": "https://github.com/adelrodriguez/pastry.git"
+    "url": "https://github.com/adelrodriguez/packref.git"
   },
   "files": [
     "dist"
