@@ -1,6 +1,7 @@
 # Packref v1 Specification
 
 ## One-line description
+
 Packref materializes versioned source copies of npm dependencies so agents can inspect the exact implementation used by a project.
 
 ---
@@ -139,10 +140,7 @@ Example:
 
 ```json
 {
-  "projects": [
-    "/Users/dev/project-a",
-    "/Users/dev/project-b"
-  ]
+  "projects": ["/Users/dev/project-a", "/Users/dev/project-b"]
 }
 ```
 

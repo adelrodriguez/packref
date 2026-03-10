@@ -7,9 +7,11 @@
     "moduleDetection": "force",
     "jsx": "react-jsx",
     "allowJs": true,
+    "allowImportingTsExtensions": true,
     "moduleResolution": "bundler",
+    "noEmit": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src", "bunup.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

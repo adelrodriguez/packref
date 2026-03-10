@@ -1,8 +1,9 @@
 import { describe, expect, it } from "bun:test"
-import { main } from "../index"
+import { getPackageVersion } from "../version"
 
-describe("main", () => {
-  it("should return a placeholder string", () => {
-    expect(main()).toBe("Let's bake some pastry! 🥐")
+describe("getPackageVersion", () => {
+  it("should return the package version", async () => {
+    const version = await getPackageVersion()
+    expect(version).toBe("0.0.0")
   })
 })

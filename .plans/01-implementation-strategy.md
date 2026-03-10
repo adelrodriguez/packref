@@ -2,16 +2,16 @@
 
 ## Technology Choices
 
-| Concern | Choice | Rationale |
-|---|---|---|
-| CLI framework | `@effect/cli` | Type-safe command definitions, built-in help/validation, composable |
-| Core runtime | `effect` | Structured errors, dependency injection, concurrency, retries |
-| npm registry client | `npm-registry-fetch` or raw `fetch` | Lightweight; only need metadata + tarball URLs |
-| Git operations | `simple-git` or shell `git` via `Effect` | Need: `ls-remote` (tags), `clone --depth 1 --branch <tag>` |
-| Filesystem (reflink) | `@reflink/reflink` | Cross-platform reflink with automatic copy fallback |
-| Semver | `semver` | Resolve version ranges, compare, satisfy |
-| Schema validation | `@effect/schema` | Validate lockfile, config, npm metadata shapes |
-| Testing | `bun:test` + `@effect/vitest` | Already configured in project; Effect test utilities |
+| Concern              | Choice                                   | Rationale                                                           |
+| -------------------- | ---------------------------------------- | ------------------------------------------------------------------- |
+| CLI framework        | `@effect/cli`                            | Type-safe command definitions, built-in help/validation, composable |
+| Core runtime         | `effect`                                 | Structured errors, dependency injection, concurrency, retries       |
+| npm registry client  | `npm-registry-fetch` or raw `fetch`      | Lightweight; only need metadata + tarball URLs                      |
+| Git operations       | `simple-git` or shell `git` via `Effect` | Need: `ls-remote` (tags), `clone --depth 1 --branch <tag>`          |
+| Filesystem (reflink) | `@reflink/reflink`                       | Cross-platform reflink with automatic copy fallback                 |
+| Semver               | `semver`                                 | Resolve version ranges, compare, satisfy                            |
+| Schema validation    | `@effect/schema`                         | Validate lockfile, config, npm metadata shapes                      |
+| Testing              | `bun:test` + `@effect/vitest`            | Already configured in project; Effect test utilities                |
 
 ## Module Architecture
 
@@ -145,18 +145,18 @@ Goal: Wire everything together.
 
 All errors are modeled as tagged Effect errors:
 
-| Error | When |
-|---|---|
-| `PackageNotFoundError` | npm registry returns 404 |
-| `NoRepositoryError` | Package metadata has no repository field |
-| `TagNotFoundError` | No git tag matches the resolved version |
-| `CloneError` | `git clone` fails |
-| `StoreCorruptedError` | Store entry exists but is invalid |
-| `NotInitializedError` | Running commands in a project without `packref init` |
-| `LockfileParseError` | Lockfile JSON is malformed |
-| `ConfigParseError` | Global config JSON is malformed |
-| `ReflinkError` | Reflink/copy operation fails |
-| `NetworkError` | General fetch failure |
+| Error                  | When                                                 |
+| ---------------------- | ---------------------------------------------------- |
+| `PackageNotFoundError` | npm registry returns 404                             |
+| `NoRepositoryError`    | Package metadata has no repository field             |
+| `TagNotFoundError`     | No git tag matches the resolved version              |
+| `CloneError`           | `git clone` fails                                    |
+| `StoreCorruptedError`  | Store entry exists but is invalid                    |
+| `NotInitializedError`  | Running commands in a project without `packref init` |
+| `LockfileParseError`   | Lockfile JSON is malformed                           |
+| `ConfigParseError`     | Global config JSON is malformed                      |
+| `ReflinkError`         | Reflink/copy operation fails                         |
+| `NetworkError`         | General fetch failure                                |
 
 Each error carries context (package name, version, path, etc.) for actionable CLI messages.
 
