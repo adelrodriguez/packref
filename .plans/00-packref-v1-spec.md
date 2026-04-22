@@ -39,7 +39,7 @@ import { Effect } from "effect"
 The agent should be able to open:
 
 ```
-.agents/packref/effect@2.0.0/
+.packref/effect@2.0.0/
 ```
 
 and inspect the real implementation.
@@ -86,11 +86,10 @@ Example:
 
 ```
 project/
-  .agents/
-    packref/
-      react@19.0.0/
-      @effect+cli@0.29.0/
-      packref-lock.json
+  .packref/
+    react@19.0.0/
+    @effect+cli@0.29.0/
+    packref-lock.json
 ```
 
 Project directories are created using **reflinks** from the global store.
@@ -108,7 +107,7 @@ This provides:
 Each project stores:
 
 ```
-packref-lock.json
+.packref/packref-lock.json
 ```
 
 Example:
@@ -164,8 +163,8 @@ packref init
 Creates:
 
 ```
-.agents/packref/
-packref-lock.json
+.packref/
+.packref/packref-lock.json
 ```
 
 Registers the project in the global config.

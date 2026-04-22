@@ -6,7 +6,7 @@ export default Command.make("init").pipe(
   Command.withHandler(() =>
     Effect.gen(function* () {
       yield* Effect.log(
-        "TODO: Create .agents/packref/ directory, empty lockfile, and register project in global config"
+        "TODO: Create .packref/ directory, empty lockfile, and register project in global config"
       )
     })
   )
