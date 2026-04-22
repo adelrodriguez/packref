@@ -108,7 +108,7 @@ Goal: Manage project-level references and global config.
    - Read/write `~/.agents/packref/config.json`
    - Register/unregister projects
 3. Implement `core/project.ts`
-   - Create `.agents/packref/` directory
+   - Create `.packref/` directory
    - Reflink store entry into project
    - Remove project reference
 4. Implement `core/reflink.ts`
@@ -179,4 +179,4 @@ Each error carries context (package name, version, path, etc.) for actionable CL
 
 1. **Monorepo packages**: When a repo is a monorepo (e.g., `@effect/cli` lives in `effect` repo), should we store the full repo or extract the relevant package directory? v1 stores the full repo; extraction can be a v2 feature.
 2. **Tarball fallback**: If no git repo is found, should we fall back to downloading the npm tarball? This gives published code (may differ from source). Worth considering for v1 as a fallback.
-3. **Lockfile location**: The spec places `packref-lock.json` inside `.agents/packref/`. Should it also live at project root for visibility? Keeping it inside `.agents/packref/` is cleaner.
+3. **Lockfile location**: The spec places `packref-lock.json` inside `.packref/`. Should it also live at project root for visibility? Keeping it inside `.packref/` is cleaner.
