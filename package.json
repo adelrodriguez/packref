@@ -39,12 +39,10 @@
     "dev": "bunup --watch",
     "fix": "adamantite fix",
     "format": "adamantite format",
-    "init": "bun run --bun scripts/init.ts",
     "release": "changeset publish",
     "test": "bun test",
     "test:coverage": "bun test --coverage",
     "test:watch": "bun test --watch",
-    "typecheck": "tsc --noEmit",
     "version": "changeset version && bun run format"
   },
   "dependencies": {
@@ -55,12 +53,14 @@
     "@changesets/cli": "2.29.8",
     "@clack/prompts": "1.0.1",
     "@types/bun": "1.3.9",
+    "@types/semver": "7.7.1",
     "adamantite": "^0.32.1",
     "bunup": "0.16.29",
     "knip": "6.6.1",
     "oxfmt": "0.46.0",
     "oxlint": "1.61.0",
     "oxlint-tsgolint": "0.21.1",
+    "type-fest": "5.6.0",
     "typescript": "^5.9.3"
   },
   "packageManager": "bun@1.3.1"

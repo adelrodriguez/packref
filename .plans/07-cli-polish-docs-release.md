@@ -1,4 +1,4 @@
-# Plan 10: CLI Polish + Docs + Release Prep
+# Plan 07: CLI Polish + Docs + Release Prep
 
 ## Goal
 
@@ -6,22 +6,22 @@ Prepare the v1 implementation for real use by tightening CLI output, documentati
 
 ## Scope
 
-- Improve user-facing success and error messages.
+- Improve user-facing success and error messages across all commands.
 - Confirm CLI help text is useful.
-- Update README usage documentation.
+- Update README with usage documentation.
 - Confirm build output and binary packaging.
-- Add a changeset.
-- Confirm final quality gates pass.
+- Confirm release metadata is ready without creating a changeset until the package has a valid release baseline.
+- Run final quality gates.
 
 ## Implementation Steps
 
-1. Review command output for `init`, `add`, `list`, `remove`, and `prune`.
-2. Convert typed errors into concise actionable CLI messages.
-3. Update README with install, init, add, list, remove, and prune examples.
+1. Review command output for `init`, `add`, `list`, `remove`, `prune`, `sync`, and `clean`.
+2. Convert typed errors into concise, actionable CLI messages.
+3. Update README with install, init, add, list, remove, prune, sync, and clean examples.
 4. Confirm `bin` configuration points to the packaged CLI output.
 5. Confirm package `files` include the expected build artifacts.
 6. Run build and inspect output.
-7. Add an appropriate changeset.
+7. Confirm whether the project has a valid release baseline before creating any changeset.
 8. Run the full validation sequence.
 
 ## Acceptance Criteria
@@ -31,11 +31,9 @@ Prepare the v1 implementation for real use by tightening CLI output, documentati
 - CLI help includes all commands.
 - CLI errors are human-readable and actionable.
 - Package build output includes the executable CLI.
-- A non-major changeset exists unless the user explicitly approves a major bump.
+- No changeset is required until the project has a valid release baseline.
 
 ## Validation
-
-Run:
 
 ```sh
 bun run format
@@ -49,4 +47,4 @@ bun run build
 
 - New v2 features.
 - Monorepo package extraction unless it became part of v1 during execution.
-- Tarball fallback unless it was approved during earlier plans.
+- Tarball fallback; tracked as a v2 feature.
