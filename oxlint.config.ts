@@ -3,4 +3,8 @@ import { defineConfig } from "oxlint"
 
 export default defineConfig({
   extends: [core],
+  options: {
+    typeAware: true,
+    typeCheck: true,
+  },
 })

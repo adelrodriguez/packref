@@ -5,16 +5,18 @@ import * as Exit from "effect/Exit"
 import * as Layer from "effect/Layer"
 import * as Runtime from "effect/Runtime"
 import * as Command from "effect/unstable/cli/Command"
-import addCommand from "#commands/add.ts"
-import initCommand from "#commands/init.ts"
-import listCommand from "#commands/list.ts"
-import pruneCommand from "#commands/prune.ts"
-import removeCommand from "#commands/remove.ts"
-import { getPackageVersion } from "#version.ts" with { type: "macro" }
+import add from "#commands/add.ts"
+import clean from "#commands/clean.ts"
+import init from "#commands/init.ts"
+import list from "#commands/list.ts"
+import prune from "#commands/prune.ts"
+import remove from "#commands/remove.ts"
+import sync from "#commands/sync.ts"
+import { getPackageVersion } from "#version.macro.ts" with { type: "macro" }
 
 const main = Command.make("packref").pipe(
   Command.withDescription("Local, versioned package references for your agents"),
-  Command.withSubcommands([addCommand, initCommand, listCommand, pruneCommand, removeCommand])
+  Command.withSubcommands([add, clean, init, list, prune, remove, sync])
 )
 
 const version = await getPackageVersion()
