@@ -19,8 +19,8 @@ Deliver `packref add <pkg[@version]>` as a complete end-to-end workflow: resolve
 - Update `.packref/packref-lock.json` with an array entry containing `registry`, `name`, `version`, `tracking: "manual"`, and nested repository `source` metadata.
 - Auto-initialize the project if `.packref/` does not exist.
 - Allow multiple versions of the same package to coexist in the same project.
-- Implement typed errors for the full pipeline in `lib/shared/errors.ts` (`UnsupportedRegistryError`, `PackageNotFoundError`, `NoRepositoryError`, `TagNotFoundError`, `SnapshotFetchError`, `ReflinkError`, `NetworkError`).
-- Implement npm metadata schema needed by registry resolution in `lib/shared/schemas.ts`.
+- Implement typed errors for the full pipeline in `lib/core/errors.ts` (`UnsupportedRegistryError`, `PackageNotFoundError`, `NoRepositoryError`, `TagNotFoundError`, `SnapshotFetchError`, `ReflinkError`, `NetworkError`).
+- Implement npm metadata schema needed by registry resolution in `lib/core/schemas.ts`.
 - Add tests for the add flow.
 
 ## Implementation Steps
@@ -35,8 +35,8 @@ Deliver `packref add <pkg[@version]>` as a complete end-to-end workflow: resolve
 8. Implement `lib/services/reflinker.ts`: recursive reflink with copy fallback.
 9. Extend `lib/workspace/project.ts`: create project reference path under `.packref/packages/<registry>/<package>/<version>/` for unscoped packages and `.packref/packages/<registry>/<scope>/<package>/<version>/` for scoped packages; when `repository.directory` is present, point the project reference at that subdirectory inside the stored full repo snapshot.
 10. Extend `lib/workspace/lockfile.ts`: add array package entry including `registry`, `name`, `version`, `tracking`, and nested repository `source` metadata (`type`, `host`, `url`, optional `directory`).
-11. Extend `lib/shared/schemas.ts`: npm metadata schemas with `effect/Schema`.
-12. Extend `lib/shared/errors.ts`: `UnsupportedRegistryError`, `PackageNotFoundError`, `NoRepositoryError`, `TagNotFoundError`, `SnapshotFetchError`, `ReflinkError`, `NetworkError`, `StoreCorruptedError`.
+11. Extend `lib/core/schemas.ts`: npm metadata schemas with `effect/Schema`.
+12. Extend `lib/core/errors.ts`: `UnsupportedRegistryError`, `PackageNotFoundError`, `NoRepositoryError`, `TagNotFoundError`, `SnapshotFetchError`, `ReflinkError`, `NetworkError`, `StoreCorruptedError`.
 13. Wire `packref add` in `commands/add.ts`: auto-init project if needed, then run parse -> resolve -> fetch snapshot -> store -> reflink -> lockfile.
 14. Ensure adding the same `registry + name + version` is idempotent.
 15. Ensure adding the same package at a different version creates an additional project-local reference and lockfile entry.
