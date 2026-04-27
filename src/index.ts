@@ -12,6 +12,7 @@ import list from "#commands/list.ts"
 import prune from "#commands/prune.ts"
 import remove from "#commands/remove.ts"
 import sync from "#commands/sync.ts"
+import { Prompter } from "#lib/services/prompter.ts"
 import { getPackageVersion } from "#version.macro.ts" with { type: "macro" }
 
 const main = Command.make("packref").pipe(
@@ -23,8 +24,16 @@ const version = await getPackageVersion()
 
 const program = Command.run(main, { version }).pipe(
   Effect.as(0),
-  Effect.catch((error) => Effect.logError(error.message).pipe(Effect.as(1))),
-  Effect.provide(Layer.mergeAll(NodeServices.layer))
+  Effect.catch((error) =>
+    Effect.gen(function* () {
+      const prompter = yield* Prompter
+
+      yield* prompter.log.error(error.message)
+
+      return 1
+    })
+  ),
+  Effect.provide(Layer.mergeAll(NodeServices.layer, Prompter.layer))
 )
 
 NodeRuntime.runMain(program, {
