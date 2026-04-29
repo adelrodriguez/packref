@@ -4,8 +4,22 @@ import * as Path from "effect/Path"
 import * as PlatformError from "effect/PlatformError"
 import * as Schema from "effect/Schema"
 import { LockfileParseError } from "#lib/core/errors.ts"
-import { type Lockfile, LockfileSchema } from "#lib/core/schemas.ts"
+import { RepositorySourceSchema } from "#lib/core/source.ts"
 import { getProjectLockfilePath } from "#lib/workspace/paths.ts"
+
+export const PackageEntrySchema = Schema.Struct({
+  name: Schema.String,
+  registry: Schema.String,
+  source: RepositorySourceSchema,
+  tracking: Schema.Union([Schema.Literal("manual"), Schema.Literal("dependency")]),
+  version: Schema.String,
+})
+export type PackageEntry = typeof PackageEntrySchema.Type
+
+export const LockfileSchema = Schema.Struct({
+  packages: Schema.Array(PackageEntrySchema),
+})
+export type Lockfile = typeof LockfileSchema.Type
 
 export const emptyLockfile: Lockfile = {
   packages: [],
