@@ -7,9 +7,11 @@ describe("registry", () => {
     expect(DEFAULT_REGISTRY).toBe("npm")
   })
 
-  it("checks whether a string is a supported registry", () => {
-    expect(checkIsRegistry("npm")).toBe(true)
-    expect(checkIsRegistry("jsr")).toBe(false)
-    expect(checkIsRegistry("pypi")).toBe(false)
+  describe("checkIsRegistry", () => {
+    it("checks whether a string is a supported registry", () => {
+      expect(checkIsRegistry("npm")).toBe(true)
+      expect(checkIsRegistry("jsr")).toBe(false)
+      expect(checkIsRegistry("pypi")).toBe(false)
+    })
   })
 })
