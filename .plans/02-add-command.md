@@ -20,30 +20,34 @@ Deliver `packref add <pkg[@version]>` as a complete end-to-end workflow: resolve
 - Auto-initialize the project if `.packref/` does not exist.
 - Allow multiple versions of the same package to coexist in the same project.
 - Implement typed errors for the full pipeline in `lib/core/errors.ts` (`UnsupportedRegistryError`, `PackageNotFoundError`, `NoRepositoryError`, `TagNotFoundError`, `SnapshotFetchError`, `ReflinkError`, `NetworkError`).
-- Implement npm metadata schema needed by registry resolution in `lib/core/schemas.ts`.
+- Implement npm metadata schema needed by registry resolution in `lib/registries/npm/metadata.ts`.
 - Add tests for the add flow.
 
 ## Implementation Steps
 
 1. Install `semver` and `giget` as additional required runtime dependencies.
-2. Implement `lib/services/registry-client.ts`: fetch npm metadata through Effect and model fetch failures.
-3. Implement package spec parsing with npm as the default registry and clear unsupported-registry errors.
-4. Implement `lib/packages/registry.ts`: define a shared registry resolver contract, implement npm resolution, resolve `latest`/exact/range versions, and extract repository URL plus optional `repository.directory`.
-5. Implement `lib/packages/repository.ts`: normalize repo URL into a `giget` source, run `git ls-remote --tags` through `CommandRunner`, match version to tag (`v{version}`, `{version}`, `{pkg}@{version}`).
-6. Implement `lib/packages/snapshot.ts`: fetch the matched tag/ref with `giget` into the global store.
-7. Implement `lib/packages/store.ts`: check existence, get nested identity path, list entries, remove entry.
-8. Implement `lib/services/reflinker.ts`: recursive reflink with copy fallback.
-9. Extend `lib/workspace/project.ts`: create project reference path under `.packref/packages/<registry>/<package>/<version>/` for unscoped packages and `.packref/packages/<registry>/<scope>/<package>/<version>/` for scoped packages; when `repository.directory` is present, point the project reference at that subdirectory inside the stored full repo snapshot.
-10. Extend `lib/workspace/lockfile.ts`: add array package entry including `registry`, `name`, `version`, `tracking`, and nested repository `source` metadata (`type`, `host`, `url`, optional `directory`).
-11. Extend `lib/core/schemas.ts`: npm metadata schemas with `effect/Schema`.
-12. Extend `lib/core/errors.ts`: `UnsupportedRegistryError`, `PackageNotFoundError`, `NoRepositoryError`, `TagNotFoundError`, `SnapshotFetchError`, `ReflinkError`, `NetworkError`, `StoreCorruptedError`.
-13. Wire `packref add` in `commands/add.ts`: auto-init project if needed, then run parse -> resolve -> fetch snapshot -> store -> reflink -> lockfile.
-14. Ensure adding the same `registry + name + version` is idempotent.
-15. Ensure adding the same package at a different version creates an additional project-local reference and lockfile entry.
-16. Add mocked tests for registry resolution (success, not found, missing version, scoped packages, missing repo).
-17. Add mocked tests for repository resolution and snapshot fetching (tag matching, `giget` fetch, store reuse).
-18. Add tests for unsupported registry prefixes, auto-init, and same-package multi-version behavior.
-19. Add one integration test using a small real package.
+2. Implement `lib/core/package-spec.ts`: parse package specs with npm as the default registry and clear unsupported-registry errors.
+3. Implement `lib/registries/registry.ts`: define `defineRegistry` and the shared registry resolver contract for adapters.
+4. Implement `lib/registries/index.ts`: register available registry adapters keyed by registry, select the resolver for a parsed spec, and return `UnsupportedRegistryError` for non-npm registry prefixes in v1.
+5. Implement `lib/registries/npm/metadata.ts`: npm metadata schemas with `effect/Schema`, including `repository.directory`.
+6. Implement `lib/registries/npm/client.ts`: fetch npm metadata through the Effect platform HTTP client and model fetch failures.
+7. Implement `lib/registries/npm/resolver.ts`: resolve `latest`/exact/range versions, normalize package identity, and extract repository URL plus optional `repository.directory`.
+8. Implement `lib/sources/repository/normalize.ts` and `lib/sources/repository/tags.ts`: normalize repo URL into a `giget` source, run `git ls-remote --tags` through `CommandRunner`, match version to tag (`v{version}`, `{version}`, `{pkg}@{version}`).
+9. Implement `lib/sources/repository/fetch.ts`: fetch the matched tag/ref with `giget` into the global store.
+10. Implement `lib/store/store.ts`: check existence, get nested identity path, list entries, remove entry.
+11. Implement `lib/services/reflinker.ts`: recursive reflink with copy fallback.
+12. Extend `lib/workspace/project.ts`: create project reference path under `.packref/packages/<registry>/<package>/<version>/` for unscoped packages and `.packref/packages/<registry>/<scope>/<package>/<version>/` for scoped packages; when `repository.directory` is present, point the project reference at that subdirectory inside the stored full repo snapshot.
+13. Extend `lib/workspace/lockfile.ts`: add array package entry including `registry`, `name`, `version`, `tracking`, and nested repository `source` metadata (`type`, `host`, `url`, optional `directory`).
+14. Extend `lib/core/errors.ts`: `UnsupportedRegistryError`, `PackageNotFoundError`, `NoRepositoryError`, `TagNotFoundError`, `SnapshotFetchError`, `ReflinkError`, `NetworkError`, `StoreCorruptedError`.
+15. Implement `lib/references/add.ts`: auto-init project if needed, then run parse -> resolve -> fetch snapshot -> store -> reflink -> lockfile.
+16. Wire `packref add` in `commands/add.ts`: parse CLI input, delegate to `lib/references/add.ts`, and report progress/errors.
+17. Ensure adding the same `registry + name + version` is idempotent.
+18. Ensure adding the same package at a different version creates an additional project-local reference and lockfile entry.
+19. Add mocked tests for package spec parsing and registry selection, including unsupported registry prefixes.
+20. Add mocked tests for npm registry resolution (success, not found, missing version, scoped packages, missing repo).
+21. Add mocked tests for repository resolution and snapshot fetching (tag matching, `giget` fetch, store reuse).
+22. Add tests for auto-init and same-package multi-version behavior.
+23. Add one integration test using a small real npm package.
 
 ## Acceptance Criteria
 
