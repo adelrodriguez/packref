@@ -4,8 +4,12 @@ import * as Path from "effect/Path"
 import * as PlatformError from "effect/PlatformError"
 import * as Schema from "effect/Schema"
 import { ConfigParseError } from "#lib/core/errors.ts"
-import { type GlobalConfig, GlobalConfigSchema } from "#lib/core/schemas.ts"
 import { getGlobalConfigPath, getGlobalDirectoryPath } from "#lib/workspace/paths.ts"
+
+export const GlobalConfigSchema = Schema.Struct({
+  projects: Schema.Array(Schema.String),
+})
+export type GlobalConfig = typeof GlobalConfigSchema.Type
 
 export const emptyGlobalConfig: GlobalConfig = {
   projects: [],

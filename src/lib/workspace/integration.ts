@@ -4,7 +4,6 @@ import * as Path from "effect/Path"
 import * as PlatformError from "effect/PlatformError"
 import * as Schema from "effect/Schema"
 import { applyEdits, modify, type ParseError, parse } from "jsonc-parser"
-import { type Tsconfig, TsconfigSchema } from "#lib/core/schemas.ts"
 
 const PACKREF_IGNORE_ENTRY = ".packref"
 const GITIGNORE_NAME = ".gitignore"
@@ -37,6 +36,14 @@ export const PACKREF_AGENTS_SECTION = [
   PACKREF_AGENTS_END_MARKER,
   "",
 ].join("\n")
+
+export const TsconfigSchema = Schema.StructWithRest(
+  Schema.Struct({
+    exclude: Schema.optional(Schema.Array(Schema.String)),
+  }),
+  [Schema.Record(Schema.String, Schema.Unknown)]
+)
+export type Tsconfig = typeof TsconfigSchema.Type
 
 const readOptionalFile = (path: string) =>
   Effect.gen(function* () {

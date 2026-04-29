@@ -44,3 +44,67 @@ export class InvalidPackageIdentity extends Data.TaggedError("InvalidPackageIden
     return `Invalid package identity ${this.field} \`${this.value}\`: ${this.reason}.`
   }
 }
+
+export class UnsupportedRegistryError extends Data.TaggedError("UnsupportedRegistryError")<{
+  registry: string
+}> {
+  override get message() {
+    return `Unsupported registry prefix \`${this.registry}\`.`
+  }
+}
+
+export class PackageNotFoundError extends Data.TaggedError("PackageNotFoundError")<{
+  name: string
+  registry: string
+}> {
+  override get message() {
+    return `Package \`${this.registry}:${this.name}\` was not found.`
+  }
+}
+
+export class NoRepositoryError extends Data.TaggedError("NoRepositoryError")<{
+  name: string
+  registry: string
+  version: string
+}> {
+  override get message() {
+    return `Package \`${this.registry}:${this.name}@${this.version}\` does not declare repository metadata.`
+  }
+}
+
+export class TagNotFoundError extends Data.TaggedError("TagNotFoundError")<{
+  repository: string
+  version: string
+}> {
+  override get message() {
+    return `Could not find a matching git tag for version \`${this.version}\` in \`${this.repository}\`.`
+  }
+}
+
+export class SnapshotFetchError extends Data.TaggedError("SnapshotFetchError")<{
+  cause: unknown
+  source: string
+}> {
+  override get message() {
+    return `Failed to fetch source snapshot from \`${this.source}\`.`
+  }
+}
+
+export class ReflinkError extends Data.TaggedError("ReflinkError")<{
+  cause: unknown
+  source: string
+  target: string
+}> {
+  override get message() {
+    return `Failed to materialize project reference from \`${this.source}\` to \`${this.target}\`.`
+  }
+}
+
+export class NetworkError extends Data.TaggedError("NetworkError")<{
+  cause: unknown
+  url?: string
+}> {
+  override get message() {
+    return this.url ? `Network request failed for \`${this.url}\`.` : "Network request failed."
+  }
+}
