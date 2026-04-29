@@ -62,6 +62,16 @@ export class PackageNotFoundError extends Data.TaggedError("PackageNotFoundError
   }
 }
 
+export class PackageVersionNotFoundError extends Data.TaggedError("PackageVersionNotFoundError")<{
+  name: string
+  registry: string
+  specifier: string
+}> {
+  override get message() {
+    return `Package \`${this.registry}:${this.name}\` does not have a version matching \`${this.specifier}\`.`
+  }
+}
+
 export class NoRepositoryError extends Data.TaggedError("NoRepositoryError")<{
   name: string
   registry: string

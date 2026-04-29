@@ -17,7 +17,7 @@ const expectInvalidPackageIdentity = async (promise: Promise<unknown>) => {
   }
 }
 
-describe("store paths", () => {
+describe("getStorePackagePath", () => {
   it("builds unscoped store paths", async () => {
     const identity = {
       name: "react",
