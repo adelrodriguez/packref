@@ -82,6 +82,15 @@ export class NoRepositoryError extends Data.TaggedError("NoRepositoryError")<{
   }
 }
 
+export class InvalidRepositoryUrlError extends Data.TaggedError("InvalidRepositoryUrlError")<{
+  reason: string
+  url: string
+}> {
+  override get message() {
+    return `Invalid repository URL \`${this.url}\`: ${this.reason}.`
+  }
+}
+
 export class TagNotFoundError extends Data.TaggedError("TagNotFoundError")<{
   repository: string
   version: string

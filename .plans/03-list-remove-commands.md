@@ -15,16 +15,17 @@ Deliver `packref list` and `packref remove <pkg>` as complete user-facing comman
 
 ## Implementation Steps
 
-1. Implement or extend lockfile listing helpers if not already present from Plan 01.
-2. Wire `packref list` in `commands/list.ts`: read lockfile, print one `registry:name@version source.type source.host tracking` entry per line, sorted deterministically by registry, name, version.
-3. Implement package lookup by full identity (`registry + name + version`) for exact removal.
-4. Implement package lookup by `registry + name` for ambiguous removal; if multiple versions match, ask with a multiselect prompt.
-5. Delete selected project-local `.packref/packages/<registry>/<package>/<version>/` or `.packref/packages/<registry>/<scope>/<package>/<version>/` directories.
-6. Remove selected package entries from `.packref/packref-lock.json`.
-7. Wire `packref remove` in `commands/remove.ts`.
-8. Return `NotInitializedError` when the project has no `.packref/`.
-9. Return a clear error when the requested package is not referenced.
-10. Add tests: empty list message, populated list with multiple versions, successful exact removal, multiselect removal when multiple versions match, removing a non-existent package, running against an uninitialized project.
+1. Add `NotInitializedError` to `lib/core/errors.ts` and a shared "require initialized project" helper (e.g. in `lib/workspace/project.ts`) so list/remove/sync/prune reuse the same check.
+2. Implement or extend lockfile listing helpers if not already present from Plan 02.
+3. Wire `packref list` in `commands/list.ts`: read lockfile, print one `registry:name@version source.type source.host tracking` entry per line, sorted deterministically by registry, name, version. Tarball-backed entries print `tarball` with no host.
+4. Implement package lookup by full identity (`registry + name + version`) for exact removal.
+5. Implement package lookup by `registry + name` for ambiguous removal; if multiple versions match, ask with a multiselect prompt.
+6. Delete selected project-local `.packref/packages/<registry>/<package>/<version>/` or `.packref/packages/<registry>/<scope>/<package>/<version>/` directories. Directory deletion is best-effort: a lockfile entry whose directory is already missing is still removed, with a warning (drift tolerance).
+7. Remove selected package entries from `.packref/packref-lock.json`.
+8. Wire `packref remove` in `commands/remove.ts`.
+9. Return `NotInitializedError` when the project has no `.packref/`.
+10. Return a clear error when the requested package is not referenced.
+11. Add tests: empty list message, populated list with multiple versions, tarball entry formatting, successful exact removal, multiselect removal when multiple versions match, removal when the reference directory is already missing, removing a non-existent package, running against an uninitialized project.
 
 ## Acceptance Criteria
 
@@ -36,6 +37,7 @@ Deliver `packref list` and `packref remove <pkg>` as complete user-facing comman
 - `packref remove react` defaults to npm and removes directly when only one version matches.
 - `packref remove react` shows a multiselect prompt when multiple versions match.
 - `packref remove react` does **not** delete the global store entry.
+- Removing an entry whose project directory is already missing succeeds with a warning instead of crashing.
 - Removing a package that is not referenced produces a clear error.
 - Running either command without `packref init` produces `NotInitializedError`.
 

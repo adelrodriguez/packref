@@ -12,3 +12,12 @@ export const RepositorySourceSchema = Schema.Struct({
   url: Schema.String,
 })
 export type RepositorySource = typeof RepositorySourceSchema.Type
+
+export interface NormalizedRepositorySource extends RepositorySource {
+  readonly fetchSource: string
+}
+
+export interface ResolvedRepositoryRef {
+  readonly ref: string
+  readonly source: NormalizedRepositorySource
+}

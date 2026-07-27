@@ -4,32 +4,9 @@
 
 Track useful features that are intentionally out of scope for v1 so the v1 architecture can leave space for them without implementing them early.
 
-## Tarball Fallback
+## Tarball Fallback (promoted to v1)
 
-Add npm tarball fallback when repository source is unavailable.
-
-### Proposed Behavior
-
-1. Try repository source first:
-   - registry metadata repository URL
-   - matching git tag
-   - `giget` fetch
-2. If repository metadata is missing or no matching git tag exists, fetch the package tarball for the exact resolved version.
-3. Store unpacked tarball contents in the global store under the same `packages/registry/scope/package/version` identity path model.
-4. Record `source.type: "tarball"` in the lockfile entry.
-5. Do not silently fall back for network failures, authentication failures, corrupted store entries, or unexpected repository snapshot errors.
-
-### Rationale
-
-Tarballs match published package contents and make Packref useful for packages without clean repository metadata or version tags. They may differ from source repositories, so the lockfile must make tarball-backed references explicit.
-
-### Plan Impact
-
-- Add `lib/sources/tarball/fetch.ts`.
-- Add `TarballFetchError`.
-- Extend lockfile schema from v1's `source.type: "repository"` to `"repository" | "tarball"`.
-- Extend registry adapters so they may return ordered source candidates, e.g. repository first and tarball second for npm.
-- Add tests for missing repository metadata, missing tag fallback, tarball extraction failure, and no fallback on transient repository fetch failures.
+The npm tarball fallback was promoted into v1 scope; see `packref-v1-spec.md` § Source Fallback and Plan 02 Phase 6. It is no longer a v2 candidate.
 
 ## Additional Registries
 

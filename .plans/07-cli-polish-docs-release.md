@@ -28,6 +28,7 @@ Prepare the v1 implementation for real use by tightening CLI output, documentati
 
 - README explains what Packref does and does not do.
 - README documents `.packref/` and `~/.agents/packref/`.
+- README explains repository vs tarball sources, the fallback rules, and the single-process (no locking) assumption.
 - CLI help includes all commands.
 - CLI errors are human-readable and actionable.
 - Package build output includes the executable CLI.
