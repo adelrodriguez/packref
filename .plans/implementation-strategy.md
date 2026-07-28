@@ -27,9 +27,8 @@ src/
   lib/
     core/
       packages.ts         # Package identity, validation, and spec parsing (npm default)
-      source.ts           # Shared source metadata/candidate types
+      source.ts           # Shared source metadata/candidate types and schema
       errors.ts           # Data.TaggedError classes with actionable messages
-      schemas.ts          # Shared effect/Schema definitions for config and lockfile
 
     shared/
       filesystem.ts       # Small FileSystem helpers, e.g. ensureDirectory
@@ -127,7 +126,7 @@ Goal: Project scaffolding, core types, path utilities.
 6. Implement `lib/core/packages.ts` for normalized package identity, path segment helpers, and spec parsing.
 7. Implement `lib/store/paths.ts` for global and project package paths using `packages/registry/package/version` and `packages/registry/scope/package/version`.
 8. Implement `lib/core/errors.ts` with `Data.TaggedError`.
-9. Implement `lib/core/schemas.ts` with shared `effect/Schema` definitions for config and lockfile.
+9. Colocate `effect/Schema` definitions with their owners in `lib/workspace/config.ts`, `lib/workspace/lockfile.ts`, `lib/workspace/integration.ts`, and `lib/core/source.ts`.
 10. Implement `lib/registries/registry.ts` with `defineRegistry` and the shared registry adapter contract.
 11. Implement `lib/manifests/manifest.ts` with `defineManifest` and the shared manifest adapter contract.
 12. Implement npm-specific schemas in `lib/registries/npm/metadata.ts`, including `repository.directory`.
