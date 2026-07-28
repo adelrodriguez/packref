@@ -18,6 +18,8 @@ This project was built with [`pastry`](https://github.com/adelrodriguez/pastry) 
 ## Effect
 
 - When writing an Effect function, yield all service dependencies inside that function instead of resolving them outside and passing them in.
+- When failing with a tagged error inside `Effect.gen`, prefer `yield* new SomeTaggedError(...)` over `yield* Effect.fail(new SomeTaggedError(...))`.
+- If a standalone Effect implementation is not using `Effect.gen`, prefer `function` syntax over arrow function syntax. Callback functions passed to combinators like `Effect.catchTag` can still use arrow function syntax.
 
 ## Changesets
 

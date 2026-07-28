@@ -26,8 +26,7 @@ Packref v1 is package-reference focused. It supports npm packages only, while ke
 src/
   lib/
     core/
-      package-identity.ts # Registry + package name + version identity helpers
-      package-spec.ts     # Parse specs with optional registry prefix; npm is default
+      packages.ts         # Package identity, validation, and spec parsing (npm default)
       source.ts           # Shared source metadata/candidate types
       errors.ts           # Data.TaggedError classes with actionable messages
       schemas.ts          # Shared effect/Schema definitions for config and lockfile
@@ -125,7 +124,7 @@ Goal: Project scaffolding, core types, path utilities.
 3. Set up `src/index.ts` as the CLI entry point using `effect/unstable/cli/Command`, `Command.run`, and `NodeRuntime.runMain`.
 4. Provide `NodeServices.layer` plus Packref service layers (`Prompter`, `CommandRunner`, registry map, reflinker) through `Layer.mergeAll`. Use the Effect platform HTTP client from the platform layer for registry HTTP calls instead of adding a Packref-specific HTTP wrapper service.
 5. Confirm `package.json` `bin` and `bunup.config.ts` are configured for the `packref` binary.
-6. Implement `lib/core/package-identity.ts` for normalized package identity and path segment helpers.
+6. Implement `lib/core/packages.ts` for normalized package identity, path segment helpers, and spec parsing.
 7. Implement `lib/store/paths.ts` for global and project package paths using `packages/registry/package/version` and `packages/registry/scope/package/version`.
 8. Implement `lib/core/errors.ts` with `Data.TaggedError`.
 9. Implement `lib/core/schemas.ts` with shared `effect/Schema` definitions for config and lockfile.
@@ -138,10 +137,10 @@ Goal: Project scaffolding, core types, path utilities.
 
 Goal: Resolve a package name to a repository source and matching git ref.
 
-1. Implement `lib/core/package-spec.ts`
-   - Parse `react`, `npm:react`, `react@19.0.0`, `@effect/cli`, and `npm:@effect/cli@0.29.0`
-   - Default omitted registry to `npm`
-   - Reject unsupported registry prefixes in v1 with a clear error
+1. Use `parsePackageSpec` from `lib/core/packages.ts` (implemented in Phase 1)
+   - Parses `react`, `npm:react`, `react@19.0.0`, `@effect/cli`, and `npm:@effect/cli@0.29.0`
+   - Defaults omitted registry to `npm`
+   - Rejects unsupported registry prefixes in v1 with a clear error
 2. Implement `lib/registries/index.ts`
    - Register available `defineRegistry` adapters keyed by registry
    - Select the resolver for a parsed spec
