@@ -44,31 +44,30 @@ export const matchRepositoryTag = (identity: PackageIdentity, availableTags: rea
   return getTagCandidates(identity).find((candidate) => availableTagSet.has(candidate))
 }
 
-export const listRemoteTags = (
+export const listRemoteTags = Effect.fn("listRemoteTags")(function* (
   source: NormalizedRepositorySource
-): Effect.Effect<readonly string[], GitExecutableNotFoundError | NetworkError, CommandRunner> =>
-  Effect.gen(function* () {
-    const commandRunner = yield* CommandRunner
-    const result = yield* commandRunner.run("git", ["ls-remote", "--tags", source.url]).pipe(
-      Effect.mapError((cause) =>
-        cause.reason._tag === "NotFound"
-          ? new GitExecutableNotFoundError({ cause, command: "git" })
-          : new NetworkError({
-              cause,
-              url: source.url,
-            })
-      )
+) {
+  const commandRunner = yield* CommandRunner
+  const result = yield* commandRunner.run("git", ["ls-remote", "--tags", source.url]).pipe(
+    Effect.mapError((cause) =>
+      cause.reason._tag === "NotFound"
+        ? new GitExecutableNotFoundError({ cause, command: "git" })
+        : new NetworkError({
+            cause,
+            url: source.url,
+          })
     )
+  )
 
-    if (result.exitCode !== 0) {
-      return yield* new NetworkError({
-        cause:
-          result.stderr.length > 0
-            ? result.stderr
-            : `git ls-remote exited with code ${result.exitCode}`,
-        url: source.url,
-      })
-    }
+  if (result.exitCode !== 0) {
+    return yield* new NetworkError({
+      cause:
+        result.stderr.length > 0
+          ? result.stderr
+          : `git ls-remote exited with code ${result.exitCode}`,
+      url: source.url,
+    })
+  }
 
-    return parseGitRemoteTagsOutput(result.stdout)
-  })
+  return parseGitRemoteTagsOutput(result.stdout)
+})

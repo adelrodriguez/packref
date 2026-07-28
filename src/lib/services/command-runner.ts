@@ -31,8 +31,12 @@ export class CommandRunner extends Context.Service<CommandRunner, CommandRunnerS
       const childProcessSpawner = yield* ChildProcessSpawner
 
       return {
-        run: (command, args, options) =>
-          Effect.scoped(
+        run: Effect.fn("CommandRunner.run")(function* (
+          command: string,
+          args: readonly string[],
+          options?: { readonly cwd?: string }
+        ) {
+          return yield* Effect.scoped(
             Effect.gen(function* () {
               const handle = yield* childProcessSpawner.spawn(
                 ChildProcess.make(
@@ -56,7 +60,8 @@ export class CommandRunner extends Context.Service<CommandRunner, CommandRunnerS
                 stdout,
               } satisfies CommandRunnerResult
             })
-          ),
+          )
+        }),
       } satisfies CommandRunnerService
     })
   )
