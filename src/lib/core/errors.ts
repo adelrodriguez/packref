@@ -91,6 +91,17 @@ export class InvalidRepositoryUrlError extends Data.TaggedError("InvalidReposito
   }
 }
 
+export class UnsupportedRepositoryHostError extends Data.TaggedError(
+  "UnsupportedRepositoryHostError"
+)<{
+  host: string
+  url: string
+}> {
+  override get message() {
+    return `Repository host \`${this.host}\` is not supported for source snapshots.`
+  }
+}
+
 export class TagNotFoundError extends Data.TaggedError("TagNotFoundError")<{
   repository: string
   version: string

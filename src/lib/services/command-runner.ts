@@ -41,11 +41,14 @@ export class CommandRunner extends Context.Service<CommandRunner, CommandRunnerS
                   options?.cwd === undefined ? undefined : { cwd: options.cwd }
                 )
               )
-              const [stdout, stderr, exitCode] = yield* Effect.all([
-                Stream.mkString(Stream.decodeText(handle.stdout)),
-                Stream.mkString(Stream.decodeText(handle.stderr)),
-                handle.exitCode,
-              ])
+              const [stdout, stderr, exitCode] = yield* Effect.all(
+                [
+                  Stream.mkString(Stream.decodeText(handle.stdout)),
+                  Stream.mkString(Stream.decodeText(handle.stderr)),
+                  handle.exitCode,
+                ],
+                { concurrency: 3 }
+              )
 
               return {
                 exitCode: Number(exitCode),

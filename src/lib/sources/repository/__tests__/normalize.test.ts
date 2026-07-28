@@ -39,6 +39,21 @@ describe("normalizeRepositorySource", () => {
     })
   })
 
+  it("normalizes npm's bare repository shorthand with the default provider", async () => {
+    const normalized = await run(
+      normalizeRepositorySource({
+        url: "facebook/react",
+      })
+    )
+
+    expect(normalized).toEqual({
+      fetchSource: "github:facebook/react",
+      host: "github.com",
+      type: "repository",
+      url: "https://github.com/facebook/react",
+    })
+  })
+
   it("normalizes SCP-style SSH repository URLs", async () => {
     const normalized = await run(
       normalizeRepositorySource({

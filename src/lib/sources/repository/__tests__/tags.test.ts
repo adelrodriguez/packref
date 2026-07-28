@@ -4,7 +4,12 @@ import * as Layer from "effect/Layer"
 import * as PlatformError from "effect/PlatformError"
 import type { PackageIdentity } from "#lib/core/packages.ts"
 import type { NormalizedRepositorySource } from "#lib/core/source.ts"
-import { GitExecutableNotFoundError, NetworkError, TagNotFoundError } from "#lib/core/errors.ts"
+import {
+  GitExecutableNotFoundError,
+  NetworkError,
+  TagNotFoundError,
+  UnsupportedRepositoryHostError,
+} from "#lib/core/errors.ts"
 import { CommandRunner } from "#lib/services/command-runner.ts"
 import { resolveRepositoryRef } from "#lib/sources/repository/normalize.ts"
 import {
@@ -160,6 +165,31 @@ describe("resolveRepositoryRef", () => {
       throw new Error("Expected repository ref resolution to fail.")
     } catch (error) {
       expect(error).toBeInstanceOf(TagNotFoundError)
+    }
+  })
+
+  it("skips tag discovery for unsupported repository hosts", async () => {
+    let commandWasRun = false
+
+    try {
+      await runWithCommandRunner(
+        resolveRepositoryRef(reactIdentity, {
+          url: "https://code.example.com/acme/react.git",
+        }),
+        () => {
+          commandWasRun = true
+
+          return Effect.succeed({
+            exitCode: 0,
+            stderr: "",
+            stdout: "",
+          })
+        }
+      )
+      throw new Error("Expected repository ref resolution to request a fallback.")
+    } catch (error) {
+      expect(error).toBeInstanceOf(UnsupportedRepositoryHostError)
+      expect(commandWasRun).toBe(false)
     }
   })
 })

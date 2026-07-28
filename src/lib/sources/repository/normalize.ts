@@ -10,6 +10,7 @@ import {
   type GitExecutableNotFoundError,
   InvalidRepositoryUrlError,
   TagNotFoundError,
+  UnsupportedRepositoryHostError,
   type NetworkError,
 } from "#lib/core/errors.ts"
 import { listRemoteTags, matchRepositoryTag } from "#lib/sources/repository/tags.ts"
@@ -22,6 +23,8 @@ const SHORTHAND_PROVIDERS = {
 } as const
 
 type KnownProvider = keyof typeof SHORTHAND_PROVIDERS
+
+const DEFAULT_SHORTHAND_PROVIDER = "github" satisfies KnownProvider
 
 const FETCH_SOURCE_PROVIDERS = new Map<string, KnownProvider>([
   ["bitbucket.org", "bitbucket"],
@@ -171,6 +174,7 @@ export const normalizeRepositorySource = (
   const withoutGitPrefix = trimmedUrl.replace(/^git\+/u, "")
   const shorthandMatch =
     /^(?<provider>github|gitlab|bitbucket|sourcehut):(?<repositoryPath>.+)$/u.exec(withoutGitPrefix)
+  const bareShorthandMatch = /^(?<repositoryPath>[^/:\s]+\/[^/:\s]+)$/u.exec(withoutGitPrefix)
 
   if (shorthandMatch?.groups !== undefined) {
     const provider = shorthandMatch.groups.provider
@@ -188,6 +192,14 @@ export const normalizeRepositorySource = (
     return normalizeFromShorthandUrl(candidate, provider as KnownProvider, repositoryPath)
   }
 
+  if (bareShorthandMatch?.groups?.repositoryPath !== undefined) {
+    return normalizeFromShorthandUrl(
+      candidate,
+      DEFAULT_SHORTHAND_PROVIDER,
+      bareShorthandMatch.groups.repositoryPath
+    )
+  }
+
   if (/^[a-z][a-z0-9+.-]*:\/\//iu.test(withoutGitPrefix)) {
     return normalizeFromStandardUrl(candidate, withoutGitPrefix)
   }
@@ -200,11 +212,23 @@ export const resolveRepositoryRef = (
   candidate: RepositorySourceCandidate
 ): Effect.Effect<
   ResolvedRepositoryRef,
-  GitExecutableNotFoundError | InvalidRepositoryUrlError | NetworkError | TagNotFoundError,
+  | GitExecutableNotFoundError
+  | InvalidRepositoryUrlError
+  | NetworkError
+  | TagNotFoundError
+  | UnsupportedRepositoryHostError,
   CommandRunner
 > =>
   Effect.gen(function* () {
     const source = yield* normalizeRepositorySource(candidate)
+
+    if (source.fetchSource === undefined) {
+      return yield* new UnsupportedRepositoryHostError({
+        host: source.host,
+        url: source.url,
+      })
+    }
+
     const tags = yield* listRemoteTags(source)
     const ref = matchRepositoryTag(identity, tags)
 
