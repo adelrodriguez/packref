@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect"
 import type { PackageIdentity } from "#lib/core/packages.ts"
 import type { NormalizedRepositorySource } from "#lib/core/source.ts"
-import { NetworkError } from "#lib/core/errors.ts"
+import { GitExecutableNotFoundError, NetworkError } from "#lib/core/errors.ts"
 import { CommandRunner } from "#lib/services/command-runner.ts"
 
 const TAGS_PREFIX = "refs/tags/"
@@ -46,16 +46,17 @@ export const matchRepositoryTag = (identity: PackageIdentity, availableTags: rea
 
 export const listRemoteTags = (
   source: NormalizedRepositorySource
-): Effect.Effect<readonly string[], NetworkError, CommandRunner> =>
+): Effect.Effect<readonly string[], GitExecutableNotFoundError | NetworkError, CommandRunner> =>
   Effect.gen(function* () {
     const commandRunner = yield* CommandRunner
     const result = yield* commandRunner.run("git", ["ls-remote", "--tags", source.url]).pipe(
-      Effect.mapError(
-        (cause) =>
-          new NetworkError({
-            cause,
-            url: source.url,
-          })
+      Effect.mapError((cause) =>
+        cause.reason._tag === "NotFound"
+          ? new GitExecutableNotFoundError({ cause, command: "git" })
+          : new NetworkError({
+              cause,
+              url: source.url,
+            })
       )
     )
 

@@ -100,6 +100,15 @@ export class TagNotFoundError extends Data.TaggedError("TagNotFoundError")<{
   }
 }
 
+export class GitExecutableNotFoundError extends Data.TaggedError("GitExecutableNotFoundError")<{
+  cause: unknown
+  command: string
+}> {
+  override get message() {
+    return `Could not run \`${this.command}\`. Install Git and ensure it is available on PATH.`
+  }
+}
+
 export class SnapshotFetchError extends Data.TaggedError("SnapshotFetchError")<{
   cause: unknown
   source: string

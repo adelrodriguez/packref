@@ -54,7 +54,29 @@ describe("normalizeRepositorySource", () => {
     })
   })
 
-  it("falls back to canonical HTTPS URLs for unknown hosts", async () => {
+  it.each([
+    {
+      fetchSource: "sourcehut:example/project",
+      label: "standard HTTPS",
+      url: "https://git.sr.ht/~example/project.git",
+    },
+    {
+      fetchSource: "sourcehut:example/project",
+      label: "SourceHut shorthand",
+      url: "sourcehut:~example/project",
+    },
+  ])("normalizes $label repository URLs", async ({ fetchSource, url }) => {
+    const normalized = await run(normalizeRepositorySource({ url }))
+
+    expect(normalized).toEqual({
+      fetchSource,
+      host: "git.sr.ht",
+      type: "repository",
+      url: "https://git.sr.ht/~example/project",
+    })
+  })
+
+  it("marks unknown hosts as not fetchable", async () => {
     const normalized = await run(
       normalizeRepositorySource({
         directory: "packages/internal",
@@ -64,7 +86,7 @@ describe("normalizeRepositorySource", () => {
 
     expect(normalized).toEqual({
       directory: "packages/internal",
-      fetchSource: "https://code.example.com/acme/internal-tool",
+      fetchSource: undefined,
       host: "code.example.com",
       type: "repository",
       url: "https://code.example.com/acme/internal-tool",

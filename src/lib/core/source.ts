@@ -14,7 +14,7 @@ export const RepositorySourceSchema = Schema.Struct({
 export type RepositorySource = typeof RepositorySourceSchema.Type
 
 export interface NormalizedRepositorySource extends RepositorySource {
-  readonly fetchSource: string
+  readonly fetchSource: string | undefined
 }
 
 export interface ResolvedRepositoryRef {

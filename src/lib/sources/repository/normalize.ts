@@ -6,13 +6,19 @@ import type {
   ResolvedRepositoryRef,
 } from "#lib/core/source.ts"
 import type { CommandRunner } from "#lib/services/command-runner.ts"
-import { InvalidRepositoryUrlError, TagNotFoundError, type NetworkError } from "#lib/core/errors.ts"
+import {
+  type GitExecutableNotFoundError,
+  InvalidRepositoryUrlError,
+  TagNotFoundError,
+  type NetworkError,
+} from "#lib/core/errors.ts"
 import { listRemoteTags, matchRepositoryTag } from "#lib/sources/repository/tags.ts"
 
 const SHORTHAND_PROVIDERS = {
   bitbucket: "bitbucket.org",
   github: "github.com",
   gitlab: "gitlab.com",
+  sourcehut: "git.sr.ht",
 } as const
 
 type KnownProvider = keyof typeof SHORTHAND_PROVIDERS
@@ -21,6 +27,7 @@ const FETCH_SOURCE_PROVIDERS = new Map<string, KnownProvider>([
   ["bitbucket.org", "bitbucket"],
   ["github.com", "github"],
   ["gitlab.com", "gitlab"],
+  ["git.sr.ht", "sourcehut"],
 ])
 
 const cleanRepositoryPath = (repositoryPath: string) =>
@@ -32,7 +39,14 @@ const cleanRepositoryPath = (repositoryPath: string) =>
 const getProviderFetchSource = (host: string, repositoryPath: string) => {
   const provider = FETCH_SOURCE_PROVIDERS.get(host)
 
-  return provider === undefined ? undefined : `${provider}:${repositoryPath}`
+  if (provider === undefined) {
+    return
+  }
+
+  const fetchRepositoryPath =
+    provider === "sourcehut" ? repositoryPath.replace(/^~/u, "") : repositoryPath
+
+  return `${provider}:${fetchRepositoryPath}`
 }
 
 const normalizeFromStandardUrl = (
@@ -62,7 +76,7 @@ const normalizeFromStandardUrl = (
 
     return {
       directory: candidate.directory,
-      fetchSource: getProviderFetchSource(host, repositoryPath) ?? url,
+      fetchSource: getProviderFetchSource(host, repositoryPath),
       host,
       type: "repository",
       url,
@@ -111,7 +125,7 @@ const normalizeFromScpLikeUrl = (
 
   return Effect.succeed({
     directory: candidate.directory,
-    fetchSource: getProviderFetchSource(host, repositoryPath) ?? url,
+    fetchSource: getProviderFetchSource(host, repositoryPath),
     host,
     type: "repository",
     url,
@@ -124,8 +138,10 @@ const normalizeFromShorthandUrl = (
   repositoryPath: string
 ): Effect.Effect<NormalizedRepositorySource, InvalidRepositoryUrlError> => {
   const cleanedRepositoryPath = cleanRepositoryPath(repositoryPath)
+  const fetchRepositoryPath =
+    provider === "sourcehut" ? cleanedRepositoryPath.replace(/^~/u, "") : cleanedRepositoryPath
 
-  if (cleanedRepositoryPath.length === 0) {
+  if (fetchRepositoryPath.length === 0) {
     return Effect.fail(
       new InvalidRepositoryUrlError({
         reason: "repository path must not be empty",
@@ -135,11 +151,13 @@ const normalizeFromShorthandUrl = (
   }
 
   const host = SHORTHAND_PROVIDERS[provider]
-  const url = `https://${host}/${cleanedRepositoryPath}`
+  const urlRepositoryPath =
+    provider === "sourcehut" ? `~${fetchRepositoryPath}` : fetchRepositoryPath
+  const url = `https://${host}/${urlRepositoryPath}`
 
   return Effect.succeed({
     directory: candidate.directory,
-    fetchSource: `${provider}:${cleanedRepositoryPath}`,
+    fetchSource: `${provider}:${fetchRepositoryPath}`,
     host,
     type: "repository",
     url,
@@ -151,9 +169,8 @@ export const normalizeRepositorySource = (
 ): Effect.Effect<NormalizedRepositorySource, InvalidRepositoryUrlError> => {
   const trimmedUrl = candidate.url.trim()
   const withoutGitPrefix = trimmedUrl.replace(/^git\+/u, "")
-  const shorthandMatch = /^(?<provider>github|gitlab|bitbucket):(?<repositoryPath>.+)$/u.exec(
-    withoutGitPrefix
-  )
+  const shorthandMatch =
+    /^(?<provider>github|gitlab|bitbucket|sourcehut):(?<repositoryPath>.+)$/u.exec(withoutGitPrefix)
 
   if (shorthandMatch?.groups !== undefined) {
     const provider = shorthandMatch.groups.provider
@@ -183,7 +200,7 @@ export const resolveRepositoryRef = (
   candidate: RepositorySourceCandidate
 ): Effect.Effect<
   ResolvedRepositoryRef,
-  InvalidRepositoryUrlError | NetworkError | TagNotFoundError,
+  GitExecutableNotFoundError | InvalidRepositoryUrlError | NetworkError | TagNotFoundError,
   CommandRunner
 > =>
   Effect.gen(function* () {

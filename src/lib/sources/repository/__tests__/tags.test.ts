@@ -1,9 +1,10 @@
 import { describe, expect, it } from "bun:test"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as PlatformError from "effect/PlatformError"
 import type { PackageIdentity } from "#lib/core/packages.ts"
 import type { NormalizedRepositorySource } from "#lib/core/source.ts"
-import { NetworkError, TagNotFoundError } from "#lib/core/errors.ts"
+import { GitExecutableNotFoundError, NetworkError, TagNotFoundError } from "#lib/core/errors.ts"
 import { CommandRunner } from "#lib/services/command-runner.ts"
 import { resolveRepositoryRef } from "#lib/sources/repository/normalize.ts"
 import {
@@ -99,6 +100,26 @@ describe("listRemoteTags", () => {
       throw new Error("Expected remote tag listing to fail.")
     } catch (error) {
       expect(error).toBeInstanceOf(NetworkError)
+    }
+  })
+
+  it("reports an actionable error when the git executable is missing", async () => {
+    try {
+      await runWithCommandRunner(listRemoteTags(repositorySource), () =>
+        Effect.fail(
+          PlatformError.systemError({
+            _tag: "NotFound",
+            method: "spawn",
+            module: "ChildProcess",
+            pathOrDescriptor: "git ls-remote --tags",
+          })
+        )
+      )
+      throw new Error("Expected remote tag listing to fail.")
+    } catch (error) {
+      expect(error).toBeInstanceOf(GitExecutableNotFoundError)
+      expect(String(error)).toContain("Install Git")
+      expect(String(error)).toContain("PATH")
     }
   })
 })
