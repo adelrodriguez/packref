@@ -3,11 +3,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import type { ParsedPackageSpec } from "#lib/core/packages.ts"
 import type { NpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
-import {
-  NoRepositoryError,
-  PackageNotFoundError,
-  PackageVersionNotFoundError,
-} from "#lib/core/errors.ts"
+import { PackageNotFoundError, PackageVersionNotFoundError } from "#lib/core/errors.ts"
 import { NpmRegistryClient } from "#lib/registries/npm/client.ts"
 import npm from "#lib/registries/npm/resolver.ts"
 
@@ -22,9 +18,15 @@ const baseMetadata = {
   },
   versions: {
     "18.3.1": {
+      dist: {
+        tarball: "https://registry.npmjs.org/react/-/react-18.3.1.tgz",
+      },
       version: "18.3.1",
     },
     "19.0.0": {
+      dist: {
+        tarball: "https://registry.npmjs.org/react/-/react-19.0.0.tgz",
+      },
       repository: {
         directory: "packages/react",
         type: "git",
@@ -33,6 +35,9 @@ const baseMetadata = {
       version: "19.0.0",
     },
     "19.1.0": {
+      dist: {
+        tarball: "https://registry.npmjs.org/react/-/react-19.1.0.tgz",
+      },
       version: "19.1.0",
     },
   },
@@ -68,17 +73,18 @@ describe("npm", () => {
         registry: "npm",
         version: "19.0.0",
       })
-      expect(resolved.source).toEqual({
+      expect(resolved.repository).toEqual({
         directory: "packages/react",
         url: "git+https://github.com/facebook/react.git",
       })
+      expect(resolved.tarballUrl).toBe("https://registry.npmjs.org/react/-/react-19.0.0.tgz")
     })
 
     it("resolves exact versions", async () => {
       const resolved = await runWithMetadata(npm.resolve(spec("18.3.1")))
 
       expect(resolved.identity.version).toBe("18.3.1")
-      expect(resolved.source).toEqual({
+      expect(resolved.repository).toEqual({
         url: "git+https://github.com/facebook/react.git",
       })
     })
@@ -100,9 +106,15 @@ describe("npm", () => {
         ...baseMetadata,
         versions: {
           "19.0.0": {
+            dist: {
+              tarball: "https://registry.npmjs.org/react/-/react-19.0.0.tgz",
+            },
             version: "19.0.0",
           },
           "19.1.0-beta.1": {
+            dist: {
+              tarball: "https://registry.npmjs.org/react/-/react-19.1.0-beta.1.tgz",
+            },
             version: "19.1.0-beta.1",
           },
         },
@@ -144,7 +156,7 @@ describe("npm", () => {
       }
     })
 
-    it("returns NoRepositoryError when the resolved version has no repository metadata", async () => {
+    it("returns a tarball fallback candidate when the resolved version has no repository metadata", async () => {
       const metadata = {
         "dist-tags": {
           latest: "1.0.0",
@@ -152,17 +164,20 @@ describe("npm", () => {
         name: "missing-repo",
         versions: {
           "1.0.0": {
+            dist: {
+              tarball: "https://registry.npmjs.org/missing-repo/-/missing-repo-1.0.0.tgz",
+            },
             version: "1.0.0",
           },
         },
       } satisfies NpmPackageMetadata
 
-      try {
-        await runWithMetadata(npm.resolve(spec()), metadata)
-        throw new Error("Expected npm package resolution to fail.")
-      } catch (error) {
-        expect(error).toBeInstanceOf(NoRepositoryError)
-      }
+      const resolved = await runWithMetadata(npm.resolve(spec()), metadata)
+
+      expect(resolved.repository).toBeUndefined()
+      expect(resolved.tarballUrl).toBe(
+        "https://registry.npmjs.org/missing-repo/-/missing-repo-1.0.0.tgz"
+      )
     })
   })
 })

@@ -1,15 +1,19 @@
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
+import * as Filter from "effect/Filter"
 import * as Path from "effect/Path"
-import * as PlatformError from "effect/PlatformError"
 import * as Schema from "effect/Schema"
 import { ConfigParseError } from "#lib/core/errors.ts"
+import { PackrefHome } from "#lib/services/packref-home.ts"
+import { formatJson } from "#lib/shared/json.ts"
 import { getGlobalConfigPath, getGlobalDirectoryPath } from "#lib/workspace/paths.ts"
 
 export const GlobalConfigSchema = Schema.Struct({
   projects: Schema.Array(Schema.String),
 })
 export type GlobalConfig = typeof GlobalConfigSchema.Type
+
+const GlobalConfigJsonSchema = Schema.fromJsonString(GlobalConfigSchema)
 
 export const emptyGlobalConfig: GlobalConfig = {
   projects: [],
@@ -20,9 +24,7 @@ export const readGlobalConfigAtPath = (configPath: string) =>
     const fs = yield* FileSystem.FileSystem
     const rawConfig = yield* fs.readFileString(configPath)
 
-    return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(GlobalConfigSchema))(
-      rawConfig
-    ).pipe(
+    return yield* Schema.decodeUnknownEffect(GlobalConfigJsonSchema)(rawConfig).pipe(
       Effect.mapError(
         (cause) =>
           new ConfigParseError({
@@ -36,42 +38,39 @@ export const readGlobalConfigAtPath = (configPath: string) =>
 export const writeGlobalConfigAtPath = (configPath: string, config: GlobalConfig) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
-    const decodedConfig = yield* Schema.decodeUnknownEffect(GlobalConfigSchema)(config)
+    const encodedConfig = formatJson(yield* Schema.encodeEffect(GlobalConfigJsonSchema)(config))
 
-    yield* fs.writeFileString(configPath, `${JSON.stringify(decodedConfig, null, 2)}\n`)
+    yield* fs.writeFileString(configPath, encodedConfig)
   })
 
-export const writeGlobalConfig = (config: GlobalConfig, home?: string) =>
+export const writeGlobalConfig = (config: GlobalConfig) =>
   Effect.gen(function* () {
     const path = yield* Path.Path
-    yield* writeGlobalConfigAtPath(getGlobalConfigPath(path, home), config)
+    const home = yield* PackrefHome
+
+    yield* writeGlobalConfigAtPath(getGlobalConfigPath(path, home.path), config)
   })
 
-export const initializeGlobalConfig = (home?: string) =>
+export const initializeGlobalConfig = () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
-    const globalDirectoryPath = getGlobalDirectoryPath(path, home)
-    const configPath = getGlobalConfigPath(path, home)
+    const home = yield* PackrefHome
+    const globalDirectoryPath = getGlobalDirectoryPath(path, home.path)
+    const configPath = getGlobalConfigPath(path, home.path)
 
     yield* fs.makeDirectory(globalDirectoryPath, { recursive: true })
 
     return yield* readGlobalConfigAtPath(configPath).pipe(
-      Effect.catchTag("PlatformError", (error) => {
-        if (error.reason instanceof PlatformError.SystemError && error.reason._tag === "NotFound") {
-          return writeGlobalConfigAtPath(configPath, emptyGlobalConfig).pipe(
-            Effect.as(emptyGlobalConfig)
-          )
-        }
-
-        return Effect.fail(error)
-      })
+      Effect.catchFilter(Filter.reason("PlatformError", "NotFound"), () =>
+        writeGlobalConfigAtPath(configPath, emptyGlobalConfig).pipe(Effect.as(emptyGlobalConfig))
+      )
     )
   })
 
-export const registerProject = (projectPath: string, home?: string) =>
+export const registerProject = (projectPath: string) =>
   Effect.gen(function* () {
-    const config = yield* initializeGlobalConfig(home)
+    const config = yield* initializeGlobalConfig()
 
     if (config.projects.includes(projectPath)) {
       return config
@@ -81,7 +80,7 @@ export const registerProject = (projectPath: string, home?: string) =>
       projects: [...config.projects, projectPath],
     } satisfies GlobalConfig
 
-    yield* writeGlobalConfig(updatedConfig, home)
+    yield* writeGlobalConfig(updatedConfig)
 
     return updatedConfig
   })

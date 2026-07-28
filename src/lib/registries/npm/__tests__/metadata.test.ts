@@ -19,6 +19,9 @@ describe("decodeNpmPackageMetadata", () => {
         },
         versions: {
           "1.0.0": {
+            dist: {
+              tarball: "https://registry.npmjs.org/@effect/cli/-/cli-1.0.0.tgz",
+            },
             repository: {
               directory: "packages/cli",
               type: "git",
@@ -47,6 +50,9 @@ describe("decodeNpmPackageMetadata", () => {
         repository: "github:facebook/react",
         versions: {
           "18.3.1": {
+            dist: {
+              tarball: "https://registry.npmjs.org/react/-/react-18.3.1.tgz",
+            },
             repository: "github:facebook/react",
             version: "18.3.1",
           },
@@ -76,6 +82,9 @@ describe("decodeNpmPackageMetadata", () => {
           "1.0.0": {
             dependencies: {
               effect: "^4.0.0",
+            },
+            dist: {
+              tarball: "https://registry.npmjs.org/example/-/example-1.0.0.tgz",
             },
             version: "1.0.0",
           },

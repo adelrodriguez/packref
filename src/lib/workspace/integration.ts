@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
+import * as Filter from "effect/Filter"
 import * as Path from "effect/Path"
-import * as PlatformError from "effect/PlatformError"
 import * as Schema from "effect/Schema"
 import { applyEdits, modify, type ParseError, parse } from "jsonc-parser"
 
@@ -50,15 +50,7 @@ const readOptionalFile = (path: string) =>
     const fs = yield* FileSystem.FileSystem
 
     return yield* fs.readFileString(path)
-  }).pipe(
-    Effect.catchTag("PlatformError", (error) => {
-      if (error.reason instanceof PlatformError.SystemError && error.reason._tag === "NotFound") {
-        return Effect.void
-      }
-
-      return Effect.fail(error)
-    })
-  )
+  }).pipe(Effect.catchFilter(Filter.reason("PlatformError", "NotFound"), () => Effect.void))
 
 const checkIsPackrefEntry = (entry: string) =>
   entry === PACKREF_IGNORE_ENTRY || entry === `${PACKREF_IGNORE_ENTRY}/`

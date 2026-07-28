@@ -18,6 +18,24 @@ export class LockfileParseError extends Data.TaggedError("LockfileParseError")<{
   }
 }
 
+export class ManifestParseError extends Data.TaggedError("ManifestParseError")<{
+  path: string
+  cause: unknown
+}> {
+  override get message() {
+    return `Failed to parse project manifest at \`${this.path}\`.`
+  }
+}
+
+export class ManifestResolutionError extends Data.TaggedError("ManifestResolutionError")<{
+  path: string
+  cause: unknown
+}> {
+  override get message() {
+    return `Failed to resolve installed dependency versions for \`${this.path}\`.`
+  }
+}
+
 export class ConfigParseError extends Data.TaggedError("ConfigParseError")<{
   path: string
   cause: unknown
@@ -72,16 +90,6 @@ export class PackageVersionNotFoundError extends Data.TaggedError("PackageVersio
   }
 }
 
-export class NoRepositoryError extends Data.TaggedError("NoRepositoryError")<{
-  name: string
-  registry: string
-  version: string
-}> {
-  override get message() {
-    return `Package \`${this.registry}:${this.name}@${this.version}\` does not declare repository metadata.`
-  }
-}
-
 export class InvalidRepositoryUrlError extends Data.TaggedError("InvalidRepositoryUrlError")<{
   reason: string
   url: string
@@ -126,6 +134,24 @@ export class SnapshotFetchError extends Data.TaggedError("SnapshotFetchError")<{
 }> {
   override get message() {
     return `Failed to fetch source snapshot from \`${this.source}\`.`
+  }
+}
+
+export class TarballFetchError extends Data.TaggedError("TarballFetchError")<{
+  cause: unknown
+  url: string
+}> {
+  override get message() {
+    return `Failed to fetch or extract package tarball from \`${this.url}\`.`
+  }
+}
+
+export class StoreCorruptedError extends Data.TaggedError("StoreCorruptedError")<{
+  cause: unknown
+  path: string
+}> {
+  override get message() {
+    return `Global store entry at \`${this.path}\` is missing valid source metadata.`
   }
 }
 

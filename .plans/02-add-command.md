@@ -6,13 +6,14 @@ Deliver `packref add <pkg[@version]>` as a complete end-to-end workflow: resolve
 
 ## Status
 
-Phases 1–3 are implemented. Remaining: Phase 3 amendments, Phases 4–7.
+Implemented. Phases 1–7 and the Phase 3 amendments are complete.
 
 ## Scope
 
 - Parse package input with optional registry prefix and optional version or range (`react`, `npm:react`, `react@19.0.0`, `react@^19.0.0`, `@effect/cli`).
 - Default omitted registry prefixes to `npm`; reject unsupported registry prefixes in v1 with a clear error.
-- Resolve versionless specs against the project manifest first: package-manager lockfile via `nypm` → `node_modules/<pkg>/package.json` → registry `latest`.
+- Resolve versionless specs present in the project manifest through the package-manager lockfile via `nypm` (skipping binary `bun.lockb`) → `node_modules/<pkg>/package.json` → the manifest range against the registry; strip a `workspace:` prefix before registry resolution (`workspace:*` → `*`). Use registry `latest` only for packages absent from the manifest, and track manifest packages as `"dependency"`.
+- When a manifest dependency falls through to range resolution (no installed version found), `add` succeeds but emits a warning that the version is a registry-derived guess, suggesting a package-manager install followed by `packref sync` to pin the installed version.
 - Fetch npm registry metadata and resolve a concrete version.
 - Extract repository URL and optional `repository.directory` from package metadata.
 - Normalize repository URLs into `giget`-compatible source strings (github/gitlab/bitbucket/sourcehut).
@@ -23,7 +24,7 @@ Phases 1–3 are implemented. Remaining: Phase 3 amendments, Phases 4–7.
 - Reflink (with copy fallback) the full store entry into `.packref/`.
 - For monorepo packages with npm `repository.directory`, expose the project-local reference at the package subdirectory inside the full repository snapshot.
 - Update `.packref/packref-lock.json` with an array entry containing `registry`, `name`, `version`, `tracking`, and nested `source` metadata (`repository` or `tarball`).
-- Tracking assignment: versionless spec resolved from the manifest → `"dependency"`; explicit version/range or non-manifest package → `"manual"`.
+- Tracking assignment: versionless manifest specs (whether resolved from a lockfile, `node_modules`, or the manifest range) → `"dependency"`; explicit version/range or non-manifest package → `"manual"`.
 - Auto-initialize the project if `.packref/` does not exist.
 - Allow multiple versions of the same package to coexist in the same project.
 - Implement typed errors for the full pipeline in `lib/core/errors.ts` (`UnsupportedRegistryError`, `PackageNotFoundError`, `NoRepositoryError`, `TagNotFoundError`, `SnapshotFetchError`, `TarballFetchError`, `ReflinkError`, `NetworkError`).
@@ -152,15 +153,15 @@ Deliverables:
 - Install `nypm` as a runtime dependency.
 - Add `lib/manifests/manifest.ts` with `defineManifest` and the shared manifest adapter contract.
 - Add `lib/manifests/index.ts` with adapter registration and project manifest detection.
-- Add `lib/manifests/javascript.ts`: detect `package.json`, read `dependencies`/`devDependencies`/`peerDependencies`, and resolve exact installed versions via `nypm` package-manager lockfile first, `node_modules/<pkg>/package.json` second.
-- Registry range resolution stays in the existing npm resolver; the manifest adapter only reports what the project has.
+- Add `lib/manifests/javascript.ts`: detect `package.json`, read `dependencies`/`devDependencies`/`peerDependencies`, and resolve exact installed versions via `nypm` package-manager lockfile first (skipping binary `bun.lockb`), `node_modules/<pkg>/package.json` second.
+- Registry range resolution stays in the existing npm resolver: if neither installed-version source resolves a manifest dependency, resolve its manifest range there after stripping a `workspace:` prefix (`workspace:*` → `*`). The manifest adapter only reports what the project has.
 
 Tests:
 
 - manifest detection finds `package.json` and reports its dependency groups.
 - `nypm` lockfile resolution is preferred over `node_modules`.
-- `node_modules` fallback works when no package-manager lockfile resolves the package.
-- packages absent from the manifest report no version (caller falls through to registry `latest`).
+- `node_modules` fallback works when no package-manager lockfile resolves the package, including when the only Bun lockfile is binary `bun.lockb`.
+- manifest packages without an installed version resolve their manifest range in the registry; packages absent from the manifest fall through to registry `latest`.
 
 Validation checkpoint:
 
@@ -213,7 +214,7 @@ Deliverables:
 
 - Install `nanotar` as a runtime dependency.
 - Extend `lib/registries/npm/metadata.ts` with `dist.tarball` and thread the tarball URL through the resolved package reference.
-- Add `lib/sources/tarball/fetch.ts`: download the tarball with the platform HTTP client, extract with `nanotar` (stripping the `package/` prefix), write atomically into the same store path model.
+- Add `lib/sources/tarball/fetch.ts`: download the tarball with the platform HTTP client, extract with `nanotar` (stripping its single top-level directory, usually `package/`), write atomically into the same store path model.
 - Add `TarballFetchError` to `lib/core/errors.ts`.
 - Extend the lockfile `source` schema to `"repository" | "tarball"`; tarball entries record the tarball URL and never a `directory`.
 - Encode the fallback rules where the pipeline chooses a source: `NoRepositoryError`, unsupported host, and `TagNotFoundError` trigger fallback; `NetworkError`, auth failures, and `SnapshotFetchError` do not.
@@ -244,8 +245,9 @@ Deliverables:
 
 - Add `lib/references/add.ts` as the add orchestration boundary.
 - Auto-initialize the project when `.packref/` is missing.
-- Run parse -> manifest/registry version resolve -> repository tag resolve (or tarball fallback) -> store fetch/reuse -> project reference -> lockfile update.
+- Run parse -> manifest/registry version resolve (lockfile → `node_modules` → manifest range; `latest` only when absent from the manifest) -> repository tag resolve (or tarball fallback) -> store fetch/reuse -> project reference -> lockfile update.
 - Assign tracking: `"dependency"` for versionless manifest packages, `"manual"` otherwise.
+- Surface manifest range resolution in the add result so the command can warn (through `Prompter`) that the version is a registry-derived guess, suggesting install + `packref sync`.
 - Update the lockfile only after project reference creation succeeds.
 - Keep `commands/add.ts` thin: parse the CLI argument, call `lib/references/add.ts`, and report through `Prompter`.
 - Update `index.ts` layers to provide the new Packref services.
@@ -253,7 +255,8 @@ Deliverables:
 Tests:
 
 - adding in an uninitialized project creates `.packref/`, initializes the lockfile, and registers the project.
-- versionless add of a manifest dependency resolves the installed version and writes `tracking: "dependency"`.
+- versionless add of a manifest dependency resolves the installed version or its manifest range and writes `tracking: "dependency"`.
+- range-resolved manifest dependencies report the resolved range in the add result (installed versions do not).
 - explicit-version add writes `tracking: "manual"` even for manifest dependencies.
 - versionless add of a non-manifest package resolves registry `latest` and writes `tracking: "manual"`.
 - re-adding the same `registry + name + version` does not duplicate lockfile entries.
@@ -274,7 +277,8 @@ bun run test
 
 ## Acceptance Criteria
 
-- `packref add react` in a project that depends on react resolves the exact installed version (lockfile via `nypm` → `node_modules` → registry) and writes `tracking: "dependency"`.
+- `packref add react` in a project that depends on react resolves the exact installed version (lockfile via `nypm`, skipping binary `bun.lockb` → `node_modules`) or resolves the manifest range against the registry (after stripping `workspace:` when present), and writes `tracking: "dependency"`.
+- Range-resolved manifest dependencies succeed with a warning that the version is a registry-derived guess and that installing plus `packref sync` will pin the installed version.
 - `packref add react` in a project without react as a dependency resolves the registry `latest` version and writes `tracking: "manual"`.
 - `packref add npm:react` is accepted and treated as an explicit npm package spec.
 - `packref add react@19.0.0` resolves that exact version and writes `tracking: "manual"`.

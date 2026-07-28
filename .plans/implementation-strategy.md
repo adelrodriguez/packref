@@ -265,6 +265,8 @@ All errors are modeled as tagged Effect errors using `Data.TaggedError`:
 | `StoreCorruptedError`      | Store entry exists but is invalid                         |
 | `NotInitializedError`      | Running commands in a project without `packref init`      |
 | `LockfileParseError`       | Lockfile JSON is malformed                                |
+| `ManifestParseError`       | Project manifest JSON is malformed                        |
+| `ManifestResolutionError`  | Resolving installed dependency versions fails             |
 | `ConfigParseError`         | Global config JSON is malformed                           |
 | `ReflinkError`             | Reflink/copy operation fails                              |
 | `NetworkError`             | General fetch failure                                     |

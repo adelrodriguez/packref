@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect"
+import * as Filter from "effect/Filter"
 import type { PackageIdentity } from "#lib/core/packages.ts"
 import type { NormalizedRepositorySource } from "#lib/core/source.ts"
 import { GitExecutableNotFoundError, NetworkError } from "#lib/core/errors.ts"
@@ -49,13 +50,16 @@ export const listRemoteTags = Effect.fn("listRemoteTags")(function* (
 ) {
   const commandRunner = yield* CommandRunner
   const result = yield* commandRunner.run("git", ["ls-remote", "--tags", source.url]).pipe(
-    Effect.mapError((cause) =>
-      cause.reason._tag === "NotFound"
-        ? new GitExecutableNotFoundError({ cause, command: "git" })
-        : new NetworkError({
+    Effect.catchFilter(
+      Filter.reason("PlatformError", "NotFound"),
+      (cause) => Effect.fail(new GitExecutableNotFoundError({ cause, command: "git" })),
+      (cause) =>
+        Effect.fail(
+          new NetworkError({
             cause,
             url: source.url,
           })
+        )
     )
   )
 

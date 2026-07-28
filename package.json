@@ -49,7 +49,10 @@
     "@clack/prompts": "1.0.1",
     "@effect/platform-node": "4.0.0-beta.56",
     "effect": "4.0.0-beta.56",
+    "giget": "^3.3.1",
     "jsonc-parser": "3.3.1",
+    "nanotar": "^0.3.0",
+    "nypm": "^0.6.9",
     "semver": "^7.7.4"
   },
   "devDependencies": {
