@@ -37,7 +37,7 @@ const expectInvalidPackageIdentity = async (
   }
 }
 
-describe("package identity", () => {
+describe("packages", () => {
   describe("getPackageIdentitySegments", () => {
     it("builds unscoped package identity segments", async () => {
       const identity = {
@@ -228,71 +228,73 @@ describe("package identity", () => {
     })
   })
 
-  it("builds package identity paths", async () => {
-    const unscoped = {
-      name: "react",
-      registry: "npm",
-      version: "19.0.0",
-    }
-    const scoped = {
-      name: "@effect/cli",
-      registry: "npm",
-      version: "0.29.0",
-    }
-
-    const unscopedPath = await run(getPackageIdentityPath(unscoped))
-    const scopedPath = await run(getPackageIdentityPath(scoped))
-
-    expect(unscopedPath).toBe(join("packages", "npm", "react", "19.0.0"))
-    expect(scopedPath).toBe(join("packages", "npm", "@effect", "cli", "0.29.0"))
-  })
-})
-
-describe("package spec parsing", () => {
-  it.each([
-    {
-      expected: { name: "react", registry: "npm" },
-      input: "react",
-      label: "defaults unscoped packages to npm",
-    },
-    {
-      expected: { name: "react", registry: "npm", specifier: "19.0.0" },
-      input: "react@19.0.0",
-      label: "preserves exact versions",
-    },
-    {
-      expected: { name: "react", registry: "npm", specifier: "^19.0.0" },
-      input: "react@^19.0.0",
-      label: "preserves ranges",
-    },
-    {
-      expected: { name: "@effect/cli", registry: "npm" },
-      input: "@effect/cli",
-      label: "parses scoped packages without versions",
-    },
-    {
-      expected: { name: "react", registry: "npm" },
-      input: "npm:react",
-      label: "accepts explicit npm prefix",
-    },
-    {
-      expected: { name: "@effect/cli", registry: "npm", specifier: "0.29.0" },
-      input: "npm:@effect/cli@0.29.0",
-      label: "accepts scoped packages with explicit npm prefix and versions",
-    },
-  ])("$label", async ({ expected, input }) => {
-    expect(await runEffect(parsePackageSpec(input))).toEqual(expected)
-  })
-
-  it.each(["jsr:effect", "github:facebook/react", "pypi:requests"])(
-    "rejects unsupported registry prefixes: %s",
-    async (input) => {
-      try {
-        await runEffect(parsePackageSpec(input))
-        throw new Error("Expected package spec parsing to fail.")
-      } catch (error) {
-        expect(error).toBeInstanceOf(UnsupportedRegistryError)
+  describe("getPackageIdentityPath", () => {
+    it("builds package identity paths", async () => {
+      const unscoped = {
+        name: "react",
+        registry: "npm",
+        version: "19.0.0",
       }
-    }
-  )
+      const scoped = {
+        name: "@effect/cli",
+        registry: "npm",
+        version: "0.29.0",
+      }
+
+      const unscopedPath = await run(getPackageIdentityPath(unscoped))
+      const scopedPath = await run(getPackageIdentityPath(scoped))
+
+      expect(unscopedPath).toBe(join("packages", "npm", "react", "19.0.0"))
+      expect(scopedPath).toBe(join("packages", "npm", "@effect", "cli", "0.29.0"))
+    })
+  })
+
+  describe("parsePackageSpec", () => {
+    it.each([
+      {
+        expected: { name: "react", registry: "npm" },
+        input: "react",
+        label: "defaults unscoped packages to npm",
+      },
+      {
+        expected: { name: "react", registry: "npm", specifier: "19.0.0" },
+        input: "react@19.0.0",
+        label: "preserves exact versions",
+      },
+      {
+        expected: { name: "react", registry: "npm", specifier: "^19.0.0" },
+        input: "react@^19.0.0",
+        label: "preserves ranges",
+      },
+      {
+        expected: { name: "@effect/cli", registry: "npm" },
+        input: "@effect/cli",
+        label: "parses scoped packages without versions",
+      },
+      {
+        expected: { name: "react", registry: "npm" },
+        input: "npm:react",
+        label: "accepts explicit npm prefix",
+      },
+      {
+        expected: { name: "@effect/cli", registry: "npm", specifier: "0.29.0" },
+        input: "npm:@effect/cli@0.29.0",
+        label: "accepts scoped packages with explicit npm prefix and versions",
+      },
+    ])("$label", async ({ expected, input }) => {
+      expect(await runEffect(parsePackageSpec(input))).toEqual(expected)
+    })
+
+    it.each(["jsr:effect", "github:facebook/react", "pypi:requests"])(
+      "rejects unsupported registry prefixes: %s",
+      async (input) => {
+        try {
+          await runEffect(parsePackageSpec(input))
+          throw new Error("Expected package spec parsing to fail.")
+        } catch (error) {
+          expect(error).toBeInstanceOf(UnsupportedRegistryError)
+        }
+      }
+    )
+  })
 })
