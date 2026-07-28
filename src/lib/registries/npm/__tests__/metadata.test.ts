@@ -57,4 +57,33 @@ describe("decodeNpmPackageMetadata", () => {
     expect(metadata.repository).toBe("github:facebook/react")
     expect(metadata.versions["18.3.1"]?.repository).toBe("github:facebook/react")
   })
+
+  it("allows additional npm metadata fields", async () => {
+    const metadata = await run(
+      decodeNpmPackageMetadata({
+        description: "A package",
+        "dist-tags": {
+          latest: "1.0.0",
+          next: "2.0.0-beta.1",
+        },
+        name: "example",
+        repository: {
+          bugs: "https://github.com/example/example/issues",
+          type: "git",
+          url: "git+https://github.com/example/example.git",
+        },
+        versions: {
+          "1.0.0": {
+            dependencies: {
+              effect: "^4.0.0",
+            },
+            version: "1.0.0",
+          },
+        },
+      })
+    )
+
+    expect(metadata.name).toBe("example")
+    expect(metadata.versions["1.0.0"]?.version).toBe("1.0.0")
+  })
 })
