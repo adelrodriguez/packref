@@ -83,10 +83,33 @@ describe("npm", () => {
       })
     })
 
+    it("normalizes exact versions before metadata lookup", async () => {
+      const resolved = await runWithMetadata(npm.resolve(spec("v18.3.1")))
+
+      expect(resolved.identity.version).toBe("18.3.1")
+    })
+
     it("resolves semver ranges to the highest satisfying version", async () => {
       const resolved = await runWithMetadata(npm.resolve(spec("^19.0.0")))
 
       expect(resolved.identity.version).toBe("19.1.0")
+    })
+
+    it("excludes prereleases from ranges that do not request them", async () => {
+      const metadata = {
+        ...baseMetadata,
+        versions: {
+          "19.0.0": {
+            version: "19.0.0",
+          },
+          "19.1.0-beta.1": {
+            version: "19.1.0-beta.1",
+          },
+        },
+      } satisfies NpmPackageMetadata
+      const resolved = await runWithMetadata(npm.resolve(spec("^19.0.0")), metadata)
+
+      expect(resolved.identity.version).toBe("19.0.0")
     })
 
     it("returns PackageNotFoundError from the registry client", async () => {

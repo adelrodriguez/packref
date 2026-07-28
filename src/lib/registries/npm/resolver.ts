@@ -1,13 +1,9 @@
 import * as Effect from "effect/Effect"
-import { maxSatisfying, valid, type RangeOptions } from "semver"
+import { maxSatisfying, valid } from "semver"
 import type { NpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
 import { NoRepositoryError, PackageVersionNotFoundError } from "#lib/core/errors.ts"
 import { NpmRegistryClient } from "#lib/registries/npm/client.ts"
 import { defineRegistry } from "#lib/registries/registry.ts"
-
-const semverOptions = {
-  includePrerelease: true,
-} satisfies RangeOptions
 
 export const resolveVersion = (
   metadata: NpmPackageMetadata,
@@ -19,13 +15,13 @@ export const resolveVersion = (
     return latest !== undefined && metadata.versions[latest] !== undefined ? latest : undefined
   }
 
-  if (valid(requestedSpecifier) !== null) {
-    return metadata.versions[requestedSpecifier] === undefined ? undefined : requestedSpecifier
+  const exactVersion = valid(requestedSpecifier)
+
+  if (exactVersion !== null) {
+    return metadata.versions[exactVersion] === undefined ? undefined : exactVersion
   }
 
-  return (
-    maxSatisfying(Object.keys(metadata.versions), requestedSpecifier, semverOptions) ?? undefined
-  )
+  return maxSatisfying(Object.keys(metadata.versions), requestedSpecifier) ?? undefined
 }
 
 export default defineRegistry({
