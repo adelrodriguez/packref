@@ -2,6 +2,8 @@
 
 Packref v1 is package-reference focused. It supports npm packages only, while keeping `registry` in package identity and paths so future package registries can be added without changing layout. Arbitrary repository references such as GitHub/GitLab/Bitbucket repos are out of scope.
 
+v1 fetches repository snapshots first and falls back to npm tarballs when repository metadata, host support, or a matching tag is missing (never for network/auth failures). See `packref-v1-spec.md` § Source Fallback.
+
 ## Technology Choices
 
 | Concern              | Choice                                        | Rationale                                                                                    |
@@ -14,6 +16,7 @@ Packref v1 is package-reference focused. It supports npm packages only, while ke
 | Lockfile resolution  | `nypm`                                        | v1 JavaScript manifest adapter uses it to detect and read package-manager lockfiles for sync |
 | Git tag discovery    | `effect/unstable/process/ChildProcess`        | Avoid `simple-git`; run `git ls-remote` through Effect                                       |
 | Snapshot fetching    | `giget`                                       | Fetch repository snapshots by source/ref without maintaining clones                          |
+| Tarball fallback     | platform HTTP client + `nanotar`              | Download `dist.tarball` and extract; `nanotar` is the same extractor giget uses              |
 | Filesystem (reflink) | native fs clone/copy helpers behind a service | Keep reflink/copy behavior isolated and testable                                             |
 | Semver               | `semver`                                      | Resolve version ranges, compare, satisfy                                                     |
 | Schema validation    | `effect/Schema`                               | Effect 4 beta schema module; do not use `@effect/schema`                                     |
@@ -59,10 +62,11 @@ src/
 
     sources/
       repository/
-        normalize.ts      # Normalize repo URL into giget source
+        normalize.ts      # Normalize repo URL into giget source (github/gitlab/bitbucket/sourcehut)
         tags.ts           # Resolve git tags through CommandRunner
-        fetch.ts          # Fetch repository snapshot at tag/ref with giget
-      tarball/            # Future v2 tarball source fetcher
+        fetch.ts          # Fetch repository snapshot at tag/ref with giget (atomic temp-dir + rename)
+      tarball/
+        fetch.ts          # Fallback: download npm dist.tarball and extract into the store
 
     store/
       paths.ts            # Global/project packages/registry/scope/package/version path helpers
@@ -97,8 +101,8 @@ Architecture rules:
 - Reference modules use simple command-aligned names (`add.ts`, `remove.ts`, `sync.ts`, `prune.ts`) instead of longer names like `add-reference.ts`.
 - Tests live beside the code they cover: every folder that has tests gets its own `__tests__/` folder.
 - Registry adapters are created with `defineRegistry`. They resolve package metadata into exact package identities and source candidates. They do not build filesystem paths or fetch source trees.
-- Manifest adapters are created with `defineManifest`. They detect project dependency files and resolve exact dependency versions for `sync`. They do not fetch package metadata or write Packref files.
-- Source fetchers materialize source candidates. Repository hosts such as GitHub/GitLab/Bitbucket are source hosts, not package registries.
+- Manifest adapters are created with `defineManifest`. They detect project dependency files and resolve exact dependency versions for both `add` (versionless specs) and `sync`. They do not fetch package metadata or write Packref files.
+- Source fetchers materialize source candidates. Repository hosts such as GitHub/GitLab/Bitbucket are source hosts, not package registries. The tarball fetcher is the fallback source for metadata-level repository gaps only.
 - Store and project code accept normalized package identities only; they must not know npm metadata shapes.
 - v1 ships only the `npm` registry adapter and JavaScript manifest adapter. Unsupported registry prefixes fail through the shared registry map with `UnsupportedRegistryError`.
 
@@ -159,7 +163,7 @@ Goal: Resolve a package name to a repository source and matching git ref.
 
 ### Phase 2.5: Manifest Adapter
 
-Goal: Read project dependencies through a manifest adapter so `sync` is not tied to `package.json`.
+Goal: Read project dependencies through a manifest adapter so `add` can resolve installed versions and `sync` is not tied to `package.json`. This phase is a prerequisite for `add` (see Plan 02), not just `sync`.
 
 1. Implement `lib/manifests/index.ts`
    - Register available `defineManifest` adapters
@@ -174,17 +178,21 @@ Goal: Read project dependencies through a manifest adapter so `sync` is not tied
 
 ### Phase 3: Store + Snapshot
 
-Goal: Fetch a repository snapshot and store it globally.
+Goal: Fetch a source snapshot and store it globally.
 
 1. Implement `lib/sources/repository/fetch.ts`
    - Fetch the resolved repository source and tag/ref with `giget`
-   - Write the unpacked source tree into the global store path
-2. Implement `lib/store/store.ts`
+   - Fetch into a temporary directory and rename into the global store path only on success (atomic writes; no partial entries)
+2. Implement `lib/sources/tarball/fetch.ts`
+   - Download `dist.tarball` for the exact resolved version with the platform HTTP client
+   - Extract with `nanotar` into a temporary directory and rename into the store path
+   - Used only when fallback triggers apply (no repository field, unsupported host, no matching tag)
+3. Implement `lib/store/store.ts`
    - Check if `registry + name + version` already exists in store
    - Get nested identity store entry path
    - List all store entries
    - Remove store entry
-3. Write unit tests
+4. Write unit tests
 
 ### Phase 4: Project + Lockfile + Config
 
@@ -229,11 +237,15 @@ Goal: Wire everything together.
 1. CLI output formatting through the `Prompter` service (`@clack/prompts`), not directly in command modules.
 2. Error messages (actionable, human-readable)
 3. Edge cases:
-   - Package has no repository field
-   - No matching git tag
-   - Network failures / retries
+   - Package has no repository field (tarball fallback)
+   - No matching git tag (tarball fallback)
+   - Unsupported repository host (tarball fallback)
+   - Network failures / retries (no fallback; fail loudly)
+   - Private repository / authentication failures (no fallback; actionable message)
+   - `git` binary not installed (actionable message)
    - Corrupted store entry
    - Project not initialized
+   - Lockfile entry exists but project directory is missing, and vice versa (drift tolerance in remove/sync)
 4. Update `bunup.config.ts` for binary entry point
 5. Update `package.json` with `bin`, runtime `dependencies`, and `imports` matching the implementation.
 6. Update README with usage docs
@@ -249,6 +261,7 @@ All errors are modeled as tagged Effect errors using `Data.TaggedError`:
 | `NoRepositoryError`        | Package metadata has no repository field                  |
 | `TagNotFoundError`         | No git tag matches the resolved version                   |
 | `SnapshotFetchError`       | `giget` snapshot fetch fails                              |
+| `TarballFetchError`        | Tarball download or extraction fails                      |
 | `StoreCorruptedError`      | Store entry exists but is invalid                         |
 | `NotInitializedError`      | Running commands in a project without `packref init`      |
 | `LockfileParseError`       | Lockfile JSON is malformed                                |
@@ -257,6 +270,8 @@ All errors are modeled as tagged Effect errors using `Data.TaggedError`:
 | `NetworkError`             | General fetch failure                                     |
 
 Each error carries context (package name, version, path, etc.) for actionable CLI messages.
+
+`NoRepositoryError`, `TagNotFoundError`, and unsupported-host outcomes are handled internally by the add pipeline as tarball-fallback triggers; they only surface to the user if the tarball fallback also fails. `SnapshotFetchError` and `NetworkError` never trigger fallback.
 
 ## Testing Approach
 
@@ -292,6 +307,14 @@ Each error carries context (package name, version, path, etc.) for actionable CL
 14. v1 implements npm packages only, but registry and manifest adapters use shared `defineRegistry` and `defineManifest` interfaces so future ecosystems can be added without changing command behavior.
 15. The lockfile and path model include `registry` so future package registries can be added without changing project layout. Arbitrary repo references remain out of scope.
 16. Lockfile source metadata is nested under `source`; GitHub/GitLab/Bitbucket are source hosts discovered from package metadata, not package providers.
+17. `packref add <pkg>` without an explicit version resolves the project's installed version first (package-manager lockfile through `nypm`, then `node_modules`, then registry). Registry `latest` is used only when the package is not a project dependency.
+18. Tracking assignment: versionless `add` of a manifest dependency writes `tracking: "dependency"`; explicit version/range specs and non-manifest packages write `tracking: "manual"`. This is the only way `add` assigns tracking; users do not choose it with a flag in v1.
+19. `packref sync` adopts manifest dependencies that have no Packref reference through a multiselect prompt; adopted entries get `tracking: "dependency"`.
+20. v1 includes the npm tarball fallback (previously v2). Fallback triggers only on metadata-level gaps: no repository field, unsupported repository host, or no matching git tag. Network, authentication, and unexpected fetch errors fail loudly without fallback.
+21. Supported repository source hosts are github.com, gitlab.com, bitbucket.org, and sourcehut (the giget provider set). Unknown hosts are a fallback trigger, not an error.
+22. Store writes are atomic: fetch into a temp directory, rename into the store path on success. Existing store entries are trusted without deep validation in v1.
+23. v1 assumes single-process use; there is no store/config locking.
+24. `remove` and `sync` are drift-tolerant: a lockfile entry whose project directory is missing is still removed cleanly (with a warning), and directory deletion is best-effort.
 
 ## Open Questions
 

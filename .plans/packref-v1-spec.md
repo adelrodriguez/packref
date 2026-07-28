@@ -10,8 +10,9 @@ Packref materializes versioned source copies of npm dependencies so agents can i
 
 Packref is a CLI that:
 
-- Resolves npm packages to a specific version
+- Resolves npm packages to a specific version, preferring the version the project actually uses
 - Fetches the repository snapshot for that version with `giget`
+- Falls back to the published npm tarball when no repository snapshot can be fetched
 - Stores it in a deduplicated global store
 - Exposes it inside projects for agents to read
 
@@ -23,7 +24,6 @@ Packref **does not**:
 - build code
 - replace npm/pnpm/yarn
 - index code
-- fetch npm tarballs as a source fallback
 - cache arbitrary GitHub/GitLab/Bitbucket repositories
 
 It only provides **reference source trees**.
@@ -180,12 +180,28 @@ Purpose:
 - track referenced packages
 - support multiple versions of the same package in the same project
 - leave room for future registries by storing `registry` on every package entry
-- track whether an entry came from explicit user action (`manual`) or dependency synchronization (`dependency`)
-- track source metadata; v1 source entries are always `{ "type": "repository" }`
+- track whether an entry came from explicit user action (`manual`) or dependency tracking (`dependency`)
+- track source metadata; v1 `source.type` is `"repository"` or `"tarball"`
 - track repository host and URL for diagnostics without treating source hosts like package registries
 - track optional npm `repository.directory` metadata as `source.directory` for monorepo packages
 - rebuild project references
 - support pruning
+
+Tarball-backed entries record the source as:
+
+```json
+{
+  "source": {
+    "type": "tarball",
+    "url": "https://registry.npmjs.org/left-pad/-/left-pad-1.3.0.tgz"
+  }
+}
+```
+
+## Tracking rules
+
+- `tracking: "dependency"` — created when `packref add <pkg>` is run without an explicit version and the package is declared in the project manifest, or when `packref sync` adopts a manifest dependency. These entries are updated and removed by `sync`.
+- `tracking: "manual"` — created when the user gives an explicit version/range (`packref add react@18.0.0`), or when the package is not in the project manifest. These entries are never touched by `sync`.
 
 ---
 
@@ -231,6 +247,12 @@ Creates:
 
 Registers the project in the global config.
 
+Also performs project integration (implemented, each step idempotent):
+
+- appends `.packref/` to `.gitignore` (with confirmation prompt)
+- adds `.packref` to the `exclude` list in `tsconfig.json` when one exists (JSONC-aware; warns on malformed files instead of crashing)
+- writes a Packref usage section into `AGENTS.md` between `PACKREF:START`/`PACKREF:END` markers (with confirmation prompt; replaces the section on re-run)
+
 ---
 
 ## add
@@ -248,13 +270,18 @@ packref add hono@4.2.0
 Behavior:
 
 1. Auto-initialize Packref for the project if `.packref/` does not exist
-2. Resolve package version
+2. Resolve package version:
+   - explicit version/range in the spec → resolve against the npm registry
+   - no version given and the package is declared in the project manifest → resolve the exact installed version (package-manager lockfile via `nypm` → `node_modules/<pkg>/package.json` → registry range resolution)
+   - no version given and not in the manifest → registry `latest`
 3. Locate repository metadata
 4. Resolve matching git tag
-5. Fetch repository snapshot with `giget`
-6. Store the repository snapshot in the global store
+5. Fetch repository snapshot with `giget`; if no repository source is fetchable, fall back to the npm tarball (see Source Fallback)
+6. Store the snapshot in the global store
 7. Create project reference
-8. Update lockfile with `tracking: "manual"` and nested repository `source` metadata
+8. Update lockfile with nested `source` metadata and tracking:
+   - `tracking: "dependency"` when the version came from the project manifest
+   - `tracking: "manual"` when the user gave an explicit version/range or the package is not in the manifest
 
 If the exact `registry + name + version` entry already exists, `add` is idempotent. If the same package is already referenced at a different version, the new version is added alongside it. Multiple versions of the same package can coexist.
 
@@ -330,8 +357,9 @@ Algorithm:
    - resolve the exact project version using the dependency source-of-truth order
    - if the version changed, remove the old dependency-managed project-local reference and add the new version
    - if the package no longer exists in `package.json`, remove the project-local reference and lockfile entry
-4. preserve manually-added entries even if they are not in `package.json`
-5. retain old global store entries; `packref prune` removes unused entries later
+4. adoption: collect manifest dependencies with no Packref reference at all and show a multiselect prompt; selected packages are added with `tracking: "dependency"` through the shared add pipeline
+5. preserve manually-added entries even if they are not in `package.json`
+6. retain old global store entries; `packref prune` removes unused entries later
 
 Dependency source-of-truth order:
 
@@ -361,13 +389,13 @@ Algorithm:
 
 Resolution steps:
 
-1. read `package.json`
-2. determine version constraint
-3. resolve concrete version
-4. fetch npm metadata
-5. find repository URL
-6. resolve git tag
-7. fetch repository snapshot with `giget`
+1. determine version constraint (explicit spec, or the project manifest when no version is given)
+2. resolve concrete version (manifest packages: `nypm` lockfile → `node_modules` → registry; otherwise registry)
+3. fetch npm metadata
+4. find repository URL
+5. resolve git tag
+6. fetch repository snapshot with `giget`
+7. if no repository source is fetchable, fall back to the npm tarball
 
 ---
 
@@ -391,6 +419,15 @@ Typical value:
 https://github.com/facebook/react.git
 ```
 
+Supported source hosts (fetchable through `giget`):
+
+- github.com
+- gitlab.com
+- bitbucket.org
+- sourcehut (git.sr.ht)
+
+Repositories on any other host cannot be fetched in v1 and fall back to the npm tarball.
+
 ---
 
 # Tag Matching
@@ -409,7 +446,34 @@ v4.2.0
 pkg@4.2.0
 ```
 
-First match is used.
+First match is used. When no tag matches, Packref falls back to the npm tarball.
+
+---
+
+# Source Fallback (Tarball)
+
+Repository snapshots are preferred because they include tests, docs, and monorepo context. When a repository snapshot cannot be fetched, Packref falls back to the published npm tarball for the exact resolved version.
+
+Fallback triggers (metadata-level gaps only):
+
+- package metadata has no repository field
+- repository host is not a supported source host
+- no git tag matches the resolved version
+
+Fallback does **not** trigger for:
+
+- network failures
+- authentication failures (e.g. private repositories)
+- corrupted store entries
+- unexpected snapshot fetch errors
+
+These fail loudly instead, so a transient error never silently changes the source type.
+
+Tarball-backed entries:
+
+- unpack into the same `packages/<registry>/.../<version>` store path model
+- record `source.type: "tarball"` and the tarball URL in the lockfile
+- never have a `source.directory` (tarballs already contain only the package)
 
 ---
 
@@ -423,6 +487,8 @@ Fallback:
 
 - standard copy
 
+Store writes are atomic: snapshots are fetched into a temporary directory and renamed into the store path only on success, so an interrupted fetch never leaves a partial entry that later commands would reuse.
+
 ---
 
 # Guarantees
@@ -433,6 +499,14 @@ Packref guarantees:
 - each version stored once globally
 - project paths contain real files
 - agents can navigate sources without special tooling
+- the lockfile always states whether a reference came from a repository snapshot or a tarball
+
+---
+
+# Assumptions (v1)
+
+- Single-process use: Packref does not lock the global store or config. Two packref processes mutating the store concurrently is undefined behavior in v1.
+- `git` must be installed and on `PATH` for repository tag discovery; a missing binary produces a clear, actionable error.
 
 ---
 
@@ -446,6 +520,7 @@ Not included in v1:
 - indexing
 - code search
 - workspace resolution
+- concurrent-process locking
 
 ---
 

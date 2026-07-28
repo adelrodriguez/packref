@@ -82,12 +82,41 @@ export class NoRepositoryError extends Data.TaggedError("NoRepositoryError")<{
   }
 }
 
+export class InvalidRepositoryUrlError extends Data.TaggedError("InvalidRepositoryUrlError")<{
+  reason: string
+  url: string
+}> {
+  override get message() {
+    return `Invalid repository URL \`${this.url}\`: ${this.reason}.`
+  }
+}
+
+export class UnsupportedRepositoryHostError extends Data.TaggedError(
+  "UnsupportedRepositoryHostError"
+)<{
+  host: string
+  url: string
+}> {
+  override get message() {
+    return `Repository host \`${this.host}\` is not supported for source snapshots.`
+  }
+}
+
 export class TagNotFoundError extends Data.TaggedError("TagNotFoundError")<{
   repository: string
   version: string
 }> {
   override get message() {
     return `Could not find a matching git tag for version \`${this.version}\` in \`${this.repository}\`.`
+  }
+}
+
+export class GitExecutableNotFoundError extends Data.TaggedError("GitExecutableNotFoundError")<{
+  cause: unknown
+  command: string
+}> {
+  override get message() {
+    return `Could not run \`${this.command}\`. Install Git and ensure it is available on PATH.`
   }
 }
 

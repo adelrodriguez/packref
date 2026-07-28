@@ -10,7 +10,8 @@
     "allowImportingTsExtensions": true,
     "moduleResolution": "bundler",
     "noEmit": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "types": ["bun"]
   },
   "include": ["src", "bunup.config.ts"],
   "exclude": ["node_modules", "dist", ".packref"]
