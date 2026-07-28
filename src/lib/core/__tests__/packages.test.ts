@@ -277,9 +277,24 @@ describe("packages", () => {
         label: "accepts explicit npm prefix",
       },
       {
+        expected: { name: "react", registry: "npm" },
+        input: "npm: react",
+        label: "trims package names after explicit prefixes",
+      },
+      {
         expected: { name: "@effect/cli", registry: "npm", specifier: "0.29.0" },
         input: "npm:@effect/cli@0.29.0",
         label: "accepts scoped packages with explicit npm prefix and versions",
+      },
+      {
+        expected: { name: "react", registry: "npm" },
+        input: "react@",
+        label: "omits empty unscoped package specifiers",
+      },
+      {
+        expected: { name: "@effect/cli", registry: "npm" },
+        input: "npm:@effect/cli@",
+        label: "omits empty scoped package specifiers",
       },
     ])("$label", async ({ expected, input }) => {
       expect(await runEffect(parsePackageSpec(input))).toEqual(expected)
@@ -296,5 +311,13 @@ describe("packages", () => {
         }
       }
     )
+
+    it.each(["", "   ", "npm:", "npm:   "])("rejects empty package specs: %j", async (input) => {
+      await expectInvalidPackageIdentity(runEffect(parsePackageSpec(input)), {
+        field: "name",
+        reason: "must not be empty",
+        value: "",
+      })
+    })
   })
 })
