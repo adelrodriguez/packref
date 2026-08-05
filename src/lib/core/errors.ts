@@ -36,6 +36,14 @@ export class ManifestResolutionError extends Data.TaggedError("ManifestResolutio
   }
 }
 
+export class UnsupportedManifestError extends Data.TaggedError("UnsupportedManifestError")<{
+  path: string
+}> {
+  override get message() {
+    return `No supported project manifest was found in \`${this.path}\`.`
+  }
+}
+
 export class ConfigParseError extends Data.TaggedError("ConfigParseError")<{
   path: string
   cause: unknown

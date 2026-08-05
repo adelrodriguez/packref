@@ -5,6 +5,7 @@ import * as Path from "effect/Path"
 import * as Predicate from "effect/Predicate"
 import type { ParsedPackageSpec } from "#lib/core/packages.ts"
 import type { ManifestDependency } from "#lib/manifests/manifest.ts"
+import type { ResolvedPackageReference } from "#lib/registries/registry.ts"
 import { readProjectDependencies } from "#lib/manifests/index.ts"
 import { resolvePackageReference } from "#lib/registries/index.ts"
 import { fetchRepositorySnapshot } from "#lib/sources/repository/fetch.ts"
@@ -40,6 +41,11 @@ export interface AddPackageResult {
 export interface AddPackageCandidates {
   readonly dependencies: readonly ManifestDependency[]
   readonly projectPath: string
+}
+
+export interface ResolvedPackageCandidateReference {
+  readonly manifestRange: string | undefined
+  readonly resolvedPackage: ResolvedPackageReference
 }
 
 const getRegistrySpecifier = (specifier: string) =>
@@ -83,6 +89,53 @@ export const findAddPackageCandidates = Effect.fn("findAddPackageCandidates")(fu
   } satisfies AddPackageCandidates
 })
 
+const materializePackageReferenceToProject = Effect.fn("materializePackageReferenceToProject")(
+  function* (
+    resolvedPackage: ResolvedPackageReference,
+    projectPath: string,
+    manifestRange: string | undefined,
+    tracking: PackageEntry["tracking"]
+  ) {
+    const resolvedRepository = Predicate.isUndefined(resolvedPackage.repository)
+      ? undefined
+      : yield* resolveRepositoryRef(resolvedPackage.identity, resolvedPackage.repository).pipe(
+          Effect.catchTags({
+            // Ignore repository resolution errors, since the package may be a tarball or registry package
+            InvalidRepositoryUrlError: () => Effect.succeed(void 0),
+            TagNotFoundError: () => Effect.succeed(void 0),
+            UnsupportedRepositoryHostError: () => Effect.succeed(void 0),
+          })
+        )
+
+    const storeEntry = yield* Predicate.isUndefined(resolvedRepository)
+      ? fetchTarballSnapshot(resolvedPackage.identity, resolvedPackage.tarballUrl)
+      : fetchRepositorySnapshot(resolvedPackage.identity, resolvedRepository)
+
+    const referencePath = yield* createProjectReference(
+      projectPath,
+      resolvedPackage.identity,
+      storeEntry.path,
+      storeEntry.source
+    )
+    const entry = {
+      ...resolvedPackage.identity,
+      source: storeEntry.source,
+      tracking,
+    } satisfies PackageEntry
+
+    yield* upsertPackageEntry(projectPath, entry)
+
+    return {
+      entry,
+      manifestRange,
+      projectPath,
+      referencePath,
+      reusedStoreEntry: storeEntry.reused,
+      storePath: storeEntry.path,
+    } satisfies AddPackageResult
+  }
+)
+
 const addPackageReferenceToProject = Effect.fn("addPackageReferenceToProject")(function* (
   inputSpec: ParsedPackageSpec,
   projectPath: string,
@@ -100,57 +153,55 @@ const addPackageReferenceToProject = Effect.fn("addPackageReferenceToProject")(f
         specifier: manifestDependency.exactVersion ?? manifestRange,
       }
   const resolvedPackage = yield* resolvePackageReference(resolutionSpec)
-  const resolvedRepository = Predicate.isUndefined(resolvedPackage.repository)
-    ? undefined
-    : yield* resolveRepositoryRef(resolvedPackage.identity, resolvedPackage.repository).pipe(
-        Effect.catchTags({
-          // Ignore repository resolution errors, since the package may be a tarball or registry package
-          InvalidRepositoryUrlError: () => Effect.succeed(void 0),
-          TagNotFoundError: () => Effect.succeed(void 0),
-          UnsupportedRepositoryHostError: () => Effect.succeed(void 0),
-        })
-      )
 
-  const storeEntry = yield* Predicate.isUndefined(resolvedRepository)
-    ? fetchTarballSnapshot(resolvedPackage.identity, resolvedPackage.tarballUrl)
-    : fetchRepositorySnapshot(resolvedPackage.identity, resolvedRepository)
-
-  const referencePath = yield* createProjectReference(
+  return yield* materializePackageReferenceToProject(
+    resolvedPackage,
     projectPath,
-    resolvedPackage.identity,
-    storeEntry.path,
-    storeEntry.source
-  )
-  const entry = {
-    ...resolvedPackage.identity,
-    source: storeEntry.source,
-    tracking: Predicate.isUndefined(manifestDependency) ? "manual" : "dependency",
-  } satisfies PackageEntry
-
-  yield* upsertPackageEntry(projectPath, entry)
-
-  return {
-    entry,
     manifestRange,
+    Predicate.isUndefined(manifestDependency) ? "manual" : "dependency"
+  )
+})
+
+export const resolvePackageCandidateReference = Effect.fn("resolvePackageCandidateReference")(
+  function* (dependency: ManifestDependency) {
+    const manifestRange = Predicate.isUndefined(dependency.exactVersion)
+      ? getRegistrySpecifier(dependency.specifier)
+      : undefined
+    const resolvedPackage = yield* resolvePackageReference({
+      name: dependency.name,
+      registry: dependency.registry,
+      specifier: dependency.exactVersion ?? manifestRange,
+    })
+
+    return {
+      manifestRange,
+      resolvedPackage,
+    } satisfies ResolvedPackageCandidateReference
+  }
+)
+
+export const materializePackageCandidateReference = Effect.fn(
+  "materializePackageCandidateReference"
+)(function* (
+  resolution: ResolvedPackageCandidateReference,
+  projectPath: string,
+  tracking: PackageEntry["tracking"] = "dependency"
+) {
+  return yield* materializePackageReferenceToProject(
+    resolution.resolvedPackage,
     projectPath,
-    referencePath,
-    reusedStoreEntry: storeEntry.reused,
-    storePath: storeEntry.path,
-  } satisfies AddPackageResult
+    resolution.manifestRange,
+    tracking
+  )
 })
 
 export const addPackageCandidateReference = Effect.fn("addPackageCandidateReference")(function* (
   dependency: ManifestDependency,
   projectPath: string
 ) {
-  return yield* addPackageReferenceToProject(
-    {
-      name: dependency.name,
-      registry: dependency.registry,
-    },
-    projectPath,
-    dependency
-  )
+  const resolution = yield* resolvePackageCandidateReference(dependency)
+
+  return yield* materializePackageCandidateReference(resolution, projectPath)
 })
 
 export const addPackageReference = Effect.fn("addPackageReference")(function* (
