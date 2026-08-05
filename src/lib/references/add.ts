@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
+import * as Order from "effect/Order"
 import * as Path from "effect/Path"
 import * as Predicate from "effect/Predicate"
 import type { ParsedPackageSpec } from "#lib/core/packages.ts"
@@ -74,7 +75,7 @@ export const findAddPackageCandidates = Effect.fn("findAddPackageCandidates")(fu
   )
   const dependencies = (yield* readProjectDependencies(projectPath))
     .filter((dependency) => !referencedPackages.has(`${dependency.registry}:${dependency.name}`))
-    .toSorted((left, right) => left.name.localeCompare(right.name))
+    .toSorted((left, right) => Order.String(left.name, right.name))
 
   return {
     dependencies,

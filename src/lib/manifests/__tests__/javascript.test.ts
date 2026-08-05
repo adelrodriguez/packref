@@ -7,6 +7,7 @@ import { join } from "node:path"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import { getManifestAdapter, readProjectDependencies } from "#lib/manifests/index.ts"
 import {
   PackageManagerResolver,
@@ -231,7 +232,7 @@ describe("readJavascriptManifest", () => {
     const adapter = await run(getManifestAdapter(projectPath))
     const dependencies = await run(readProjectDependencies(projectPath))
 
-    expect(adapter?.name).toBe("javascript")
+    expect(Option.getOrUndefined(adapter)?.name).toBe("javascript")
     expect(
       dependencies.map(({ group, name, specifier }) => ({
         group,

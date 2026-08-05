@@ -84,3 +84,22 @@ export const registerProject = (projectPath: string) =>
 
     return updatedConfig
   })
+
+export const unregisterProjects = Effect.fn("unregisterProjects")(function* (
+  projectPaths: readonly string[]
+) {
+  const config = yield* initializeGlobalConfig()
+  const projects = config.projects.filter((projectPath) => !projectPaths.includes(projectPath))
+
+  if (projects.length === config.projects.length) {
+    return config
+  }
+
+  const updatedConfig = {
+    projects,
+  } satisfies GlobalConfig
+
+  yield* writeGlobalConfig(updatedConfig)
+
+  return updatedConfig
+})

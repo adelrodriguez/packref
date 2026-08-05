@@ -1,5 +1,8 @@
+import * as Array from "effect/Array"
 import * as Effect from "effect/Effect"
 import * as Filter from "effect/Filter"
+import { pipe } from "effect/Function"
+import * as Result from "effect/Result"
 import type { PackageIdentity } from "#lib/core/packages.ts"
 import type { NormalizedRepositorySource } from "#lib/core/source.ts"
 import { GitExecutableNotFoundError, NetworkError } from "#lib/core/errors.ts"
@@ -7,31 +10,28 @@ import { CommandRunner } from "#lib/services/command-runner.ts"
 
 const TAGS_PREFIX = "refs/tags/"
 
-export const parseGitRemoteTagsOutput = (output: string) => {
-  const tags = new Set<string>()
+export const parseGitRemoteTagsOutput = (output: string) =>
+  pipe(
+    output.split(/\r?\n/u),
+    Array.filterMap((rawLine) => {
+      const line = rawLine.trim()
 
-  for (const rawLine of output.split(/\r?\n/u)) {
-    const line = rawLine.trim()
+      if (line.length === 0) {
+        return Result.failVoid
+      }
 
-    if (line.length === 0) {
-      continue
-    }
+      const ref = line.split(/\s+/u).at(-1)
 
-    const ref = line.split(/\s+/u).at(-1)
+      if (ref === undefined || !ref.startsWith(TAGS_PREFIX)) {
+        return Result.failVoid
+      }
 
-    if (ref === undefined || !ref.startsWith(TAGS_PREFIX)) {
-      continue
-    }
+      const tag = ref.slice(TAGS_PREFIX.length).replace(/\^\{\}$/u, "")
 
-    const tag = ref.slice(TAGS_PREFIX.length).replace(/\^\{\}$/u, "")
-
-    if (tag.length > 0) {
-      tags.add(tag)
-    }
-  }
-
-  return [...tags]
-}
+      return tag.length > 0 ? Result.succeed(tag) : Result.failVoid
+    }),
+    Array.dedupe
+  )
 
 export const getTagCandidates = ({ name, version }: PackageIdentity) => [
   `v${version}`,
