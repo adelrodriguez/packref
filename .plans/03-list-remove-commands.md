@@ -4,6 +4,10 @@
 
 Deliver `packref list` and `packref remove <pkg>` as complete user-facing commands for inspecting and managing project references.
 
+## Status
+
+Implemented.
+
 ## Scope
 
 - Implement `packref list` to print all referenced packages from the lockfile.

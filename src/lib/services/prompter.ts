@@ -18,6 +18,10 @@ interface PrompterService {
   readonly log: {
     readonly error: (message: string) => Effect.Effect<void>
     readonly info: (message: string) => Effect.Effect<void>
+    readonly message: (
+      message: string | string[],
+      options?: p.LogMessageOptions
+    ) => Effect.Effect<void>
     readonly success: (message: string) => Effect.Effect<void>
     readonly warning: (message: string) => Effect.Effect<void>
   }
@@ -56,6 +60,10 @@ export class Prompter extends Context.Service<Prompter, PrompterService>()("Prom
       info: (message) =>
         Effect.sync(() => {
           p.log.info(message)
+        }),
+      message: (message, options) =>
+        Effect.sync(() => {
+          p.log.message(message, options)
         }),
       success: (message) =>
         Effect.sync(() => {

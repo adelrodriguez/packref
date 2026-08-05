@@ -42,7 +42,8 @@ const run = <A, E>(
     FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | PackrefHome
   >,
   home: string,
-  download: () => Effect.Effect<Uint8Array>
+  download: () => Effect.Effect<Uint8Array>,
+  status = 200
 ) =>
   Effect.runPromise(
     effect.pipe(
@@ -54,7 +55,9 @@ const run = <A, E>(
             HttpClient.HttpClient,
             HttpClient.make((request) =>
               download().pipe(
-                Effect.map((archive) => HttpClientResponse.fromWeb(request, new Response(archive)))
+                Effect.map((archive) =>
+                  HttpClientResponse.fromWeb(request, new Response(archive, { status }))
+                )
               )
             )
           )
@@ -150,5 +153,21 @@ describe("fetchTarballSnapshot", () => {
     const packageParent = join(home, ".agents", "packref", "store", "packages", "npm", "example")
     expect(await exists(join(packageParent, "1.0.0"))).toBe(false)
     expect(await readdir(packageParent)).toEqual([])
+  })
+
+  it("rejects non-successful tarball responses", async () => {
+    const home = await makeTempDirectory()
+
+    try {
+      await run(
+        fetchTarballSnapshot(identity, tarballUrl),
+        home,
+        () => Effect.succeed(new Uint8Array()),
+        404
+      )
+      throw new Error("Expected tarball download to fail.")
+    } catch (error) {
+      expect(error).toBeInstanceOf(TarballFetchError)
+    }
   })
 })
