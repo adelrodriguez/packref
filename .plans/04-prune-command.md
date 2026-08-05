@@ -4,6 +4,10 @@
 
 Deliver `packref prune` as a complete command that cleans up unused global store entries by cross-referencing all registered projects.
 
+## Status
+
+Implemented.
+
 ## Scope
 
 - Read registered projects from global config.

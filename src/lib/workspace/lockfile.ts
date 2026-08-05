@@ -1,10 +1,16 @@
+import * as Array from "effect/Array"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Filter from "effect/Filter"
 import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
-import type { PackageIdentity, ParsedPackageSpec } from "#lib/core/packages.ts"
 import { LockfileParseError } from "#lib/core/errors.ts"
+import {
+  packageIdentityEquivalence,
+  packageIdentityOrder,
+  type PackageIdentity,
+  type ParsedPackageSpec,
+} from "#lib/core/packages.ts"
 import { PackageSourceSchema } from "#lib/core/source.ts"
 import { formatJson } from "#lib/shared/json.ts"
 import { getProjectLockfilePath } from "#lib/workspace/paths.ts"
@@ -85,15 +91,8 @@ export const readProjectLockfile = Effect.fn("readProjectLockfile")(function* (
   return yield* readLockfileAtPath(getProjectLockfilePath(path, projectPath))
 })
 
-const compareStrings = (left: string, right: string) => (left === right ? 0 : left < right ? -1 : 1)
-
-const comparePackageEntries = (left: PackageEntry, right: PackageEntry) =>
-  compareStrings(left.registry, right.registry) ||
-  compareStrings(left.name, right.name) ||
-  compareStrings(left.version, right.version)
-
 export const listPackageEntries = (lockfile: Lockfile) =>
-  lockfile.packages.toSorted(comparePackageEntries)
+  lockfile.packages.toSorted((left, right) => packageIdentityOrder(left, right))
 
 export const findPackageEntries = (lockfile: Lockfile, spec: ParsedPackageSpec) =>
   lockfile.packages
@@ -103,18 +102,15 @@ export const findPackageEntries = (lockfile: Lockfile, spec: ParsedPackageSpec) 
         entry.name === spec.name &&
         (spec.specifier === undefined || entry.version === spec.specifier)
     )
-    .toSorted(comparePackageEntries)
+    .toSorted((left, right) => packageIdentityOrder(left, right))
 
 export const upsertPackageEntry = (projectPath: string, entry: PackageEntry) =>
   Effect.gen(function* () {
     const path = yield* Path.Path
     const lockfilePath = getProjectLockfilePath(path, projectPath)
     const lockfile = yield* initializeLockfile(projectPath)
-    const existingIndex = lockfile.packages.findIndex(
-      (candidate) =>
-        candidate.registry === entry.registry &&
-        candidate.name === entry.name &&
-        candidate.version === entry.version
+    const existingIndex = lockfile.packages.findIndex((candidate) =>
+      packageIdentityEquivalence(candidate, entry)
     )
     const packages =
       existingIndex === -1
@@ -137,13 +133,7 @@ export const removePackageEntries = Effect.fn("removePackageEntries")(function* 
   const lockfilePath = getProjectLockfilePath(path, projectPath)
   const lockfile = yield* readLockfileAtPath(lockfilePath)
   const packages = lockfile.packages.filter(
-    (entry) =>
-      !identities.some(
-        (identity) =>
-          identity.registry === entry.registry &&
-          identity.name === entry.name &&
-          identity.version === entry.version
-      )
+    (entry) => !Array.containsWith(packageIdentityEquivalence)(identities, entry)
   )
   const updatedLockfile = {
     packages,

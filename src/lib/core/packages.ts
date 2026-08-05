@@ -1,4 +1,6 @@
 import * as Effect from "effect/Effect"
+import * as Equivalence from "effect/Equivalence"
+import * as Order from "effect/Order"
 import * as Path from "effect/Path"
 import { InvalidPackageIdentity, UnsupportedRegistryError } from "#lib/core/errors.ts"
 import { DEFAULT_REGISTRY, checkIsRegistry, type Registry } from "#lib/core/registry.ts"
@@ -8,6 +10,18 @@ export interface PackageIdentity {
   readonly registry: string
   readonly version: string
 }
+
+export const packageIdentityEquivalence = Equivalence.Struct({
+  name: Equivalence.String,
+  registry: Equivalence.String,
+  version: Equivalence.String,
+})
+
+export const packageIdentityOrder = Order.combineAll([
+  Order.mapInput(Order.String, (identity: PackageIdentity) => identity.registry),
+  Order.mapInput(Order.String, (identity: PackageIdentity) => identity.name),
+  Order.mapInput(Order.String, (identity: PackageIdentity) => identity.version),
+])
 
 export interface ParsedPackageSpec {
   readonly name: string
