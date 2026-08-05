@@ -6,6 +6,7 @@ import { PackageNotReferencedError } from "#lib/core/errors.ts"
 import { getStorePackagePath } from "#lib/store/paths.ts"
 import {
   findPackageEntries,
+  listPackageEntries,
   readProjectLockfile,
   removePackageEntries,
   type PackageEntry,
@@ -16,6 +17,18 @@ import { requireInitializedProject } from "#lib/workspace/project.ts"
 export interface PackageReferenceOptions {
   readonly projectPath?: string
 }
+
+export const listPackageReferences = Effect.fn("listPackageReferences")(function* (
+  options: PackageReferenceOptions = {}
+) {
+  const projectPath = yield* requireInitializedProject(options.projectPath)
+  const lockfile = yield* readProjectLockfile(projectPath)
+
+  return {
+    entries: listPackageEntries(lockfile),
+    projectPath,
+  }
+})
 
 export const findPackageReferenceMatches = Effect.fn("findPackageReferenceMatches")(function* (
   spec: ParsedPackageSpec,

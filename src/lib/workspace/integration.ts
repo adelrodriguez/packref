@@ -18,10 +18,10 @@ const PACKREF_AGENTS_BODY = `## Packref
 Packref provides local copies of dependency source code so you can inspect the exact implementation used by this project.
 
 - Source references are stored in \`.packref/packages/<registry>/<package>/<version>/\` for unscoped packages and \`.packref/packages/<registry>/<scope>/<package>/<version>/\` for scoped packages — browse these directories to read dependency internals
-- \`.packref/\` is developer-local and git-ignored; run \`packref init\` to set up, then \`packref add <package>\` to fetch references
+- \`.packref/\` is developer-local and git-ignored; run \`packref init\` to set up, then \`packref add [package]\` to fetch references
 - Available commands:
-  - \`packref add <package>\` — fetch source for a package (e.g. \`packref add react\`, \`packref add hono@4.2.0\`, \`packref add @effect/cli\`)
-  - \`packref remove <package>\` — remove a package reference
+  - \`packref add [package]\` — select manifest dependencies or fetch a named package (e.g. \`packref add react\`, \`packref add hono@4.2.0\`, \`packref add @effect/cli\`)
+  - \`packref remove [package]\` — select or name package references to remove
   - \`packref sync\` — update references to match current \`package.json\` dependency versions
   - \`packref list\` — show all referenced packages
   - \`packref prune\` — remove unused entries from the global store

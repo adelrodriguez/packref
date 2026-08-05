@@ -260,6 +260,7 @@ Also performs project integration (implemented, each step idempotent):
 Add a package reference.
 
 ```
+packref add
 packref add react
 packref add npm:react
 packref add hono
@@ -270,16 +271,17 @@ packref add hono@4.2.0
 Behavior:
 
 1. Auto-initialize Packref for the project if `.packref/` does not exist
-2. Resolve package version:
+2. When no package is given, list project manifest dependencies that have no Packref reference, show a multiselect prompt, and add the selected packages
+3. Resolve package version:
    - explicit version/range in the spec → resolve against the npm registry
    - no version given and the package is declared in the project manifest → resolve the exact installed version (package-manager lockfile via `nypm` → `node_modules/<pkg>/package.json` → registry range resolution)
    - no version given and not in the manifest → registry `latest`
-3. Locate repository metadata
-4. Resolve matching git tag
-5. Fetch repository snapshot with `giget`; if no repository source is fetchable, fall back to the npm tarball (see Source Fallback)
-6. Store the snapshot in the global store
-7. Create project reference
-8. Update lockfile with nested `source` metadata and tracking:
+4. Locate repository metadata
+5. Resolve matching git tag
+6. Fetch repository snapshot with `giget`; if no repository source is fetchable, fall back to the npm tarball (see Source Fallback)
+7. Store the snapshot in the global store
+8. Create project reference
+9. Update lockfile with nested `source` metadata and tracking:
    - `tracking: "dependency"` when the version came from the project manifest
    - `tracking: "manual"` when the user gave an explicit version/range or the package is not in the manifest
 
@@ -292,6 +294,7 @@ If the exact `registry + name + version` entry already exists, `add` is idempote
 Remove a package from the project.
 
 ```
+packref remove
 packref remove react
 packref remove npm:react@18.3.1
 ```
@@ -302,6 +305,8 @@ Removes:
 - lockfile entry
 
 If a remove spec omits the version and multiple matching versions exist, Packref shows a multiselect prompt so the user can choose which versions to remove.
+
+If no remove spec is given, Packref shows every referenced package version in a multiselect prompt and removes the selected entries.
 
 ---
 

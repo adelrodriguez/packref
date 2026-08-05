@@ -417,7 +417,8 @@ describe("init", () => {
       expect(agents).toContain(
         ".packref/packages/<registry>/<scope>/<package>/<version>/` for scoped packages"
       )
-      expect(agents).toContain("packref add <package>")
+      expect(agents).toContain("packref add [package]")
+      expect(agents).toContain("packref remove [package]")
       expect(agents).toContain(packrefAgentsEndMarker)
       expect(agents.endsWith("\n")).toBe(true)
     })
