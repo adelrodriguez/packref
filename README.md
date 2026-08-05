@@ -46,3 +46,15 @@ or a matching tag is unavailable.
 Use `packref list` to inspect references, `packref remove` to remove selected references,
 `packref clean` to clear the current project, `packref prune` to remove unused global entries, and
 `packref clean --global` to wipe the global store.
+
+## Agent skill
+
+Install the first-party Packref skill to teach coding agents how to locate and inspect the exact
+dependency source recorded for a project:
+
+```sh
+npx skills add adelrodriguez/packref --list
+npx skills add adelrodriguez/packref --skill packref
+```
+
+See the [`packref` skill on skills.sh](https://skills.sh/adelrodriguez/packref/packref).
