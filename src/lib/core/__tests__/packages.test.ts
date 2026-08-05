@@ -1,11 +1,14 @@
 import { describe, expect, it } from "bun:test"
 import { join } from "node:path"
+import * as Array from "effect/Array"
 import * as Effect from "effect/Effect"
 import * as Path from "effect/Path"
 import { InvalidPackageIdentity, UnsupportedRegistryError } from "#lib/core/errors.ts"
 import {
   getPackageIdentityPath,
   getPackageIdentitySegments,
+  packageCoordinatesEquivalence,
+  packageCoordinatesOrder,
   parsePackageSpec,
   type PackageIdentity,
 } from "#lib/core/packages.ts"
@@ -38,6 +41,29 @@ const expectInvalidPackageIdentity = async (
 }
 
 describe("packages", () => {
+  describe("package coordinates", () => {
+    it("compares registry and name without considering other fields", () => {
+      const react18: PackageIdentity = { name: "react", registry: "npm", version: "18.0.0" }
+      const react19: PackageIdentity = { name: "react", registry: "npm", version: "19.0.0" }
+
+      expect(packageCoordinatesEquivalence(react18, react19)).toBe(true)
+    })
+
+    it("orders by registry and then package name", () => {
+      const coordinates = [
+        { name: "zod", registry: "npm" },
+        { name: "effect", registry: "npm" },
+        { name: "react", registry: "jsr" },
+      ]
+
+      expect(Array.sort(coordinates, packageCoordinatesOrder)).toEqual([
+        { name: "react", registry: "jsr" },
+        { name: "effect", registry: "npm" },
+        { name: "zod", registry: "npm" },
+      ])
+    })
+  })
+
   describe("getPackageIdentitySegments", () => {
     it("builds unscoped package identity segments", async () => {
       const identity = {
