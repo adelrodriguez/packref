@@ -1,4 +1,4 @@
-# Plan 07: CLI Polish + Docs + Release Prep
+# Plan 09: CLI Polish + Docs + Release Prep
 
 ## Goal
 

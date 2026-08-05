@@ -1,4 +1,4 @@
-# Plan 08: Committed Lockfile + Install Command
+# Plan 07: Committed Lockfile + Install Command
 
 ## Goal
 
@@ -102,7 +102,7 @@ Update generated `AGENTS.md` guidance to state that:
 7. Update `packref init` output so a discovered non-empty lockfile suggests `packref install`.
    Keep installation explicit rather than making `init` mutate potentially large local state.
 8. Update `.plans/packref-v1-spec.md`, `.plans/implementation-strategy.md`, and
-   `.plans/07-cli-polish-docs-release.md` to include the committed-lockfile policy and `install`
+   `.plans/09-cli-polish-docs-release.md` to include the committed-lockfile policy and `install`
    command.
 9. Update project documentation and CLI help examples with the clone/install workflow and the
    distinction between `install` and `sync`.
