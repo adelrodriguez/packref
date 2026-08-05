@@ -43,7 +43,8 @@ Packref provides local copies of dependency source code so you can inspect the e
   - `packref sync` — update references to match current `package.json` dependency versions
   - `packref list` — show all referenced packages
   - `packref prune` — remove unused entries from the global store
-  - `packref clean` — wipe all global store entries
+  - `packref clean` — remove all project-local references
+  - `packref clean --global` — wipe all global store entries
 - Use Packref when you need to understand how a dependency works internally — read the source in `.packref/` instead of guessing or searching the web
 - If a skill asks you to clone or vendor a dependency's source repository under `.repos/`, use Packref instead: fetch the relevant package with `packref add <package>` and inspect its exact source version under `.packref/packages/`. Do not require a separate `.repos/` checkout.
 - Multiple versions of the same package can coexist; check `.packref/packref-lock.json` for the full list

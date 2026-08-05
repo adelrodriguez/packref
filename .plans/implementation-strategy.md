@@ -228,7 +228,7 @@ Goal: Wire everything together.
 5. `packref list` - Read lockfile, print entries; for an empty lockfile, print a helpful "no packages currently installed" message
 6. `packref prune` - Call `references/prune.ts` and report progress/errors
 7. `packref sync` - Call `references/sync.ts` and report progress/errors
-8. `packref clean` - Delete all global store entries, preserving project registrations and project-local `.packref/` directories
+8. `packref clean` - Delete all project-local references and reset the project lockfile; with `--global` / `-g`, delete all global store entries while preserving project registrations and project-local `.packref/` directories
 9. Wire root command with subcommands in `src/index.ts` using `Command.make(...).pipe(Command.withSubcommands([...]))`.
 10. Write integration tests
 
@@ -299,7 +299,7 @@ Each error carries context (package name, version, path, etc.) for actionable CL
 4. `packref sync` uses the active manifest adapter to sync Packref package versions with the project's exact dependency versions, not merely rebuild references from the Packref lockfile. In v1, the JavaScript manifest adapter reads `package.json` and resolves exact npm registry versions through `nypm`, package-manager lockfiles, `node_modules`, and registry fallback.
 5. Dependency-tracked packages in `packref-lock.json` that are no longer reported by the active manifest adapter are removed from the Packref lockfile and from project-local references. Manually-tracked entries are preserved by sync.
 6. `packref prune` warns and asks for confirmation before removing stale project registrations.
-7. `packref clean` has no `--global` flag; it only cleans the global store and preserves project registrations and project-local references.
+7. `packref clean` removes all references from the current project and resets its lockfile while preserving the global store and project registration. `packref clean --global` / `-g` cleans the global store while preserving project registrations and project-local references.
 8. Empty `packref list` output is a helpful message stating that no packages are currently installed.
 9. Package paths are nested by packages namespace, registry, optional scope, package, and version; e.g. `react@19.0.0` becomes `packages/npm/react/19.0.0`, and `@effect/cli@0.29.0` becomes `packages/npm/@effect/cli/0.29.0`.
 10. Monorepo packages store the full repository snapshot globally. If npm metadata includes `repository.directory`, the project-local reference points at that subdirectory; otherwise it points at the repository root. Packref does not attempt heuristic package extraction in v1.

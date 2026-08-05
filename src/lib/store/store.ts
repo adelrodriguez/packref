@@ -112,6 +112,21 @@ export const listStoreEntries = Effect.fn("listStoreEntries")(function* () {
   return entries
 })
 
+export const cleanStore = Effect.fn("cleanStore")(function* () {
+  const fs = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
+  const home = yield* PackrefHome
+  const storeRoot = getGlobalStorePath(path, home.path)
+  const entryCount = yield* listStoreEntries().pipe(
+    Effect.map((entries) => entries.length),
+    Effect.orElseSucceed(() => 0)
+  )
+
+  yield* fs.remove(storeRoot, { force: true, recursive: true })
+
+  return entryCount
+})
+
 export const removeStoreEntry = Effect.fn("removeStoreEntry")(function* (
   identity: PackageIdentity
 ) {
