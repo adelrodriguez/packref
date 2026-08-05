@@ -36,11 +36,13 @@ This project was built with [`pastry`](https://github.com/adelrodriguez/pastry) 
 Packref provides local copies of dependency source code so you can inspect the exact implementation used by this project.
 
 - Source references are stored in `.packref/packages/<registry>/<package>/<version>/` for unscoped packages and `.packref/packages/<registry>/<scope>/<package>/<version>/` for scoped packages — browse these directories to read dependency internals
-- `.packref/` is developer-local and git-ignored; run `packref init` to set up, then `packref add [package]` to fetch references
+- `.packref/packref-lock.json` is shared and should be committed; `.packref/packages/` is developer-local and git-ignored
+- Run `packref install` after cloning when locked references are missing; install restores the lockfile exactly and does not install runtime dependencies
 - Available commands:
   - `packref add [package]` — select manifest dependencies or fetch a named package (e.g. `packref add react`, `packref add hono@4.2.0`, `packref add @effect/cli`)
   - `packref remove [package]` — select or name package references to remove
-  - `packref sync` — update references to match current `package.json` dependency versions
+  - `packref install` — materialize every reference already recorded in the committed lockfile
+  - `packref sync` — update dependency-tracked lock entries to match current `package.json` dependency versions
   - `packref list` — show all referenced packages
   - `packref prune` — remove unused entries from the global store
   - `packref clean` — remove all project-local references

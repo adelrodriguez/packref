@@ -15,9 +15,9 @@ Prepare the v1 implementation for real use by tightening CLI output, documentati
 
 ## Implementation Steps
 
-1. Review command output for `init`, `add`, `list`, `remove`, `prune`, `sync`, and `clean`.
+1. Review command output for `init`, `add`, `install`, `list`, `remove`, `prune`, `sync`, and `clean`.
 2. Convert typed errors into concise, actionable CLI messages.
-3. Update README with install, init, add, list, remove, prune, sync, and clean examples.
+3. Update README with package installation, init, add, committed-lockfile install, list, remove, prune, sync, and clean examples.
 4. Confirm `bin` configuration points to the packaged CLI output.
 5. Confirm package `files` include the expected build artifacts.
 6. Run build and inspect output.
@@ -27,7 +27,7 @@ Prepare the v1 implementation for real use by tightening CLI output, documentati
 ## Acceptance Criteria
 
 - README explains what Packref does and does not do.
-- README documents `.packref/` and `~/.agents/packref/`.
+- README documents the committed `.packref/packref-lock.json`, ignored `.packref/packages/`, and `~/.agents/packref/`.
 - README explains repository vs tarball sources, the fallback rules, and the single-process (no locking) assumption.
 - CLI help includes all commands.
 - CLI errors are human-readable and actionable.

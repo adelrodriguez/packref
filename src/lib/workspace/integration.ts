@@ -5,7 +5,14 @@ import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
 import { applyEdits, modify, type ParseError, parse } from "jsonc-parser"
 
-const PACKREF_IGNORE_ENTRY = ".packref"
+const LEGACY_PACKREF_IGNORE_ENTRIES = new Set([".packref", ".packref/"])
+const PACKREF_PACKAGES_IGNORE_ENTRY = ".packref/packages/"
+const PACKREF_TEMP_LOCKFILE_IGNORE_ENTRY = ".packref/.packref-lock-*.tmp"
+const PACKREF_IGNORE_ENTRIES = [
+  PACKREF_PACKAGES_IGNORE_ENTRY,
+  PACKREF_TEMP_LOCKFILE_IGNORE_ENTRY,
+] as const
+const PACKREF_IGNORE_ENTRY_SET = new Set<string>(PACKREF_IGNORE_ENTRIES)
 const GITIGNORE_NAME = ".gitignore"
 const TSCONFIG_NAME = "tsconfig.json"
 const AGENTS_NAME = "AGENTS.md"
@@ -18,11 +25,13 @@ const PACKREF_AGENTS_BODY = `## Packref
 Packref provides local copies of dependency source code so you can inspect the exact implementation used by this project.
 
 - Source references are stored in \`.packref/packages/<registry>/<package>/<version>/\` for unscoped packages and \`.packref/packages/<registry>/<scope>/<package>/<version>/\` for scoped packages — browse these directories to read dependency internals
-- \`.packref/\` is developer-local and git-ignored; run \`packref init\` to set up, then \`packref add [package]\` to fetch references
+- \`.packref/packref-lock.json\` is shared and should be committed; \`.packref/packages/\` is developer-local and git-ignored
+- Run \`packref install\` after cloning when locked references are missing; install restores the lockfile exactly and does not install runtime dependencies
 - Available commands:
   - \`packref add [package]\` — select manifest dependencies or fetch a named package (e.g. \`packref add react\`, \`packref add hono@4.2.0\`, \`packref add @effect/cli\`)
   - \`packref remove [package]\` — select or name package references to remove
-  - \`packref sync\` — update references to match current \`package.json\` dependency versions
+  - \`packref install\` — materialize every reference already recorded in the committed lockfile
+  - \`packref sync\` — update dependency-tracked lock entries to match current \`package.json\` dependency versions
   - \`packref list\` — show all referenced packages
   - \`packref prune\` — remove unused entries from the global store
   - \`packref clean\` — remove all project-local references
@@ -53,8 +62,7 @@ const readOptionalFile = (path: string) =>
     return yield* fs.readFileString(path)
   }).pipe(Effect.catchFilter(Filter.reason("PlatformError", "NotFound"), () => Effect.void))
 
-const checkIsPackrefEntry = (entry: string) =>
-  entry === PACKREF_IGNORE_ENTRY || entry === `${PACKREF_IGNORE_ENTRY}/`
+const checkIsPackrefEntry = (entry: string) => LEGACY_PACKREF_IGNORE_ENTRIES.has(entry.trim())
 
 export const ensureGitignoreEntry = (projectPath: string) =>
   Effect.gen(function* () {
@@ -63,19 +71,39 @@ export const ensureGitignoreEntry = (projectPath: string) =>
     const gitignorePath = path.join(projectPath, GITIGNORE_NAME)
     const existing = yield* readOptionalFile(gitignorePath)
 
-    if (
-      existing
-        ?.split(/\r?\n/)
-        .map((line) => line.trim())
-        .some((line) => checkIsPackrefEntry(line))
-    ) {
-      return
+    const content = existing ?? ""
+    const newline = content.includes("\r\n") ? "\r\n" : "\n"
+    const hasFinalNewline = content.endsWith(newline)
+    const body = hasFinalNewline ? content.slice(0, -newline.length) : content
+    const lines = body.length === 0 ? [] : body.split(newline)
+    const nextLines: string[] = []
+    const foundEntries = new Set(lines.filter((line) => PACKREF_IGNORE_ENTRY_SET.has(line)))
+
+    for (const line of lines) {
+      if (!checkIsPackrefEntry(line)) {
+        nextLines.push(line)
+        continue
+      }
+
+      for (const entry of PACKREF_IGNORE_ENTRIES) {
+        if (!foundEntries.has(entry)) {
+          nextLines.push(entry)
+          foundEntries.add(entry)
+        }
+      }
     }
 
-    const content = existing ?? ""
-    const separator = content.length === 0 ? "" : content.endsWith("\n") ? "" : "\n"
+    for (const entry of PACKREF_IGNORE_ENTRIES) {
+      if (!foundEntries.has(entry)) {
+        nextLines.push(entry)
+      }
+    }
 
-    yield* fs.writeFileString(gitignorePath, `${content}${separator}${PACKREF_IGNORE_ENTRY}\n`)
+    const nextContent = `${nextLines.join(newline)}${existing === undefined || hasFinalNewline ? newline : ""}`
+
+    if (nextContent !== content) {
+      yield* fs.writeFileString(gitignorePath, nextContent)
+    }
   })
 
 export const ensureTsconfigExclude = (projectPath: string) =>
@@ -102,7 +130,7 @@ export const ensureTsconfigExclude = (projectPath: string) =>
       return "updated"
     }
 
-    const edits = modify(existing, ["exclude"], [...(parsed.exclude ?? []), PACKREF_IGNORE_ENTRY], {
+    const edits = modify(existing, ["exclude"], [...(parsed.exclude ?? []), ".packref"], {
       formattingOptions: { insertSpaces: true, tabSize: 2 },
     })
 

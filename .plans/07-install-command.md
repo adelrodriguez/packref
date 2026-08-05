@@ -10,6 +10,11 @@ The lockfile is authoritative for `install`. Installing must not resolve project
 versions, adopt manifest dependencies, or change lockfile contents; those behaviors belong to
 `packref sync` and `packref add`.
 
+## Status
+
+Implemented. The lockfile is commit-ready, legacy ignore rules migrate safely, and `packref install`
+materializes locked repository and tarball references without changing lockfile contents.
+
 ## User Experience
 
 After cloning a project with a committed Packref lockfile:

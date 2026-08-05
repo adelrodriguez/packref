@@ -29,7 +29,7 @@ export default Command.make("init").pipe(
 
       const shouldAddIgnoreEntries = yield* prompter.confirm({
         initialValue: true,
-        message: "Add `.packref` to .gitignore and tsconfig.json exclude?",
+        message: "Ignore generated Packref references and exclude `.packref` from TypeScript?",
       })
 
       const shouldAddAgentsGuidance = yield* prompter.confirm({
@@ -43,7 +43,7 @@ export default Command.make("init").pipe(
         success: "Project directory is ready",
       })
 
-      yield* prompter.withSpinner(() => initializeLockfile(projectPath), {
+      const lockfile = yield* prompter.withSpinner(() => initializeLockfile(projectPath), {
         failure: "Failed to create the packref-lock.json",
         start: "Creating the packref-lock.json...",
         success: "Created the packref-lock.json",
@@ -96,6 +96,12 @@ export default Command.make("init").pipe(
             "Could not update AGENTS.md because Packref markers are incomplete. Remove the stale PACKREF marker and run packref init again."
           )
         }
+      }
+
+      if (lockfile.packages.length > 0) {
+        yield* prompter.log.info(
+          `Found ${lockfile.packages.length} locked reference${lockfile.packages.length === 1 ? "" : "s"}. Run \`packref install\` to materialize missing source trees.`
+        )
       }
 
       yield* prompter.log.success(`Initialized packref in ${projectPath}`)

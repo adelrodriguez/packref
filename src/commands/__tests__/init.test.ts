@@ -68,7 +68,7 @@ const runInitCommand = async (
         const text = Buffer.from(data).toString("utf8")
         stdout += text
 
-        if (!answeredIgnorePrompt && stdout.includes(".gitignore and tsconfig.json")) {
+        if (!answeredIgnorePrompt && stdout.includes("Ignore generated Packref references")) {
           answeredIgnorePrompt = true
           process.terminal?.write(ignoreInput)
         }
@@ -117,7 +117,9 @@ describe("init", () => {
       expect(config).toEqual({
         projects: [canonicalProjectPath],
       })
-      expect(await readText(join(projectPath, ".gitignore"))).toContain(".packref\n")
+      expect(await readText(join(projectPath, ".gitignore"))).toBe(
+        ".packref/packages/\n.packref/.packref-lock-*.tmp\n"
+      )
     })
 
     it("does not duplicate project registrations", async () => {
@@ -135,7 +137,9 @@ describe("init", () => {
       expect(config).toEqual({
         projects: [canonicalProjectPath],
       })
-      expect(countOccurrences(await readText(join(projectPath, ".gitignore")), ".packref")).toBe(1)
+      expect(await readText(join(projectPath, ".gitignore"))).toBe(
+        ".packref/packages/\n.packref/.packref-lock-*.tmp\n"
+      )
     })
 
     it("does not duplicate project registrations through symlinked paths", async () => {
@@ -171,10 +175,12 @@ describe("init", () => {
       const result = await runInitCommand(projectPath, homePath)
 
       expect(result.exitCode).toBe(0)
-      expect(await readText(join(projectPath, ".gitignore"))).toBe("dist\n.packref\n")
+      expect(await readText(join(projectPath, ".gitignore"))).toBe(
+        "dist\n.packref/packages/\n.packref/.packref-lock-*.tmp"
+      )
     })
 
-    it("does not duplicate existing gitignore folder entries", async () => {
+    it("migrates an exact legacy gitignore folder entry", async () => {
       const projectPath = await makeTempDirectory()
       const homePath = await makeTempDirectory()
 
@@ -183,7 +189,51 @@ describe("init", () => {
       const result = await runInitCommand(projectPath, homePath)
 
       expect(result.exitCode).toBe(0)
-      expect(await readText(join(projectPath, ".gitignore"))).toBe("dist\n.packref/\n")
+      expect(await readText(join(projectPath, ".gitignore"))).toBe(
+        "dist\n.packref/packages/\n.packref/.packref-lock-*.tmp\n"
+      )
+    })
+
+    it("migrates a legacy gitignore entry with trailing whitespace", async () => {
+      const projectPath = await makeTempDirectory()
+      const homePath = await makeTempDirectory()
+
+      await writeFile(join(projectPath, ".gitignore"), "dist\n.packref \n")
+
+      const result = await runInitCommand(projectPath, homePath)
+
+      expect(result.exitCode).toBe(0)
+      expect(await readText(join(projectPath, ".gitignore"))).toBe(
+        "dist\n.packref/packages/\n.packref/.packref-lock-*.tmp\n"
+      )
+    })
+
+    it("does not duplicate existing narrow gitignore entries", async () => {
+      const projectPath = await makeTempDirectory()
+      const homePath = await makeTempDirectory()
+      const existing = "dist\n.packref/packages/\n.packref/.packref-lock-*.tmp\n"
+
+      await writeFile(join(projectPath, ".gitignore"), existing)
+
+      const result = await runInitCommand(projectPath, homePath)
+
+      expect(result.exitCode).toBe(0)
+      expect(await readText(join(projectPath, ".gitignore"))).toBe(existing)
+    })
+
+    it("preserves CRLF, comments, unrelated rules, and a missing final newline", async () => {
+      const projectPath = await makeTempDirectory()
+      const homePath = await makeTempDirectory()
+      const existing = "# generated\r\ndist\r\n.packref\r\n.env"
+
+      await writeFile(join(projectPath, ".gitignore"), existing)
+
+      const result = await runInitCommand(projectPath, homePath)
+
+      expect(result.exitCode).toBe(0)
+      expect(await readText(join(projectPath, ".gitignore"))).toBe(
+        "# generated\r\ndist\r\n.packref/packages/\r\n.packref/.packref-lock-*.tmp\r\n.env"
+      )
     })
 
     it("leaves ignore files unchanged when declined", async () => {
@@ -419,6 +469,9 @@ describe("init", () => {
       )
       expect(agents).toContain("packref add [package]")
       expect(agents).toContain("packref remove [package]")
+      expect(agents).toContain(".packref/packref-lock.json` is shared and should be committed")
+      expect(agents).toContain("packref install")
+      expect(agents).toContain("install restores the lockfile exactly")
       expect(agents).toContain(packrefAgentsEndMarker)
       expect(agents.endsWith("\n")).toBe(true)
     })
@@ -551,6 +604,7 @@ describe("init", () => {
 
       expect(result.exitCode).toBe(0)
       expect(lockfile).toEqual(existingLockfile)
+      expect(result.stdout).toContain("Run `packref install` to materialize missing source trees")
     })
 
     it("fails for malformed lockfiles", async () => {

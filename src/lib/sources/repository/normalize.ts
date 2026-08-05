@@ -82,7 +82,7 @@ const normalizeFromStandardUrl = (
     const url = `https://${host}/${repositoryPath}`
 
     return {
-      directory: candidate.directory,
+      ...(candidate.directory === undefined ? {} : { directory: candidate.directory }),
       fetchSource: getProviderFetchSource(host, repositoryPath),
       host,
       type: "repository",
@@ -131,7 +131,7 @@ const normalizeFromScpLikeUrl = (
   const url = `https://${host}/${repositoryPath}`
 
   return Effect.succeed({
-    directory: candidate.directory,
+    ...(candidate.directory === undefined ? {} : { directory: candidate.directory }),
     fetchSource: getProviderFetchSource(host, repositoryPath),
     host,
     type: "repository",
@@ -163,7 +163,7 @@ const normalizeFromShorthandUrl = (
   const url = `https://${host}/${urlRepositoryPath}`
 
   return Effect.succeed({
-    directory: candidate.directory,
+    ...(candidate.directory === undefined ? {} : { directory: candidate.directory }),
     fetchSource: `${provider}:${fetchRepositoryPath}`,
     host,
     type: "repository",

@@ -27,6 +27,11 @@ export interface MaterializedStoreEntry {
   readonly source: PackageSource
 }
 
+export interface StoredEntry {
+  readonly path: string
+  readonly source: PackageSource
+}
+
 const StoreEntryMetadataSchema = Schema.Struct({
   source: PackageSourceSchema,
 })
@@ -50,6 +55,36 @@ export const hasStoreEntry = Effect.fn("hasStoreEntry")(function* (identity: Pac
   const entryPath = yield* getStoreEntryPath(identity)
 
   return yield* fs.exists(entryPath)
+})
+
+export const readStoreEntry = Effect.fn("readStoreEntry")(function* (identity: PackageIdentity) {
+  const fs = yield* FileSystem.FileSystem
+  const { entryPath, metadataPath } = yield* getStoreEntryPaths(identity)
+  const rawMetadata = yield* fs.readFileString(metadataPath).pipe(
+    Effect.mapError(
+      (cause) =>
+        new StoreCorruptedError({
+          cause,
+          path: entryPath,
+        })
+    )
+  )
+  const metadata = yield* Schema.decodeUnknownEffect(StoreEntryMetadataJsonSchema)(
+    rawMetadata
+  ).pipe(
+    Effect.mapError(
+      (cause) =>
+        new StoreCorruptedError({
+          cause,
+          path: entryPath,
+        })
+    )
+  )
+
+  return {
+    path: entryPath,
+    source: metadata.source,
+  } satisfies StoredEntry
 })
 
 const listDirectoryOrEmpty = Effect.fn("listDirectoryOrEmpty")(function* (directoryPath: string) {
@@ -149,31 +184,12 @@ export const materializeStoreEntry = Effect.fn("materializeStoreEntry")(function
   const exists = yield* fs.exists(storePath)
 
   if (exists) {
-    const rawMetadata = yield* fs.readFileString(metadataPath).pipe(
-      Effect.mapError(
-        (cause) =>
-          new StoreCorruptedError({
-            cause,
-            path: storePath,
-          })
-      )
-    )
-    const metadata = yield* Schema.decodeUnknownEffect(StoreEntryMetadataJsonSchema)(
-      rawMetadata
-    ).pipe(
-      Effect.mapError(
-        (cause) =>
-          new StoreCorruptedError({
-            cause,
-            path: storePath,
-          })
-      )
-    )
+    const storedEntry = yield* readStoreEntry(identity)
 
     return {
       path: storePath,
       reused: true,
-      source: metadata.source,
+      source: storedEntry.source,
     } satisfies MaterializedStoreEntry
   }
 

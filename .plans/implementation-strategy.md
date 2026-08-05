@@ -79,12 +79,14 @@ src/
 
     references/
       add.ts              # Add a package reference
+      install.ts          # Materialize references from the committed lockfile
       remove.ts           # Remove a package reference
       sync.ts             # Sync package references with project dependencies
       prune.ts            # Remove unused global store entries
 
   commands/
     init.ts               # packref init
+    install.ts            # packref install
     add.ts                # packref add [pkg]
     remove.ts             # packref remove [pkg]
     list.ts               # packref list
@@ -222,15 +224,17 @@ Goal: Wire everything together.
    - `remove.ts` - Remove the project reference and lockfile entry
    - `sync.ts` - Match Packref references to exact project dependency versions and remove dependency-tracked references for dependencies that no longer exist
    - `prune.ts` - Find global store entries no project uses anymore and remove them after confirmation
+   - `install.ts` - Materialize all committed lockfile entries without rewriting the lockfile
 2. `packref init` - Create project dir, empty lockfile, register in config
 3. `packref add [pkg[@version]]` - With a package, parse CLI input and call `references/add.ts`; without one, offer unreferenced manifest dependencies in a multiselect and add the selections
 4. `packref remove [pkg]` - With a package, remove matching references; without one, offer all referenced package versions in a multiselect and remove the selections
 5. `packref list` - Read lockfile, print entries; for an empty lockfile, print a helpful "no packages currently installed" message
 6. `packref prune` - Call `references/prune.ts` and report progress/errors
 7. `packref sync` - Call `references/sync.ts` and report progress/errors
-8. `packref clean` - Delete all project-local references and reset the project lockfile; with `--global` / `-g`, delete all global store entries while preserving project registrations and project-local `.packref/` directories
-9. Wire root command with subcommands in `src/index.ts` using `Command.make(...).pipe(Command.withSubcommands([...]))`.
-10. Write integration tests
+8. `packref install` - Restore every missing project-local reference from the committed lockfile
+9. `packref clean` - Delete all project-local references and reset the project lockfile; with `--global` / `-g`, delete all global store entries while preserving project registrations and project-local `.packref/` directories
+10. Wire root command with subcommands in `src/index.ts` using `Command.make(...).pipe(Command.withSubcommands([...]))`.
+11. Write integration tests
 
 ### Phase 6: Polish
 
@@ -263,6 +267,7 @@ All errors are modeled as tagged Effect errors using `Data.TaggedError`:
 | `SnapshotFetchError`       | `giget` snapshot fetch fails                              |
 | `TarballFetchError`        | Tarball download or extraction fails                      |
 | `StoreCorruptedError`      | Store entry exists but is invalid                         |
+| `StoreSourceMismatchError` | Stored source differs from committed lockfile metadata    |
 | `NotInitializedError`      | Running commands in a project without `packref init`      |
 | `LockfileParseError`       | Lockfile JSON is malformed                                |
 | `ManifestParseError`       | Project manifest JSON is malformed                        |
@@ -318,6 +323,8 @@ Each error carries context (package name, version, path, etc.) for actionable CL
 23. v1 assumes single-process use; there is no store/config locking.
 24. `remove` and `sync` are drift-tolerant: a lockfile entry whose project directory is missing is still removed cleanly (with a warning), and directory deletion is best-effort.
 25. Bare `packref add` offers manifest dependencies with no Packref reference through a multiselect prompt and adds the selected packages through the normal add pipeline.
+26. `.packref/packref-lock.json` is committed; only `.packref/packages/` and atomic temporary lockfiles are ignored.
+27. `packref install` restores locked manual and dependency-tracked references without consulting manifests or rewriting the lockfile. Compatible store entries are reused; source mismatches fail visibly.
 
 ## Open Questions
 
