@@ -23,10 +23,10 @@ const cleanGlobalStore = Effect.fn("cleanGlobalStore")(function* () {
     return
   }
 
-  const removedEntryCount = yield* prompter.withSpinner(cleanStore(), {
-    error: "Failed to clean the global store",
+  const removedEntryCount = yield* prompter.withSpinner(() => cleanStore(), {
+    failure: "Failed to clean the global store",
     start: "Removing global store entries...",
-    stop: "Finished cleaning the global store",
+    success: "Finished cleaning the global store",
   })
 
   yield* prompter.outro(
@@ -49,10 +49,10 @@ const cleanProject = Effect.fn("cleanProject")(function* () {
     return
   }
 
-  const removedEntryCount = yield* prompter.withSpinner(applyProjectCleanPlan(plan), {
-    error: "Failed to clean project references",
+  const removedEntryCount = yield* prompter.withSpinner(() => applyProjectCleanPlan(plan), {
+    failure: "Failed to clean project references",
     start: "Removing project references...",
-    stop: "Finished cleaning project references",
+    success: "Finished cleaning project references",
   })
 
   yield* prompter.outro(

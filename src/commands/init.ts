@@ -37,36 +37,44 @@ export default Command.make("init").pipe(
         message: "Add a guidance section to AGENTS.md so coding agents know how to use Packref?",
       })
 
-      yield* prompter.withSpinner(ensureDirectory(projectPath), {
-        error: "Failed to prepare project directory",
+      yield* prompter.withSpinner(() => ensureDirectory(projectPath), {
+        failure: "Failed to prepare project directory",
         start: "Ensuring project directory exists...",
-        stop: "Project directory is ready",
+        success: "Project directory is ready",
       })
 
-      yield* prompter.withSpinner(initializeLockfile(projectPath), {
-        error: "Failed to create the packref-lock.json",
+      yield* prompter.withSpinner(() => initializeLockfile(projectPath), {
+        failure: "Failed to create the packref-lock.json",
         start: "Creating the packref-lock.json...",
-        stop: "Created the packref-lock.json",
+        success: "Created the packref-lock.json",
       })
 
-      yield* prompter.withSpinner(registerProject(projectPath), {
-        error: "Failed to register project in global store",
+      yield* prompter.withSpinner(() => registerProject(projectPath), {
+        failure: "Failed to register project in global store",
         start: "Registering project in global store...",
-        stop: "Project registered in global store",
+        success: "Project registered in global store",
       })
 
       if (shouldAddIgnoreEntries) {
-        yield* prompter.withSpinner(ensureGitignoreEntry(projectPath), {
-          error: "Failed to update .gitignore",
+        yield* prompter.withSpinner(() => ensureGitignoreEntry(projectPath), {
+          failure: "Failed to update .gitignore",
           start: "Updating .gitignore...",
-          stop: ".gitignore is ready",
+          success: ".gitignore is ready",
         })
 
-        const tsconfigResult = yield* prompter.withSpinner(ensureTsconfigExclude(projectPath), {
-          error: "Failed to update tsconfig.json",
-          start: "Updating tsconfig.json...",
-          stop: "tsconfig.json check complete",
-        })
+        const tsconfigResult = yield* prompter.withSpinner(
+          () => ensureTsconfigExclude(projectPath),
+          {
+            failure: "Failed to update tsconfig.json",
+            start: "Updating tsconfig.json...",
+            success: (result) =>
+              result === "missing"
+                ? "No tsconfig.json found"
+                : result === "malformed"
+                  ? "Could not update tsconfig.json"
+                  : "tsconfig.json is ready",
+          }
+        )
 
         if (tsconfigResult === "malformed") {
           yield* prompter.log.warning(
@@ -76,10 +84,11 @@ export default Command.make("init").pipe(
       }
 
       if (shouldAddAgentsGuidance) {
-        const agentsResult = yield* prompter.withSpinner(writeAgentsSection(projectPath), {
-          error: "Failed to update AGENTS.md",
+        const agentsResult = yield* prompter.withSpinner(() => writeAgentsSection(projectPath), {
+          failure: "Failed to update AGENTS.md",
           start: "Updating AGENTS.md...",
-          stop: "AGENTS.md check complete",
+          success: (result) =>
+            result === "malformed" ? "Could not update AGENTS.md" : "AGENTS.md is ready",
         })
 
         if (agentsResult === "malformed") {

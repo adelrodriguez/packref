@@ -5,12 +5,6 @@ import * as Exit from "effect/Exit"
 import * as Layer from "effect/Layer"
 import { OperationCancelled } from "#lib/core/errors.ts"
 
-interface SpinnerMessages {
-  readonly error: string
-  readonly start: string
-  readonly stop: string
-}
-
 interface PrompterService {
   readonly cancel: (message: string) => Effect.Effect<void>
   readonly confirm: (options: p.ConfirmOptions) => Effect.Effect<boolean, OperationCancelled>
@@ -30,8 +24,14 @@ interface PrompterService {
   ) => Effect.Effect<T[], OperationCancelled>
   readonly outro: (message: string) => Effect.Effect<void>
   readonly withSpinner: <A, E, R>(
-    fn: Effect.Effect<A, E, R>,
-    messages: SpinnerMessages
+    run: (spinner: {
+      readonly message: (message: string) => Effect.Effect<void>
+    }) => Effect.Effect<A, E, R>,
+    options: {
+      readonly failure?: string
+      readonly start: string
+      readonly success: string | ((value: A) => string | undefined)
+    }
   ) => Effect.Effect<A, E, R>
 }
 
@@ -85,21 +85,30 @@ export class Prompter extends Context.Service<Prompter, PrompterService>()("Prom
       Effect.sync(() => {
         p.outro(message)
       }),
-    withSpinner: (fn, messages) =>
-      Effect.gen(function* () {
-        const spinner = yield* Effect.sync(() => p.spinner())
-
-        yield* Effect.sync(() => {
-          spinner.start(messages.start)
-        })
-
-        return yield* fn.pipe(
-          Effect.onExit((exit) =>
-            Effect.sync(() => {
-              spinner.stop(Exit.isSuccess(exit) ? messages.stop : messages.error)
-            })
-          )
-        )
-      }),
+    withSpinner: (run, options) =>
+      Effect.acquireUseRelease(
+        Effect.sync(() => {
+          const spinner = p.spinner()
+          spinner.start(options.start)
+          return spinner
+        }),
+        (spinner) =>
+          run({
+            message: (message) =>
+              Effect.sync(() => {
+                spinner.message(message)
+              }),
+          }),
+        (spinner, exit) =>
+          Effect.sync(() => {
+            spinner.stop(
+              Exit.match(exit, {
+                onFailure: () => options.failure,
+                onSuccess: (value) =>
+                  typeof options.success === "function" ? options.success(value) : options.success,
+              })
+            )
+          })
+      ),
   })
 }

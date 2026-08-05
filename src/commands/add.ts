@@ -8,8 +8,9 @@ import type { ManifestDependency } from "#lib/manifests/manifest.ts"
 import { parsePackageSpec } from "#lib/core/packages.ts"
 import {
   addPackageReference,
-  addPackageCandidateReference,
   findAddPackageCandidates,
+  materializePackageCandidateReference,
+  resolvePackageCandidateReference,
   type AddPackageResult,
 } from "#lib/references/add.ts"
 import { Prompter } from "#lib/services/prompter.ts"
@@ -20,7 +21,7 @@ const pkg = Argument.string("package").pipe(
   Argument.optional
 )
 
-const reportAddResult = Effect.fn("reportAddResult")(function* (result: AddPackageResult) {
+const reportAddDetails = Effect.fn("reportAddDetails")(function* (result: AddPackageResult) {
   const prompter = yield* Prompter
 
   if (Predicate.isNotUndefined(result.manifestRange)) {
@@ -34,22 +35,19 @@ const reportAddResult = Effect.fn("reportAddResult")(function* (result: AddPacka
   if (result.reusedStoreEntry) {
     yield* prompter.log.info("Reused the existing global store entry")
   }
-
-  yield* prompter.log.success(
-    `Added ${result.entry.registry}:${result.entry.name}@${result.entry.version} from ${result.entry.source.type}`
-  )
 })
 
 const addPackage = Effect.fn("addPackage")(function* (pkg: string) {
   const prompter = yield* Prompter
   const spec = yield* parsePackageSpec(pkg)
-  const result = yield* prompter.withSpinner(addPackageReference(spec), {
-    error: `Failed to add ${pkg}`,
+  const result = yield* prompter.withSpinner(() => addPackageReference(spec), {
+    failure: `Failed to add ${pkg}`,
     start: `Resolving and fetching ${pkg}...`,
-    stop: `Added ${pkg}`,
+    success: ({ entry }) =>
+      `Added ${entry.registry}:${entry.name}@${entry.version} from ${entry.source.type}`,
   })
 
-  yield* reportAddResult(result)
+  yield* reportAddDetails(result)
   return result
 })
 
@@ -60,15 +58,26 @@ const addPackageCandidate = Effect.fn("addPackageCandidate")(function* (
   const prompter = yield* Prompter
   const label = `${dependency.registry}:${dependency.name}`
   const result = yield* prompter.withSpinner(
-    addPackageCandidateReference(dependency, projectPath),
+    (spinner) =>
+      Effect.gen(function* () {
+        const resolution = yield* resolvePackageCandidateReference(dependency)
+        const identity = resolution.resolvedPackage.identity
+
+        yield* spinner.message(
+          `Fetching and materializing ${identity.registry}:${identity.name}@${identity.version}...`
+        )
+
+        return yield* materializePackageCandidateReference(resolution, projectPath)
+      }),
     {
-      error: `Failed to add ${label}`,
-      start: `Resolving and fetching ${label}...`,
-      stop: `Added ${label}`,
+      failure: `Failed to add ${label}`,
+      start: `Resolving ${label}...`,
+      success: ({ entry }) =>
+        `Added ${entry.registry}:${entry.name}@${entry.version} from ${entry.source.type}`,
     }
   )
 
-  yield* reportAddResult(result)
+  yield* reportAddDetails(result)
   return result
 })
 
