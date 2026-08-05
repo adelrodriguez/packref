@@ -5,6 +5,7 @@ import { join } from "node:path"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Predicate from "effect/Predicate"
 import * as HttpClient from "effect/unstable/http/HttpClient"
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse"
 import { createTarGzip } from "nanotar"
@@ -12,7 +13,11 @@ import type { NpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
 import { NetworkError, ReflinkError, SnapshotFetchError } from "#lib/core/errors.ts"
 import { parsePackageSpec } from "#lib/core/packages.ts"
 import { PackageManagerResolver } from "#lib/manifests/javascript.ts"
-import { addPackageReference } from "#lib/references/add.ts"
+import {
+  addPackageCandidateReference,
+  addPackageReference,
+  findAddPackageCandidates,
+} from "#lib/references/add.ts"
 import { NpmRegistryClient } from "#lib/registries/npm/client.ts"
 import { CommandRunner } from "#lib/services/command-runner.ts"
 import { PackrefHome } from "#lib/services/packref-home.ts"
@@ -139,6 +144,20 @@ const runAdd = (packageSpec: string, projectPath: string, home: string, services
     }).pipe(Effect.provide(makeTestLayer(services, home)))
   )
 
+const runCandidateAdd = (projectPath: string, home: string, services: TestServices) =>
+  Effect.runPromise(
+    Effect.gen(function* () {
+      const candidates = yield* findAddPackageCandidates({ projectPath })
+      const dependency = candidates.dependencies[0]
+
+      if (Predicate.isUndefined(dependency)) {
+        return yield* Effect.die("Expected an add candidate")
+      }
+
+      return yield* addPackageCandidateReference(dependency, candidates.projectPath)
+    }).pipe(Effect.provide(makeTestLayer(services, home)))
+  )
+
 afterEach(async () => {
   await Promise.all(
     temporaryPaths.splice(0).map((directoryPath) =>
@@ -151,6 +170,31 @@ afterEach(async () => {
 })
 
 describe("addPackageReference", () => {
+  it("adds a selected candidate through the prepared project context", async () => {
+    const projectPath = await makeTempDirectory()
+    const home = await makeTempDirectory()
+    await writeFile(
+      join(projectPath, "package.json"),
+      JSON.stringify({ dependencies: { example: "^1.0.0" } })
+    )
+
+    const result = await runCandidateAdd(projectPath, home, {
+      exactVersion: "1.0.0",
+      metadata: makeMetadata("example", ["1.0.0"]),
+    })
+    const lockfile = JSON.parse(
+      await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
+    )
+
+    expect(result.entry).toMatchObject({
+      name: "example",
+      registry: "npm",
+      tracking: "dependency",
+      version: "1.0.0",
+    })
+    expect(lockfile.packages).toEqual([result.entry])
+  })
+
   it("auto-initializes and tracks a versionless manifest dependency", async () => {
     const projectPath = await makeTempDirectory()
     const home = await makeTempDirectory()

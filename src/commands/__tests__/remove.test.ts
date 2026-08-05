@@ -1,101 +1,34 @@
 import { afterEach, describe, expect, it } from "bun:test"
-import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
-import { join, resolve } from "node:path"
-import { execPath } from "node:process"
+import { mkdir, writeFile } from "node:fs/promises"
+import { join } from "node:path"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Effect from "effect/Effect"
-import { type Lockfile, type PackageEntry, readProjectLockfile } from "#lib/workspace/lockfile.ts"
+import * as Predicate from "effect/Predicate"
+import {
+  exists,
+  initializeProject,
+  makeCommandTestContext,
+  materializeReference,
+  repositoryEntry,
+} from "#commands/__tests__/helpers.ts"
+import { type PackageEntry, readProjectLockfile } from "#lib/workspace/lockfile.ts"
 
-const temporaryPaths: string[] = []
-const cliPath = resolve(import.meta.dir, "../../index.ts")
+const context = makeCommandTestContext("packref-remove-test-")
 
-const makeTempDirectory = async () => {
-  const directoryPath = await mkdtemp(join(tmpdir(), "packref-remove-test-"))
-  temporaryPaths.push(directoryPath)
-  return directoryPath
-}
-
-const exists = (path: string) =>
-  access(path)
-    .then(() => true)
-    .catch(() => false)
-
-const initializeProject = async (projectPath: string, packages: readonly PackageEntry[]) => {
-  const directoryPath = join(projectPath, ".packref")
-  await mkdir(directoryPath, { recursive: true })
-  await writeFile(
-    join(directoryPath, "packref-lock.json"),
-    `${JSON.stringify({ packages } satisfies Lockfile, null, 2)}\n`
-  )
-}
-
-const materializeReference = async (projectPath: string, entry: PackageEntry) => {
-  const referencePath = entry.name.startsWith("@")
-    ? join(
-        projectPath,
-        ".packref",
-        "packages",
-        entry.registry,
-        ...entry.name.split("/"),
-        entry.version
-      )
-    : join(projectPath, ".packref", "packages", entry.registry, entry.name, entry.version)
-
-  await mkdir(referencePath, { recursive: true })
-  await writeFile(join(referencePath, "SOURCE.md"), "source")
-  return referencePath
-}
-
-const runRemove = async (
-  projectPath: string,
-  homePath: string,
-  packageSpec: string,
-  input?: string
-) => {
-  let output = ""
-  let answeredPrompt = false
-  const process = Bun.spawn({
-    cmd: [execPath, cliPath, "remove", packageSpec],
-    cwd: projectPath,
-    env: {
-      ...Bun.env,
-      HOME: homePath,
-    },
-    terminal: {
-      cols: 100,
-      data: (_terminal, data) => {
-        output += Buffer.from(data).toString("utf8")
-
-        if (!answeredPrompt && input !== undefined && output.includes("Select versions")) {
-          answeredPrompt = true
-          process.terminal?.write(input)
-        }
-      },
-      rows: 24,
-    },
+const runRemove = (projectPath: string, homePath: string, packageSpec?: string, input?: string) =>
+  context.runCli({
+    args: ["remove", ...(Predicate.isUndefined(packageSpec) ? [] : [packageSpec])],
+    homePath,
+    input,
+    projectPath,
+    prompt: Predicate.isUndefined(packageSpec) ? "Select packages" : "Select versions",
   })
 
-  return {
-    exitCode: await process.exited,
-    output,
-  }
-}
-
-const repositoryEntry = (name: string, version: string) =>
-  ({
-    name,
-    registry: "npm",
-    source: {
-      host: "github.com",
-      type: "repository",
-      url: `https://github.com/example/${name}`,
-    },
-    tracking: "manual",
-    version,
-  }) satisfies PackageEntry
-
-const tarballEntry = (name: string, version: string) =>
+const tarballEntry = (
+  name: string,
+  version: string,
+  tracking: PackageEntry["tracking"] = "dependency"
+) =>
   ({
     name,
     registry: "npm",
@@ -103,25 +36,19 @@ const tarballEntry = (name: string, version: string) =>
       type: "tarball",
       url: `https://registry.npmjs.org/${name}/-/${name}-${version}.tgz`,
     },
-    tracking: "dependency",
+    tracking,
     version,
   }) satisfies PackageEntry
 
 const readLockfile = (projectPath: string) =>
   Effect.runPromise(readProjectLockfile(projectPath).pipe(Effect.provide(NodeServices.layer)))
 
-afterEach(async () => {
-  await Promise.all(
-    temporaryPaths
-      .splice(0)
-      .map((directoryPath) => rm(directoryPath, { force: true, recursive: true }))
-  )
-})
+afterEach(context.cleanup)
 
 describe("remove", () => {
   it("removes only an exact local version and preserves the global store", async () => {
-    const projectPath = await makeTempDirectory()
-    const homePath = await makeTempDirectory()
+    const projectPath = await context.makeTempDirectory()
+    const homePath = await context.makeTempDirectory()
     const react18 = repositoryEntry("react", "18.3.1")
     const react19 = repositoryEntry("react", "19.0.0")
     await initializeProject(projectPath, [react18, react19])
@@ -152,8 +79,8 @@ describe("remove", () => {
   })
 
   it("removes a name-only match directly when only one version exists", async () => {
-    const projectPath = await makeTempDirectory()
-    const homePath = await makeTempDirectory()
+    const projectPath = await context.makeTempDirectory()
+    const homePath = await context.makeTempDirectory()
     const entry = repositoryEntry("@effect/cli", "0.70.0")
     await initializeProject(projectPath, [entry])
     const referencePath = await materializeReference(projectPath, entry)
@@ -168,8 +95,8 @@ describe("remove", () => {
   })
 
   it("shows a multiselect when a name matches multiple versions", async () => {
-    const projectPath = await makeTempDirectory()
-    const homePath = await makeTempDirectory()
+    const projectPath = await context.makeTempDirectory()
+    const homePath = await context.makeTempDirectory()
     const react18 = repositoryEntry("react", "18.3.1")
     const react19 = repositoryEntry("react", "19.0.0")
     await initializeProject(projectPath, [react19, react18])
@@ -180,15 +107,91 @@ describe("remove", () => {
 
     expect(result.exitCode).toBe(0)
     expect(result.output).toContain("Select versions of npm:react to remove")
+    expect(result.output).toContain("github.com (manual)")
+    expect(result.output).not.toContain("repository, manual")
+    expect(result.output).toContain("Removed 1 package reference")
     expect(await exists(react18Path)).toBe(true)
     expect(await exists(react19Path)).toBe(false)
     const lockfile = await readLockfile(projectPath)
     expect(lockfile.packages).toEqual([react18])
   })
 
+  it("allows selecting no versions when a name matches multiple versions", async () => {
+    const projectPath = await context.makeTempDirectory()
+    const homePath = await context.makeTempDirectory()
+    const react18 = repositoryEntry("react", "18.3.1")
+    const react19 = repositoryEntry("react", "19.0.0")
+    await initializeProject(projectPath, [react18, react19])
+    const react18Path = await materializeReference(projectPath, react18)
+    const react19Path = await materializeReference(projectPath, react19)
+
+    const result = await runRemove(projectPath, homePath, "react", "\r")
+
+    expect(result.exitCode).toBe(0)
+    expect(result.output).toContain("No package references removed")
+    expect(await exists(react18Path)).toBe(true)
+    expect(await exists(react19Path)).toBe(true)
+    const lockfile = await readLockfile(projectPath)
+    expect(lockfile.packages).toEqual([react18, react19])
+  })
+
+  it("gracefully handles package selection cancellation", async () => {
+    const projectPath = await context.makeTempDirectory()
+    const homePath = await context.makeTempDirectory()
+    const entry = repositoryEntry("react", "19.0.0")
+    await initializeProject(projectPath, [entry])
+    const referencePath = await materializeReference(projectPath, entry)
+
+    const result = await runRemove(projectPath, homePath, undefined, "\u0003")
+
+    expect(result.exitCode).toBe(0)
+    expect(result.output).toContain("You've cancelled the package removal process.")
+    expect(result.output).not.toContain("Operation cancelled")
+    expect(result.output).not.toContain("No package references removed")
+    expect(await exists(referencePath)).toBe(true)
+  })
+
+  it("shows all references in a multiselect when no package is provided", async () => {
+    const projectPath = await context.makeTempDirectory()
+    const homePath = await context.makeTempDirectory()
+    const react = repositoryEntry("react", "19.0.0", "dependency")
+    const zod = tarballEntry("zod", "4.0.0", "manual")
+    await initializeProject(projectPath, [zod, react])
+    const reactPath = await materializeReference(projectPath, react)
+    const zodPath = await materializeReference(projectPath, zod)
+
+    const result = await runRemove(projectPath, homePath, undefined, "\u001B[B \r")
+
+    expect(result.exitCode).toBe(0)
+    expect(result.output).toContain("Select packages to remove")
+    expect(result.output).toContain("npm:react@19.0.0")
+    expect(result.output).toContain("npm:zod@4.0.0")
+    expect(result.output).toContain("github.com")
+    expect(result.output).not.toContain("github.com (manual)")
+    expect(result.output).toContain("tarball (manual)")
+    expect(result.output).not.toContain("repository, dependency")
+    expect(result.output).toContain("Removed 1 package reference")
+    expect(await exists(reactPath)).toBe(true)
+    expect(await exists(zodPath)).toBe(false)
+    const lockfile = await readLockfile(projectPath)
+    expect(lockfile.packages).toEqual([react])
+  })
+
+  it("prints a helpful message when bare remove has no candidates", async () => {
+    const projectPath = await context.makeTempDirectory()
+    const homePath = await context.makeTempDirectory()
+    await initializeProject(projectPath, [])
+
+    const result = await runRemove(projectPath, homePath)
+
+    expect(result.exitCode).toBe(0)
+    expect(result.output).toContain("No packages are currently installed.")
+    expect(result.output).toContain("No package references removed")
+  })
+
   it("warns and succeeds when the local directory is already missing", async () => {
-    const projectPath = await makeTempDirectory()
-    const homePath = await makeTempDirectory()
+    const projectPath = await context.makeTempDirectory()
+    const homePath = await context.makeTempDirectory()
     const entry = tarballEntry("example", "1.0.0")
     await initializeProject(projectPath, [entry])
 
@@ -201,8 +204,8 @@ describe("remove", () => {
   })
 
   it("reports a package that is not referenced", async () => {
-    const projectPath = await makeTempDirectory()
-    const homePath = await makeTempDirectory()
+    const projectPath = await context.makeTempDirectory()
+    const homePath = await context.makeTempDirectory()
     await initializeProject(projectPath, [])
 
     const result = await runRemove(projectPath, homePath, "react")
@@ -212,8 +215,8 @@ describe("remove", () => {
   })
 
   it("reports an uninitialized project", async () => {
-    const projectPath = await makeTempDirectory()
-    const homePath = await makeTempDirectory()
+    const projectPath = await context.makeTempDirectory()
+    const homePath = await context.makeTempDirectory()
 
     const result = await runRemove(projectPath, homePath, "react")
 

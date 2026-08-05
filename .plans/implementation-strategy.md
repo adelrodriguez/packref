@@ -85,8 +85,8 @@ src/
 
   commands/
     init.ts               # packref init
-    add.ts                # packref add <pkg>
-    remove.ts             # packref remove <pkg>
+    add.ts                # packref add [pkg]
+    remove.ts             # packref remove [pkg]
     list.ts               # packref list
     prune.ts              # packref prune
     sync.ts               # packref sync
@@ -223,8 +223,8 @@ Goal: Wire everything together.
    - `sync.ts` - Match Packref references to exact project dependency versions and remove dependency-tracked references for dependencies that no longer exist
    - `prune.ts` - Find global store entries no project uses anymore and remove them after confirmation
 2. `packref init` - Create project dir, empty lockfile, register in config
-3. `packref add <pkg[@version]>` - Parse CLI input, call `references/add.ts`, and report progress/errors
-4. `packref remove <pkg>` - Parse CLI input, call `references/remove.ts`, and report progress/errors
+3. `packref add [pkg[@version]]` - With a package, parse CLI input and call `references/add.ts`; without one, offer unreferenced manifest dependencies in a multiselect and add the selections
+4. `packref remove [pkg]` - With a package, remove matching references; without one, offer all referenced package versions in a multiselect and remove the selections
 5. `packref list` - Read lockfile, print entries; for an empty lockfile, print a helpful "no packages currently installed" message
 6. `packref prune` - Call `references/prune.ts` and report progress/errors
 7. `packref sync` - Call `references/sync.ts` and report progress/errors
@@ -305,7 +305,7 @@ Each error carries context (package name, version, path, etc.) for actionable CL
 10. Monorepo packages store the full repository snapshot globally. If npm metadata includes `repository.directory`, the project-local reference points at that subdirectory; otherwise it points at the repository root. Packref does not attempt heuristic package extraction in v1.
 11. The Packref lockfile lives at `.packref/packref-lock.json`; v1 does not create a root-level lockfile.
 12. The lockfile uses array entries keyed by full package identity (`registry + name + version`) so multiple versions of the same package can coexist.
-13. `packref remove <pkg>` shows a multiselect prompt when the package spec matches multiple versions.
+13. `packref remove <pkg>` shows a multiselect prompt when the package spec matches multiple versions. Bare `packref remove` shows all referenced package versions in a multiselect prompt.
 14. v1 implements npm packages only, but registry and manifest adapters use shared `defineRegistry` and `defineManifest` interfaces so future ecosystems can be added without changing command behavior.
 15. The lockfile and path model include `registry` so future package registries can be added without changing project layout. Arbitrary repo references remain out of scope.
 16. Lockfile source metadata is nested under `source`; GitHub/GitLab/Bitbucket are source hosts discovered from package metadata, not package providers.
@@ -317,6 +317,7 @@ Each error carries context (package name, version, path, etc.) for actionable CL
 22. Store writes are atomic: fetch into a temp directory, rename into the store path on success. Existing store entries are trusted without deep validation in v1.
 23. v1 assumes single-process use; there is no store/config locking.
 24. `remove` and `sync` are drift-tolerant: a lockfile entry whose project directory is missing is still removed cleanly (with a warning), and directory deletion is best-effort.
+25. Bare `packref add` offers manifest dependencies with no Packref reference through a multiselect prompt and adds the selected packages through the normal add pipeline.
 
 ## Open Questions
 
