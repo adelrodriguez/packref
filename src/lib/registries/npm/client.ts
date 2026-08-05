@@ -14,11 +14,7 @@ export interface NpmRegistryClientService {
   ) => Effect.Effect<NpmPackageMetadata, NetworkError | PackageNotFoundError>
 }
 
-const getPackageMetadataUrl = (name: string) =>
-  `${NPM_REGISTRY_URL}/${name
-    .split("/")
-    .map((segment) => encodeURIComponent(segment))
-    .join("/")}`
+const getPackageMetadataUrl = (name: string) => `${NPM_REGISTRY_URL}/${encodeURIComponent(name)}`
 
 export class NpmRegistryClient extends Context.Service<
   NpmRegistryClient,

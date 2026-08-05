@@ -3,7 +3,7 @@ import { join } from "node:path"
 import * as Effect from "effect/Effect"
 import * as Path from "effect/Path"
 import { InvalidPackageIdentity } from "#lib/core/errors.ts"
-import { getStorePackagePath } from "#lib/store/paths.ts"
+import { getGlobalStorePath, getStorePackagePath } from "#lib/store/paths.ts"
 
 const run = <A, E>(effect: Effect.Effect<A, E, Path.Path>) =>
   Effect.runPromise(effect.pipe(Effect.provide(Path.layer)))
@@ -18,6 +18,18 @@ const expectInvalidPackageIdentity = async (promise: Promise<unknown>) => {
 }
 
 describe("getStorePackagePath", () => {
+  it("builds the global store path", async () => {
+    const storePath = await run(
+      Effect.gen(function* () {
+        const path = yield* Path.Path
+
+        return getGlobalStorePath(path, "/home/user")
+      })
+    )
+
+    expect(storePath).toBe(join("/home/user", ".agents", "packref", "store"))
+  })
+
   it("builds unscoped store paths", async () => {
     const identity = {
       name: "react",

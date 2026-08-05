@@ -25,7 +25,6 @@ interface PrompterService {
     options: p.MultiSelectOptions<T>
   ) => Effect.Effect<T[], OperationCancelled>
   readonly outro: (message: string) => Effect.Effect<void>
-  readonly spinner: () => p.SpinnerResult
   readonly withSpinner: <A, E, R>(
     fn: Effect.Effect<A, E, R>,
     messages: SpinnerMessages
@@ -78,7 +77,6 @@ export class Prompter extends Context.Service<Prompter, PrompterService>()("Prom
       Effect.sync(() => {
         p.outro(message)
       }),
-    spinner: () => p.spinner(),
     withSpinner: (fn, messages) =>
       Effect.gen(function* () {
         const spinner = yield* Effect.sync(() => p.spinner())

@@ -13,6 +13,15 @@ export const RepositorySourceSchema = Schema.Struct({
 })
 export type RepositorySource = typeof RepositorySourceSchema.Type
 
+export const TarballSourceSchema = Schema.Struct({
+  type: Schema.Literal("tarball"),
+  url: Schema.String,
+})
+export type TarballSource = typeof TarballSourceSchema.Type
+
+export const PackageSourceSchema = Schema.Union([RepositorySourceSchema, TarballSourceSchema])
+export type PackageSource = typeof PackageSourceSchema.Type
+
 export interface NormalizedRepositorySource extends RepositorySource {
   readonly fetchSource: string | undefined
 }

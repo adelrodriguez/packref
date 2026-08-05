@@ -1,3 +1,4 @@
+import * as NodeHttpClient from "@effect/platform-node/NodeHttpClient"
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Effect from "effect/Effect"
@@ -12,7 +13,13 @@ import list from "#commands/list.ts"
 import prune from "#commands/prune.ts"
 import remove from "#commands/remove.ts"
 import sync from "#commands/sync.ts"
+import { PackageManagerResolver } from "#lib/manifests/javascript.ts"
+import { NpmRegistryClient } from "#lib/registries/npm/client.ts"
+import { CommandRunner } from "#lib/services/command-runner.ts"
+import { PackrefHome } from "#lib/services/packref-home.ts"
 import { Prompter } from "#lib/services/prompter.ts"
+import { Reflinker } from "#lib/services/reflinker.ts"
+import { RepositoryDownloader } from "#lib/sources/repository/fetch.ts"
 import { getPackageVersion } from "#version.macro.ts" with { type: "macro" }
 
 const main = Command.make("packref").pipe(
@@ -21,6 +28,19 @@ const main = Command.make("packref").pipe(
 )
 
 const version = await getPackageVersion()
+
+const PackrefServices = Layer.mergeAll(
+  CommandRunner.layer,
+  NpmRegistryClient.layer,
+  PackageManagerResolver.layer,
+  PackrefHome.layer,
+  Prompter.layer,
+  Reflinker.layer,
+  RepositoryDownloader.layer
+)
+
+const NodePlatform = Layer.mergeAll(NodeHttpClient.layerFetch, NodeServices.layer)
+const AppLayer = Layer.provideMerge(PackrefServices, NodePlatform)
 
 const program = Command.run(main, { version }).pipe(
   Effect.as(0),
@@ -33,7 +53,7 @@ const program = Command.run(main, { version }).pipe(
       return 1
     })
   ),
-  Effect.provide(Layer.mergeAll(NodeServices.layer, Prompter.layer))
+  Effect.provide(AppLayer)
 )
 
 NodeRuntime.runMain(program, {

@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect"
 import { maxSatisfying, valid } from "semver"
 import type { NpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
-import { NoRepositoryError, PackageVersionNotFoundError } from "#lib/core/errors.ts"
+import { PackageVersionNotFoundError } from "#lib/core/errors.ts"
 import { NpmRegistryClient } from "#lib/registries/npm/client.ts"
 import { defineRegistry } from "#lib/registries/registry.ts"
 
@@ -41,9 +41,18 @@ export default defineRegistry({
         })
       }
 
-      const repository = metadata.versions[version]?.repository ?? metadata.repository
+      const versionMetadata = metadata.versions[version]
 
-      const source =
+      if (versionMetadata === undefined) {
+        return yield* new PackageVersionNotFoundError({
+          name: spec.name,
+          registry: spec.registry,
+          specifier: requestedSpecifier,
+        })
+      }
+
+      const repository = versionMetadata.repository ?? metadata.repository
+      const normalizedRepository =
         repository === undefined
           ? undefined
           : typeof repository === "string"
@@ -55,21 +64,14 @@ export default defineRegistry({
                 url: repository.url,
               }
 
-      if (source === undefined) {
-        return yield* new NoRepositoryError({
-          name: spec.name,
-          registry: spec.registry,
-          version,
-        })
-      }
-
       return {
         identity: {
           name: spec.name,
           registry: spec.registry,
           version,
         },
-        source,
+        repository: normalizedRepository,
+        tarballUrl: versionMetadata.dist.tarball,
       }
     }),
 })

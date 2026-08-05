@@ -17,11 +17,10 @@ export default Command.make("init").pipe(
   Command.withDescription("Initialize packref in the current project"),
   Command.withHandler(() =>
     Effect.gen(function* () {
-      const cwd = process.cwd()
       const fs = yield* FileSystem.FileSystem
       const path = yield* Path.Path
       const prompter = yield* Prompter
-      const projectPath = yield* fs.realPath(path.resolve(cwd))
+      const projectPath = yield* fs.realPath(path.resolve())
 
       yield* printTitle()
 

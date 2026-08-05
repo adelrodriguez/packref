@@ -10,10 +10,17 @@ export const NpmRepositoryObjectSchema = Schema.StructWithRest(
 )
 
 export const NpmRepositorySchema = Schema.Union([Schema.String, NpmRepositoryObjectSchema])
-export type NpmRepository = typeof NpmRepositorySchema.Type
+
+export const NpmDistSchema = Schema.StructWithRest(
+  Schema.Struct({
+    tarball: Schema.String,
+  }),
+  [Schema.Record(Schema.String, Schema.Unknown)]
+)
 
 export const NpmPackageVersionMetadataSchema = Schema.StructWithRest(
   Schema.Struct({
+    dist: NpmDistSchema,
     repository: Schema.optional(NpmRepositorySchema),
     version: Schema.String,
   }),

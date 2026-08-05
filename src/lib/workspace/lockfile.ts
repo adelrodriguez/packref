@@ -1,16 +1,17 @@
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
+import * as Filter from "effect/Filter"
 import * as Path from "effect/Path"
-import * as PlatformError from "effect/PlatformError"
 import * as Schema from "effect/Schema"
 import { LockfileParseError } from "#lib/core/errors.ts"
-import { RepositorySourceSchema } from "#lib/core/source.ts"
+import { PackageSourceSchema } from "#lib/core/source.ts"
+import { formatJson } from "#lib/shared/json.ts"
 import { getProjectLockfilePath } from "#lib/workspace/paths.ts"
 
 export const PackageEntrySchema = Schema.Struct({
   name: Schema.String,
   registry: Schema.String,
-  source: RepositorySourceSchema,
+  source: PackageSourceSchema,
   tracking: Schema.Union([Schema.Literal("manual"), Schema.Literal("dependency")]),
   version: Schema.String,
 })
@@ -21,6 +22,8 @@ export const LockfileSchema = Schema.Struct({
 })
 export type Lockfile = typeof LockfileSchema.Type
 
+const LockfileJsonSchema = Schema.fromJsonString(LockfileSchema)
+
 export const emptyLockfile: Lockfile = {
   packages: [],
 }
@@ -30,9 +33,7 @@ export const readLockfileAtPath = (lockfilePath: string) =>
     const fs = yield* FileSystem.FileSystem
     const rawLockfile = yield* fs.readFileString(lockfilePath)
 
-    return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(LockfileSchema))(
-      rawLockfile
-    ).pipe(
+    return yield* Schema.decodeUnknownEffect(LockfileJsonSchema)(rawLockfile).pipe(
       Effect.mapError(
         (cause) =>
           new LockfileParseError({
@@ -46,9 +47,21 @@ export const readLockfileAtPath = (lockfilePath: string) =>
 export const writeLockfileAtPath = (lockfilePath: string, lockfile: Lockfile) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
-    const decodedLockfile = yield* Schema.decodeUnknownEffect(LockfileSchema)(lockfile)
+    const path = yield* Path.Path
+    const encodedLockfile = formatJson(yield* Schema.encodeEffect(LockfileJsonSchema)(lockfile))
 
-    yield* fs.writeFileString(lockfilePath, `${JSON.stringify(decodedLockfile, null, 2)}\n`)
+    yield* Effect.scoped(
+      Effect.gen(function* () {
+        const temporaryPath = yield* fs.makeTempFileScoped({
+          directory: path.dirname(lockfilePath),
+          prefix: ".packref-lock-",
+          suffix: ".tmp",
+        })
+
+        yield* fs.writeFileString(temporaryPath, encodedLockfile)
+        yield* fs.rename(temporaryPath, lockfilePath)
+      })
+    )
   })
 
 export const initializeLockfile = (projectPath: string) =>
@@ -57,12 +70,32 @@ export const initializeLockfile = (projectPath: string) =>
     const lockfilePath = getProjectLockfilePath(path, projectPath)
 
     return yield* readLockfileAtPath(lockfilePath).pipe(
-      Effect.catchTag("PlatformError", (error) => {
-        if (error.reason instanceof PlatformError.SystemError && error.reason._tag === "NotFound") {
-          return writeLockfileAtPath(lockfilePath, emptyLockfile).pipe(Effect.as(emptyLockfile))
-        }
-
-        return Effect.fail(error)
-      })
+      Effect.catchFilter(Filter.reason("PlatformError", "NotFound"), () =>
+        writeLockfileAtPath(lockfilePath, emptyLockfile).pipe(Effect.as(emptyLockfile))
+      )
     )
+  })
+
+export const upsertPackageEntry = (projectPath: string, entry: PackageEntry) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path
+    const lockfilePath = getProjectLockfilePath(path, projectPath)
+    const lockfile = yield* initializeLockfile(projectPath)
+    const existingIndex = lockfile.packages.findIndex(
+      (candidate) =>
+        candidate.registry === entry.registry &&
+        candidate.name === entry.name &&
+        candidate.version === entry.version
+    )
+    const packages =
+      existingIndex === -1
+        ? [...lockfile.packages, entry]
+        : lockfile.packages.map((candidate, index) => (index === existingIndex ? entry : candidate))
+    const updatedLockfile = {
+      packages,
+    } satisfies Lockfile
+
+    yield* writeLockfileAtPath(lockfilePath, updatedLockfile)
+
+    return updatedLockfile
   })
