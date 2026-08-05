@@ -53,6 +53,25 @@ export class OperationCancelled extends Data.TaggedError("OperationCancelled")<{
   }
 }
 
+export class NotInitializedError extends Data.TaggedError("NotInitializedError")<{
+  path: string
+}> {
+  override get message() {
+    return `Packref is not initialized in \`${this.path}\`. Run \`packref init\` first.`
+  }
+}
+
+export class PackageNotReferencedError extends Data.TaggedError("PackageNotReferencedError")<{
+  name: string
+  registry: string
+  version?: string
+}> {
+  override get message() {
+    const identity = `${this.registry}:${this.name}${this.version === undefined ? "" : `@${this.version}`}`
+    return `Package \`${identity}\` is not referenced by this project.`
+  }
+}
+
 export class InvalidPackageIdentity extends Data.TaggedError("InvalidPackageIdentity")<{
   field: "name" | "registry" | "version"
   reason: string

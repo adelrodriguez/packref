@@ -3,7 +3,7 @@ import * as FileSystem from "effect/FileSystem"
 import * as Path from "effect/Path"
 import type { PackageIdentity } from "#lib/core/packages.ts"
 import type { PackageSource } from "#lib/core/source.ts"
-import { ReflinkError } from "#lib/core/errors.ts"
+import { NotInitializedError, ReflinkError } from "#lib/core/errors.ts"
 import { Reflinker } from "#lib/services/reflinker.ts"
 import { checkIsPathWithin } from "#lib/shared/path.ts"
 import { getStorePackagePath } from "#lib/store/paths.ts"
@@ -19,6 +19,24 @@ export const ensureDirectory = (projectPath: string) =>
 
     return directoryPath
   })
+
+export const requireInitializedProject = Effect.fn("requireInitializedProject")(function* (
+  requestedProjectPath?: string
+) {
+  const fs = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
+  const projectPath = yield* fs.realPath(
+    requestedProjectPath === undefined ? path.resolve() : path.resolve(requestedProjectPath)
+  )
+  const directoryPath = getDirectoryPath(path, projectPath)
+  const directoryExists = yield* fs.exists(directoryPath)
+
+  if (!directoryExists || (yield* fs.stat(directoryPath)).type !== "Directory") {
+    return yield* new NotInitializedError({ path: projectPath })
+  }
+
+  return projectPath
+})
 
 export const createProjectReference = Effect.fn("createProjectReference")(function* (
   projectPath: string,
