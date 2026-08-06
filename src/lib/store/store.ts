@@ -2,12 +2,13 @@ import type * as PlatformError from "effect/PlatformError"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Filter from "effect/Filter"
+import * as Order from "effect/Order"
 import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
 import type { PackageIdentity } from "#lib/core/packages.ts"
 import type { PackageSource } from "#lib/core/source.ts"
 import { StoreCorruptedError } from "#lib/core/errors.ts"
-import { PACKAGE_DIRECTORY_NAME } from "#lib/core/packages.ts"
+import { PACKAGE_DIRECTORY_NAME, packageIdentityOrder } from "#lib/core/packages.ts"
 import { PackageSourceSchema } from "#lib/core/source.ts"
 import { PackrefHome } from "#lib/services/packref-home.ts"
 import { formatJson } from "#lib/shared/json.ts"
@@ -31,6 +32,8 @@ export interface StoredEntry {
   readonly path: string
   readonly source: PackageSource
 }
+
+const storeEntryOrder = Order.mapInput(packageIdentityOrder, (entry: StoreEntry) => entry.identity)
 
 const StoreEntryMetadataSchema = Schema.Struct({
   source: PackageSourceSchema,
@@ -144,7 +147,7 @@ export const listStoreEntries = Effect.fn("listStoreEntries")(function* () {
     }
   }
 
-  return entries
+  return entries.toSorted(storeEntryOrder)
 })
 
 export const cleanStore = Effect.fn("cleanStore")(function* () {
