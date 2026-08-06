@@ -64,7 +64,7 @@
     "adamantite": "^0.34.0",
     "bunup": "0.16.32",
     "figlet": "1.11.4",
-    "knip": "6.30.0",
+    "knip": "6.31.0",
     "oxfmt": "0.61.0",
     "oxlint": "1.76.0",
     "oxlint-tsgolint": "7.0.2001",
