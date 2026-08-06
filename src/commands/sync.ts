@@ -114,18 +114,18 @@ export default Command.make("sync").pipe(
       yield* printTitle()
       yield* prompter.intro("🔄 packref sync")
 
-      const preparation = yield* prompter.withSpinner(preparePackageReferenceSync(), {
-        error: "Failed to inspect project dependencies",
+      const preparation = yield* prompter.withSpinner(() => preparePackageReferenceSync(), {
+        failure: "Failed to inspect project dependencies",
         start: "Resolving project dependencies...",
-        stop: "Resolved project dependencies",
+        success: "Resolved project dependencies",
       })
 
       yield* reportSyncPlan(preparation)
 
-      const result = yield* prompter.withSpinner(syncPackageReferences(preparation), {
-        error: "Failed to sync package references",
+      const result = yield* prompter.withSpinner(() => syncPackageReferences(preparation), {
+        failure: "Failed to sync package references",
         start: "Syncing package references...",
-        stop: "Synced package references",
+        success: "Synced package references",
       })
       const changedCount = yield* reportSyncResult(result)
 

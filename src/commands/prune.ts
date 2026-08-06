@@ -17,10 +17,10 @@ export default Command.make("prune").pipe(
       yield* printTitle()
       yield* prompter.intro("🧹 packref prune")
 
-      const plan = yield* prompter.withSpinner(discoverPrunePlan(), {
-        error: "Failed to inspect the global store",
+      const plan = yield* prompter.withSpinner(() => discoverPrunePlan(), {
+        failure: "Failed to inspect the global store",
         start: "Finding unused global store entries...",
-        stop: "Finished inspecting the global store",
+        success: "Finished inspecting the global store",
       })
 
       for (const warning of plan.warnings) {
@@ -43,10 +43,10 @@ export default Command.make("prune").pipe(
             })
           : false
 
-      const result = yield* prompter.withSpinner(applyPrunePlan(plan, removeStaleProjects), {
-        error: "Failed to prune the global store",
+      const result = yield* prompter.withSpinner(() => applyPrunePlan(plan, removeStaleProjects), {
+        failure: "Failed to prune the global store",
         start: "Removing unused global store entries...",
-        stop: "Finished pruning the global store",
+        success: "Finished pruning the global store",
       })
 
       for (const entry of result.removedEntries) {
