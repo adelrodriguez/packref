@@ -378,17 +378,27 @@ This preserves the goal that Packref references match the dependency version act
 
 ## clean
 
-Remove all entries from the global Packref store.
+Remove every reference from the current project, or remove all entries from the global Packref store with `--global` / `-g`.
 
 ```
 packref clean
+packref clean --global
 ```
 
-Algorithm:
+Local algorithm:
 
-1. delete all entries inside `~/.agents/packref/store/`
-2. preserve global project registrations
-3. leave project-local `.packref/` directories and lockfiles unchanged
+1. require an initialized project
+2. ask for confirmation
+3. delete all entries inside the project's `.packref/packages/`
+4. reset `.packref/packref-lock.json` to an empty package list
+5. preserve the global store and project registration
+
+Global algorithm:
+
+1. ask for confirmation
+2. delete all entries inside `~/.agents/packref/store/`
+3. preserve global project registrations
+4. leave project-local `.packref/` directories and lockfiles unchanged
 
 # Package Resolution
 
