@@ -1,0 +1,4 @@
+interface:
+  display_name: "Packref"
+  short_description: "Inspect exact dependency source with Packref"
+  default_prompt: "Use $packref to inspect the exact source of a dependency used by this project."
