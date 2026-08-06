@@ -14,7 +14,7 @@ export class LockfileParseError extends Data.TaggedError("LockfileParseError")<{
   cause: unknown
 }> {
   override get message() {
-    return `Failed to parse Packref lockfile at \`${this.path}\`.`
+    return `Failed to parse Packref lockfile at \`${this.path}\`. Fix the file or restore a valid committed copy, then retry.`
   }
 }
 
@@ -23,7 +23,7 @@ export class ManifestParseError extends Data.TaggedError("ManifestParseError")<{
   cause: unknown
 }> {
   override get message() {
-    return `Failed to parse project manifest at \`${this.path}\`.`
+    return `Failed to read or parse package manifest at \`${this.path}\`. Check that the file is readable and contains valid JSON, then retry.`
   }
 }
 
@@ -32,7 +32,7 @@ export class ManifestResolutionError extends Data.TaggedError("ManifestResolutio
   cause: unknown
 }> {
   override get message() {
-    return `Failed to resolve installed dependency versions for \`${this.path}\`.`
+    return `Failed to resolve installed dependency versions for \`${this.path}\`. Run your package manager's install command, or check that the manifest and lockfile are readable, then retry.`
   }
 }
 
@@ -40,7 +40,7 @@ export class UnsupportedManifestError extends Data.TaggedError("UnsupportedManif
   path: string
 }> {
   override get message() {
-    return `No supported project manifest was found in \`${this.path}\`.`
+    return `No supported project manifest was found in \`${this.path}\`. Packref currently supports projects with a package.json file.`
   }
 }
 
@@ -49,7 +49,7 @@ export class ConfigParseError extends Data.TaggedError("ConfigParseError")<{
   cause: unknown
 }> {
   override get message() {
-    return `Failed to parse Packref config at \`${this.path}\`.`
+    return `Failed to parse Packref config at \`${this.path}\`. Fix or remove the invalid config file, then retry.`
   }
 }
 
@@ -76,7 +76,7 @@ export class PackageNotReferencedError extends Data.TaggedError("PackageNotRefer
 }> {
   override get message() {
     const identity = `${this.registry}:${this.name}${this.version === undefined ? "" : `@${this.version}`}`
-    return `Package \`${identity}\` is not referenced by this project.`
+    return `Package \`${identity}\` is not referenced by this project. Run \`packref list\` to see available references.`
   }
 }
 
@@ -103,7 +103,7 @@ export class PackageNotFoundError extends Data.TaggedError("PackageNotFoundError
   registry: string
 }> {
   override get message() {
-    return `Package \`${this.registry}:${this.name}\` was not found.`
+    return `Package \`${this.registry}:${this.name}\` was not found. Check the package name and registry, then retry.`
   }
 }
 
@@ -113,7 +113,7 @@ export class PackageVersionNotFoundError extends Data.TaggedError("PackageVersio
   specifier: string
 }> {
   override get message() {
-    return `Package \`${this.registry}:${this.name}\` does not have a version matching \`${this.specifier}\`.`
+    return `Package \`${this.registry}:${this.name}\` does not have a version matching \`${this.specifier}\`. Choose a published version or range, then retry.`
   }
 }
 
@@ -160,7 +160,7 @@ export class SnapshotFetchError extends Data.TaggedError("SnapshotFetchError")<{
   source: string
 }> {
   override get message() {
-    return `Failed to fetch source snapshot from \`${this.source}\`.`
+    return `Failed to fetch source snapshot from \`${this.source}\`. Check your network access, filesystem permissions, and available disk space, then retry.`
   }
 }
 
@@ -169,7 +169,7 @@ export class TarballFetchError extends Data.TaggedError("TarballFetchError")<{
   url: string
 }> {
   override get message() {
-    return `Failed to fetch or extract package tarball from \`${this.url}\`.`
+    return `Failed to fetch or extract package tarball from \`${this.url}\`. Check your network access, filesystem permissions, and available disk space, then retry. If the failure persists, the archive may be corrupt or unsupported.`
   }
 }
 
@@ -178,7 +178,7 @@ export class StoreCorruptedError extends Data.TaggedError("StoreCorruptedError")
   path: string
 }> {
   override get message() {
-    return `Global store entry at \`${this.path}\` is missing valid source metadata.`
+    return `Failed to read valid source metadata for the global store entry at \`${this.path}\`. Check that its metadata is readable; if the metadata is missing or invalid, run \`packref clean --global\`, then retry.`
   }
 }
 
@@ -198,7 +198,7 @@ export class ReflinkError extends Data.TaggedError("ReflinkError")<{
   target: string
 }> {
   override get message() {
-    return `Failed to materialize project reference from \`${this.source}\` to \`${this.target}\`.`
+    return `Failed to materialize project reference from \`${this.source}\` to \`${this.target}\`. Check that the source exists and any repository directory metadata is valid, then check filesystem permissions and available disk space before retrying.`
   }
 }
 
@@ -207,6 +207,8 @@ export class NetworkError extends Data.TaggedError("NetworkError")<{
   url?: string
 }> {
   override get message() {
-    return this.url ? `Network request failed for \`${this.url}\`.` : "Network request failed."
+    return this.url
+      ? `Remote request failed for \`${this.url}\`. Check your connection, authentication, remote service status, and the response, then retry.`
+      : "Remote operation failed. Check your connection, authentication, and remote service status, then retry."
   }
 }

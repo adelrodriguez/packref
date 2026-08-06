@@ -471,7 +471,7 @@ describe("init", () => {
       expect(agents).toContain("packref remove [package]")
       expect(agents).toContain(".packref/packref-lock.json` is shared and should be committed")
       expect(agents).toContain("packref install")
-      expect(agents).toContain("install restores the lockfile exactly")
+      expect(agents).toContain("install restores locked references exactly")
       expect(agents).toContain(packrefAgentsEndMarker)
       expect(agents.endsWith("\n")).toBe(true)
     })

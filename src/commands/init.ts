@@ -14,7 +14,7 @@ import { initializeLockfile } from "#lib/workspace/lockfile.ts"
 import { ensureDirectory } from "#lib/workspace/project.ts"
 
 export default Command.make("init").pipe(
-  Command.withDescription("Initialize packref in the current project"),
+  Command.withDescription("Initialize Packref files and agent guidance in the current project"),
   Command.withHandler(() =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem

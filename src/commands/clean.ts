@@ -63,7 +63,7 @@ const cleanProject = Effect.fn("cleanProject")(function* () {
 })
 
 export default Command.make("clean", { global }).pipe(
-  Command.withDescription("Remove project references or all global store entries"),
+  Command.withDescription("Clear current-project references or the entire global store"),
   Command.withHandler(({ global }) =>
     Effect.gen(function* () {
       const prompter = yield* Prompter

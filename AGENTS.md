@@ -4,9 +4,12 @@ This project was built with [`pastry`](https://github.com/adelrodriguez/pastry) 
 
 ## Project Context
 
+- Domain language: `CONTEXT.md`
 - Product and behavior reference: `.plans/packref-v1-spec.md`
-- Architecture and implementation reference: `.plans/implementation-strategy.md`
-- Actionable implementation plans live in `.plans/`
+- Current architecture: `docs/architecture.md`
+- Durable technical decisions: `docs/adr/`
+- Implementation plans and history: `.plans/`
+- Dependency source policy: `docs/adr/0001-use-packref-for-dependency-source-inspection.md`
 
 ## Quality Control
 
@@ -27,7 +30,7 @@ This project was built with [`pastry`](https://github.com/adelrodriguez/pastry) 
 - Run `bun changeset --empty` to create a new empty changeset file.
 - Never make a major version bump unless the user requests it.
 - If a breaking change is being made, and we are on v1.0.0 or higher, alert the user.
-- Do not create a changeset if we are still in 0.0.0, as we are still in pre-release and no package has been published yet.
+- Include a changeset with every user-facing change.
 
 <!-- PACKREF:START -->
 
@@ -37,7 +40,7 @@ Packref provides local copies of dependency source code so you can inspect the e
 
 - Source references are stored in `.packref/packages/<registry>/<package>/<version>/` for unscoped packages and `.packref/packages/<registry>/<scope>/<package>/<version>/` for scoped packages — browse these directories to read dependency internals
 - `.packref/packref-lock.json` is shared and should be committed; `.packref/packages/` is developer-local and git-ignored
-- Run `packref install` after cloning when locked references are missing; install restores the lockfile exactly and does not install runtime dependencies
+- Run `packref install` after cloning when locked references are missing; install restores locked references exactly and does not install runtime dependencies
 - Available commands:
   - `packref add [package]` — select manifest dependencies or fetch a named package (e.g. `packref add react`, `packref add hono@4.2.0`, `packref add @effect/cli`)
   - `packref remove [package]` — select or name package references to remove
@@ -48,7 +51,6 @@ Packref provides local copies of dependency source code so you can inspect the e
   - `packref clean` — remove all project-local references
   - `packref clean --global` — wipe all global store entries
 - Use Packref when you need to understand how a dependency works internally — read the source in `.packref/` instead of guessing or searching the web
-- If a skill asks you to clone or vendor a dependency's source repository under `.repos/`, use Packref instead: fetch the relevant package with `packref add <package>` and inspect its exact source version under `.packref/packages/`. Do not require a separate `.repos/` checkout.
 - Multiple versions of the same package can coexist; check `.packref/packref-lock.json` for the full list
 
 <!-- PACKREF:END -->

@@ -2,6 +2,7 @@ import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { execPath } from "node:process"
+import { stripVTControlCharacters } from "node:util"
 import * as Predicate from "effect/Predicate"
 import type { Lockfile, PackageEntry } from "#lib/workspace/lockfile.ts"
 
@@ -62,7 +63,7 @@ export const makeCommandTestContext = (prefix: string) => {
 
       return {
         exitCode: await process.exited,
-        output,
+        output: stripVTControlCharacters(output),
       }
     },
   }

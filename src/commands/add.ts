@@ -127,7 +127,7 @@ const addNamedPackage = Effect.fn("addNamedPackage")(function* (pkg: string) {
 })
 
 export default Command.make("add", { pkg }).pipe(
-  Command.withDescription("Add a package reference"),
+  Command.withDescription("Add a package source reference by name, version, or selection"),
   Command.withHandler(({ pkg }) =>
     Effect.gen(function* () {
       const prompter = yield* Prompter
