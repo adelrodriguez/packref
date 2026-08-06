@@ -5,10 +5,10 @@ This project was built with [`pastry`](https://github.com/adelrodriguez/pastry) 
 ## Project Context
 
 - Domain language: `CONTEXT.md`
-- Product and behavior reference: `.plans/packref-v1-spec.md`
+- Product and behavior reference: `README.md`
 - Current architecture: `docs/architecture.md`
 - Durable technical decisions: `docs/adr/`
-- Implementation plans and history: `.plans/`
+- Implementation plans: `.plans/`
 - Dependency source policy: `docs/adr/0001-use-packref-for-dependency-source-inspection.md`
 
 ## Quality Control
