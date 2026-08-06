@@ -38,6 +38,25 @@ export const requireInitializedProject = Effect.fn("requireInitializedProject")(
   return projectPath
 })
 
+export const getProjectReferencePath = Effect.fn("getProjectReferencePath")(function* (
+  projectPath: string,
+  identity: PackageIdentity
+) {
+  const path = yield* Path.Path
+
+  return yield* getStorePackagePath(getDirectoryPath(path, projectPath), identity)
+})
+
+export const hasProjectReference = Effect.fn("hasProjectReference")(function* (
+  projectPath: string,
+  identity: PackageIdentity
+) {
+  const fs = yield* FileSystem.FileSystem
+  const referencePath = yield* getProjectReferencePath(projectPath, identity)
+
+  return yield* fs.exists(referencePath)
+})
+
 export const createProjectReference = Effect.fn("createProjectReference")(function* (
   projectPath: string,
   identity: PackageIdentity,

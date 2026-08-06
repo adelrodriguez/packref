@@ -39,8 +39,7 @@ export const readLockfileAtPath = (lockfilePath: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const rawLockfile = yield* fs.readFileString(lockfilePath)
-
-    return yield* Schema.decodeUnknownEffect(LockfileJsonSchema)(rawLockfile).pipe(
+    const lockfile = yield* Schema.decodeUnknownEffect(LockfileJsonSchema)(rawLockfile).pipe(
       Effect.mapError(
         (cause) =>
           new LockfileParseError({
@@ -49,6 +48,23 @@ export const readLockfileAtPath = (lockfilePath: string) =>
           })
       )
     )
+
+    for (const [index, entry] of lockfile.packages.entries()) {
+      if (
+        lockfile.packages
+          .slice(0, index)
+          .some((candidate) => packageIdentityEquivalence(candidate, entry))
+      ) {
+        return yield* new LockfileParseError({
+          cause: new Error(
+            `Duplicate package identity: ${entry.registry}:${entry.name}@${entry.version}`
+          ),
+          path: lockfilePath,
+        })
+      }
+    }
+
+    return lockfile
   })
 
 export const writeLockfileAtPath = (lockfilePath: string, lockfile: Lockfile) =>

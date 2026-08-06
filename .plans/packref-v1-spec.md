@@ -130,7 +130,9 @@ Each project stores:
 .packref/packref-lock.json
 ```
 
-The lockfile lives inside `.packref/` for v1. Packref does not create a root-level lockfile.
+The lockfile lives inside `.packref/` for v1 and is committed to version control. Packref does not
+create a root-level lockfile. Materialized `.packref/packages/` source trees remain local and are
+ignored.
 
 Example:
 
@@ -249,9 +251,35 @@ Registers the project in the global config.
 
 Also performs project integration (implemented, each step idempotent):
 
-- appends `.packref/` to `.gitignore` (with confirmation prompt)
+- adds `.packref/packages/` and `.packref/.packref-lock-*.tmp` to `.gitignore`, migrating exact
+  legacy `.packref` / `.packref/` rules (with confirmation prompt)
 - adds `.packref` to the `exclude` list in `tsconfig.json` when one exists (JSONC-aware; warns on malformed files instead of crashing)
 - writes a Packref usage section into `AGENTS.md` between `PACKREF:START`/`PACKREF:END` markers (with confirmation prompt; replaces the section on re-run)
+
+---
+
+## install
+
+Materialize all source references already recorded in the committed lockfile.
+
+```
+packref install
+```
+
+Behavior:
+
+1. require an initialized project and valid `.packref/packref-lock.json`
+2. register the canonical project path globally
+3. process lockfile entries in deterministic identity order
+4. leave an existing project-local reference unchanged
+5. otherwise reuse a global store entry only when its source metadata matches the lockfile
+6. fetch a missing repository or tarball source directly from the locked metadata
+7. create the project-local reference, respecting `source.directory`
+8. leave the lockfile byte-for-byte unchanged
+
+`packref install` restores Packref source references only. It does not install runtime dependencies
+and does not replace a package-manager install. `install` follows the lockfile; `sync` may change
+dependency-tracked lock entries to match the current project.
 
 ---
 

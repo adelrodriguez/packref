@@ -49,7 +49,9 @@ export const fetchRepositorySnapshot = Effect.fn("fetchRepositorySnapshot")(func
   const downloader = yield* RepositoryDownloader
   const fetchSource = resolvedRepository.source.fetchSource
   const source = {
-    directory: resolvedRepository.source.directory,
+    ...(resolvedRepository.source.directory === undefined
+      ? {}
+      : { directory: resolvedRepository.source.directory }),
     host: resolvedRepository.source.host,
     type: "repository",
     url: resolvedRepository.source.url,

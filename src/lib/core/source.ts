@@ -21,6 +21,7 @@ export type TarballSource = typeof TarballSourceSchema.Type
 
 export const PackageSourceSchema = Schema.Union([RepositorySourceSchema, TarballSourceSchema])
 export type PackageSource = typeof PackageSourceSchema.Type
+export const packageSourceEquivalence = Schema.toEquivalence(PackageSourceSchema)
 
 export interface NormalizedRepositorySource extends RepositorySource {
   readonly fetchSource: string | undefined

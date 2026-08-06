@@ -182,6 +182,16 @@ export class StoreCorruptedError extends Data.TaggedError("StoreCorruptedError")
   }
 }
 
+export class StoreSourceMismatchError extends Data.TaggedError("StoreSourceMismatchError")<{
+  name: string
+  registry: string
+  version: string
+}> {
+  override get message() {
+    return `Global store entry for \`${this.registry}:${this.name}@${this.version}\` does not match the source recorded in packref-lock.json. Run \`packref clean --global\` and retry.`
+  }
+}
+
 export class ReflinkError extends Data.TaggedError("ReflinkError")<{
   cause: unknown
   source: string
