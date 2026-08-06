@@ -168,10 +168,10 @@ Install the first-party Packref skill to teach coding agents when and how to ins
 dependency source:
 
 ```sh
-npx skills add adelrodriguez/packref --list
-npx skills add adelrodriguez/packref --skill packref
+npx skills add metaideas/packref --list
+npx skills add metaideas/packref --skill packref
 ```
 
-See the [`packref` skill on skills.sh](https://skills.sh/adelrodriguez/packref/packref).
+See the [`packref` skill on skills.sh](https://skills.sh/metaideas/packref/packref).
 
 Made with [🥐 `pastry`](https://github.com/adelrodriguez/pastry)
