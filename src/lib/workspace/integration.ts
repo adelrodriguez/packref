@@ -26,7 +26,7 @@ Packref provides local copies of dependency source code so you can inspect the e
 
 - Source references are stored in \`.packref/packages/<registry>/<package>/<version>/\` for unscoped packages and \`.packref/packages/<registry>/<scope>/<package>/<version>/\` for scoped packages — browse these directories to read dependency internals
 - \`.packref/packref-lock.json\` is shared and should be committed; \`.packref/packages/\` is developer-local and git-ignored
-- Run \`packref install\` after cloning when locked references are missing; install restores the lockfile exactly and does not install runtime dependencies
+- Run \`packref install\` after cloning when locked references are missing; install restores locked references exactly and does not install runtime dependencies
 - Available commands:
   - \`packref add [package]\` — select manifest dependencies or fetch a named package (e.g. \`packref add react\`, \`packref add hono@4.2.0\`, \`packref add @effect/cli\`)
   - \`packref remove [package]\` — select or name package references to remove

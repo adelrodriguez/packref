@@ -40,9 +40,10 @@
     "fix": "adamantite fix",
     "format": "adamantite format",
     "release": "changeset publish",
-    "test": "bun test",
+    "test": "bun test --parallel",
     "test:coverage": "bun test --coverage",
     "test:watch": "bun test --watch",
+    "typecheck": "tsc --noEmit",
     "version": "changeset version && bun run format"
   },
   "dependencies": {

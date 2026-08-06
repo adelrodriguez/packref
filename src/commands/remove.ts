@@ -111,7 +111,7 @@ const removeSelectedReferences = Effect.fn("removeSelectedReferences")(function*
 })
 
 export default Command.make("remove", { pkg }).pipe(
-  Command.withDescription("Remove a package reference from the project"),
+  Command.withDescription("Remove package source references by name, version, or selection"),
   Command.withHandler(({ pkg }) =>
     Effect.gen(function* () {
       const prompter = yield* Prompter

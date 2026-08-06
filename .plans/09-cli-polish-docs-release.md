@@ -4,13 +4,19 @@
 
 Prepare the v1 implementation for real use by tightening CLI output, documentation, packaging, and release metadata.
 
+## Status
+
+Implemented. Command help and errors are actionable, the complete v1 workflow is documented, and
+the executable package contents have been verified. A minor changeset
+(`.changeset/first-minor-release.md`) covers the first release.
+
 ## Scope
 
 - Improve user-facing success and error messages across all commands.
 - Confirm CLI help text is useful.
 - Update README with usage documentation.
 - Confirm build output and binary packaging.
-- Confirm release metadata is ready without creating a changeset until the package has a valid release baseline.
+- Confirm the package has a valid release baseline, then create the release changeset.
 - Run final quality gates.
 
 ## Implementation Steps
@@ -32,7 +38,7 @@ Prepare the v1 implementation for real use by tightening CLI output, documentati
 - CLI help includes all commands.
 - CLI errors are human-readable and actionable.
 - Package build output includes the executable CLI.
-- No changeset is required until the project has a valid release baseline.
+- Release metadata includes a changeset based on the project's valid release baseline.
 
 ## Validation
 
@@ -48,4 +54,4 @@ bun run build
 
 - New v2 features.
 - Monorepo package extraction unless it became part of v1 during execution.
-- Tarball fallback; tracked as a v2 feature.
+- Changes to the repository-to-tarball fallback implemented in Plan 02.

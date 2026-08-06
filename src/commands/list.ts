@@ -6,7 +6,7 @@ import { listPackageEntries, readProjectLockfile } from "#lib/workspace/lockfile
 import { requireInitializedProject } from "#lib/workspace/project.ts"
 
 export default Command.make("list").pipe(
-  Command.withDescription("List all referenced packages in the project"),
+  Command.withDescription("List package source references recorded for the current project"),
   Command.withHandler(() =>
     Effect.gen(function* () {
       const prompter = yield* Prompter

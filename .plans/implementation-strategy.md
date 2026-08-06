@@ -1,5 +1,9 @@
 # Packref v1 Implementation Strategy
 
+> **Historical implementation reference.** This document records how v1 was planned and assembled.
+> For the current architecture and durable decisions, see `docs/architecture.md` and `docs/adr/`.
+> The behavior authority remains `.plans/packref-v1-spec.md`.
+
 Packref v1 is package-reference focused. It supports npm packages only, while keeping `registry` in package identity and paths so future package registries can be added without changing layout. Arbitrary repository references such as GitHub/GitLab/Bitbucket repos are out of scope.
 
 v1 fetches repository snapshots first and falls back to npm tarballs when repository metadata, host support, or a matching tag is missing (never for network/auth failures). See `packref-v1-spec.md` § Source Fallback.
@@ -316,7 +320,7 @@ Each error carries context (package name, version, path, etc.) for actionable CL
 16. Lockfile source metadata is nested under `source`; GitHub/GitLab/Bitbucket are source hosts discovered from package metadata, not package providers.
 17. `packref add <pkg>` without an explicit version resolves the project's installed version first (package-manager lockfile through `nypm`, then `node_modules`, then registry). Registry `latest` is used only when the package is not a project dependency.
 18. Tracking assignment: versionless `add` of a manifest dependency writes `tracking: "dependency"`; explicit version/range specs and non-manifest packages write `tracking: "manual"`. This is the only way `add` assigns tracking; users do not choose it with a flag in v1.
-19. `packref sync` adopts manifest dependencies that have no Packref reference through a multiselect prompt; adopted entries get `tracking: "dependency"`.
+19. `packref sync` reconciles only existing dependency-tracked references. Manifest dependencies with no Packref reference are ignored and can be selected explicitly through bare `packref add`.
 20. v1 includes the npm tarball fallback (previously v2). Fallback triggers only on metadata-level gaps: no repository field, unsupported repository host, or no matching git tag. Network, authentication, and unexpected fetch errors fail loudly without fallback.
 21. Supported repository source hosts are github.com, gitlab.com, bitbucket.org, and sourcehut (the giget provider set). Unknown hosts are a fallback trigger, not an error.
 22. Store writes are atomic: fetch into a temp directory, rename into the store path on success. Existing store entries are trusted without deep validation in v1.

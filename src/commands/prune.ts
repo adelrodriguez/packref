@@ -9,7 +9,7 @@ const formatIdentity = (identity: PackageIdentity) =>
   `${identity.registry}:${identity.name}@${identity.version}`
 
 export default Command.make("prune").pipe(
-  Command.withDescription("Remove unused entries from the global store"),
+  Command.withDescription("Remove global store entries unused by registered projects"),
   Command.withHandler(() =>
     Effect.gen(function* () {
       const prompter = yield* Prompter

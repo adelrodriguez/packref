@@ -106,7 +106,7 @@ const reportSyncResult = Effect.fn("reportSyncResult")(function* (result: SyncRe
 })
 
 export default Command.make("sync").pipe(
-  Command.withDescription("Sync package references with resolved project dependencies"),
+  Command.withDescription("Update dependency-tracked references to resolved project versions"),
   Command.withHandler(() =>
     Effect.gen(function* () {
       const prompter = yield* Prompter
