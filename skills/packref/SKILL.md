@@ -11,7 +11,7 @@ materializes source references for inspection, not runtime dependencies.
 
 ## Workflow
 
-1. Check for `.packref/packref-lock.json`, then run `packref list` in an initialized project to
+1. Check for `.packref/packref-lock.json`, then run `npx packref list` in an initialized project to
    orient before fetching or removing anything.
 2. Read the lockfile. Match `registry`, `name`, and exact `version`; also note `tracking` and
    `source`. When multiple versions of a package coexist, select the version the task requires.
@@ -19,9 +19,9 @@ materializes source references for inspection, not runtime dependencies.
    - Unscoped: `.packref/packages/<registry>/<package>/<version>/`
    - Scoped: `.packref/packages/<registry>/<scope>/<package>/<version>/`, retaining the leading
      `@` in `<scope>`.
-4. If the matching lock entry exists but its tree is missing, run `packref install`. It restores
+4. If the matching lock entry exists but its tree is missing, run `npx packref install`. It restores
    all locked references exactly without changing the lockfile or installing runtime dependencies.
-5. If no matching lock entry exists in an initialized project, run `packref add <package>` only
+5. If no matching lock entry exists in an initialized project, run `npx packref add <package>` only
    when fetching the requested source is in scope. Include `@<version>` when an exact version is
    required; otherwise Packref can track the project's resolved manifest dependency.
 6. Search the materialized tree with local tools such as `rg`, `rg --files`, and targeted file
@@ -35,25 +35,25 @@ append it to the local reference path.
 
 ## Command boundaries
 
-- `packref init`: Initialize only with user authorization. It is interactive and may update
+- `npx packref init`: Initialize only with user authorization. It is interactive and may update
   `.gitignore`, `tsconfig.json`, `AGENTS.md`, the Packref lockfile, and Packref's global project
   registration. If Packref is absent, explain this setup before proceeding.
-- `packref add [package]`: Resolve and materialize a missing reference. With no package, it opens
+- `npx packref add [package]`: Resolve and materialize a missing reference. With no package, it opens
   an interactive dependency selector.
-- `packref install`: Restore missing trees from the committed lockfile exactly.
-- `packref sync`: Reconcile dependency-tracked references after manifest or package-manager
+- `npx packref install`: Restore missing trees from the committed lockfile exactly.
+- `npx packref sync`: Reconcile dependency-tracked references after manifest or package-manager
   lockfile changes; it may update or remove those references.
-- `packref remove [package]`: Use only when removal is explicitly requested.
-- `packref prune`, `packref clean`, and `packref clean --global`: Use only when the user explicitly
+- `npx packref remove [package]`: Use only when removal is explicitly requested.
+- `npx packref prune`, `npx packref clean`, and `npx packref clean --global`: Use only when the user explicitly
   requests their destructive scope.
 
 ## Examples
 
 - For `@effect/platform@0.90.0`, read
   `.packref/packages/npm/@effect/platform/0.90.0/` after matching its lock entry.
-- If `npm:react@19.1.0` is locked but its tree is absent, run `packref install`, then inspect the
+- If `npm:react@19.1.0` is locked but its tree is absent, run `npx packref install`, then inspect the
   restored unscoped path.
-- If `hono` is neither locked nor materialized, run `packref add hono` in an initialized project,
+- If `hono` is neither locked nor materialized, run `npx packref add hono` in an initialized project,
   then read the exact identity and source selected in the updated lockfile.
 - If both `npm:hono@4.2.0` and `npm:hono@4.3.0` are locked, each version has its own directory;
   read the one the task requires, or compare both when the task is a version comparison.

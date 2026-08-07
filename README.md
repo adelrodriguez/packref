@@ -1,10 +1,21 @@
-<div align="center">
-  <h1 align="center">packref</h1>
-
+<p align="center">
+  <h1 align="center">🚚 packref</h1>
   <p align="center">
-    <strong>Local, versioned package references for your agents</strong>
+    <strong>Local, versioned package references for your coding agents.</strong>
   </p>
-</div>
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/packref">
+    <img src="https://img.shields.io/npm/v/packref.svg" alt="npm version">
+  </a>
+  <a href="https://www.npmjs.com/package/packref">
+    <img src="https://img.shields.io/npm/dm/packref.svg" alt="npm downloads">
+  </a>
+  <a href="https://github.com/metaideas/packref/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/metaideas/packref.svg" alt="license">
+  </a>
+</p>
 
 Packref gives coding agents local copies of the exact dependency source used by a project. Agents
 can inspect implementation details without guessing from documentation, cloning an unrelated
@@ -13,30 +24,31 @@ revision, or reading a different installed version.
 Packref installs source for inspection only. It does not install runtime dependencies, modify your
 dependency manifest, or replace your package manager.
 
-Project contributors can start with the [domain glossary](./CONTEXT.md),
-[current architecture](./docs/architecture.md), and [decision records](./docs/adr/README.md).
+---
 
-## Installation
+## Features
 
-Install the CLI globally with your preferred package manager:
-
-```sh
-npm install --global packref
-# or
-bun add --global packref
-# or
-pnpm add --global packref
-```
-
-Run `packref --help` to see every command and `packref <command> --help` for command-specific
-arguments and flags.
+- **🎯 Exact source alignment**: Reference the package versions that the project actually uses.
+- **🔎 Repository-first inspection**: Prefer tagged repository source and retain monorepo layout when
+  package metadata identifies a subdirectory.
+- **📦 Reliable fallback**: Use the published npm tarball when repository source is not available.
+- **🔒 Reproducible references**: Commit one Packref lockfile so every contributor can materialize
+  the same package source references.
+- **♻️ Shared source snapshots**: Reuse immutable package source across projects through a
+  deduplicated global store.
+- **🤖 Agent-ready guidance**: Add clear instructions that tell coding agents where and when to read
+  dependency source.
+- **🧭 Safe reconciliation**: Sync dependency-tracked references without changing manual references
+  or adopting unrelated dependencies.
+- **🧰 Package-manager neutral**: Work alongside Bun, npm, pnpm, and Yarn without replacing runtime
+  dependency installation.
 
 ## Quick start
 
 Initialize Packref from the root of a project:
 
 ```sh
-packref init
+npx packref init
 ```
 
 Initialization creates `.packref/packref-lock.json`, registers the project for global-store
@@ -45,9 +57,9 @@ pruning, and can update `.gitignore`, `tsconfig.json`, and `AGENTS.md` with Pack
 Add the exact installed version of a dependency, or request a package and version explicitly:
 
 ```sh
-packref add react
-packref add hono@4.2.0
-packref add @effect/cli
+npx packref add react
+npx packref add hono@4.2.0
+npx packref add @effect/cli
 ```
 
 Running `packref add` without a package opens a multiselect of dependencies not yet referenced.
@@ -58,7 +70,7 @@ Commit `.packref/packref-lock.json` with the project. After cloning, restore eve
 reference with:
 
 ```sh
-packref install
+npx packref install
 ```
 
 `install` follows the committed lockfile exactly. It does not resolve project dependencies, adopt
@@ -70,7 +82,7 @@ new dependencies, or change lockfile contents.
 
 Initialize the current project, create or preserve its lockfile, register it globally, and offer to
 write ignore rules and agent guidance. If a committed lockfile already has entries, run
-`packref install` afterward to materialize them.
+`npx packref install` afterward to materialize them.
 
 ### `packref add [package]`
 
@@ -94,8 +106,8 @@ Remove matching project-local source trees and lockfile entries. Omit the packag
 references. If a name matches multiple versions, Packref asks which versions to remove.
 
 ```sh
-packref remove react
-packref remove react@18.3.1
+npx packref remove react
+npx packref remove react@18.3.1
 ```
 
 ### `packref sync`
@@ -105,7 +117,7 @@ remove dependency-tracked references no longer present in the manifest. Manual r
 preserved, and unreferenced manifest dependencies are not automatically adopted.
 
 ```sh
-packref sync
+npx packref sync
 ```
 
 ### `packref prune`
@@ -114,7 +126,7 @@ Remove global store entries unused by every registered project. Missing or unrea
 projects are reported and prevent unsafe pruning; stale registrations can be removed interactively.
 
 ```sh
-packref prune
+npx packref prune
 ```
 
 ### `packref clean`
@@ -124,8 +136,8 @@ global flag to wipe only the global source store; registered projects and projec
 preserved.
 
 ```sh
-packref clean
-packref clean --global
+npx packref clean
+npx packref clean --global
 ```
 
 ## Files and storage
