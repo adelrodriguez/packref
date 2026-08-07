@@ -61,6 +61,14 @@ export class OperationCancelled extends Data.TaggedError("OperationCancelled")<{
   }
 }
 
+export class RequestedIntegrationError extends Data.TaggedError("RequestedIntegrationError")<{
+  target: "AGENTS.md" | "tsconfig.json"
+}> {
+  override get message() {
+    return `Requested \`${this.target}\` integration could not be completed.`
+  }
+}
+
 export class NotInitializedError extends Data.TaggedError("NotInitializedError")<{
   path: string
 }> {

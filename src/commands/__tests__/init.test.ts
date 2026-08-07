@@ -41,6 +41,7 @@ const countOccurrences = (source: string, target: string) => source.split(target
 
 interface InitPromptInputs {
   readonly agents?: string
+  readonly args?: readonly string[]
   readonly ignore?: string
 }
 
@@ -56,7 +57,7 @@ const runInitCommand = async (
   const ignoreInput = inputs.ignore ?? "\r"
   const agentsInput = inputs.agents ?? "\r"
   const process = Bun.spawn({
-    cmd: [execPath, cliPath, "init"],
+    cmd: [execPath, cliPath, "init", ...(inputs.args ?? [])],
     cwd: projectPath,
     env: {
       ...Bun.env,
@@ -98,6 +99,86 @@ afterEach(async () => {
 })
 
 describe("init", () => {
+  describe("non-interactive setup", () => {
+    it("initializes without optional integrations when setup flags are omitted", async () => {
+      const projectPath = await makeTempDirectory()
+      const homePath = await makeTempDirectory()
+
+      const result = await runInitCommand(projectPath, homePath, {
+        args: ["--non-interactive"],
+      })
+
+      expect(result.exitCode).toBe(0)
+      expect(result.stdout).not.toContain("Ignore generated Packref references")
+      expect(await exists(join(projectPath, ".packref", "packref-lock.json"))).toBe(true)
+      expect(await exists(join(projectPath, ".gitignore"))).toBe(false)
+      expect(await exists(join(projectPath, "AGENTS.md"))).toBe(false)
+    })
+
+    it("applies every requested integration without prompts", async () => {
+      const projectPath = await makeTempDirectory()
+      const homePath = await makeTempDirectory()
+
+      await writeFile(join(projectPath, "tsconfig.json"), "{}\n")
+
+      const result = await runInitCommand(projectPath, homePath, {
+        args: ["--non-interactive", "--ignore", "--agents"],
+      })
+
+      expect(result.exitCode).toBe(0)
+      expect(result.stdout).not.toContain("Ignore generated Packref references")
+      expect(await readText(join(projectPath, ".gitignore"))).toContain(".packref/packages/")
+      expect(await readText(join(projectPath, "AGENTS.md"))).toContain(packrefAgentsStartMarker)
+      expect(await readJson<{ exclude: string[] }>(join(projectPath, "tsconfig.json"))).toEqual({
+        exclude: [".packref"],
+      })
+    })
+
+    it("fails when a requested tsconfig integration cannot be completed", async () => {
+      const projectPath = await makeTempDirectory()
+      const homePath = await makeTempDirectory()
+
+      await writeFile(join(projectPath, "tsconfig.json"), "{")
+
+      const result = await runInitCommand(projectPath, homePath, {
+        args: ["--non-interactive", "--ignore"],
+      })
+
+      expect(result.exitCode).toBe(1)
+      expect(result.stdout).toContain("Could not update tsconfig.json because it is malformed")
+      expect(await readText(join(projectPath, "tsconfig.json"))).toBe("{")
+    })
+
+    it("fails when a requested agents integration cannot be completed", async () => {
+      const projectPath = await makeTempDirectory()
+      const homePath = await makeTempDirectory()
+      const existingAgents = "# Existing Instructions\n\n<!-- PACKREF:START -->\nmanual content\n"
+
+      await writeFile(join(projectPath, "AGENTS.md"), existingAgents)
+
+      const result = await runInitCommand(projectPath, homePath, {
+        args: ["--non-interactive", "--agents"],
+      })
+
+      expect(result.exitCode).toBe(1)
+      expect(result.stdout).toContain(
+        "Could not update AGENTS.md because Packref markers are incomplete"
+      )
+      expect(await readText(join(projectPath, "AGENTS.md"))).toBe(existingAgents)
+    })
+
+    it("rejects setup flags without non-interactive mode", async () => {
+      const projectPath = await makeTempDirectory()
+      const homePath = await makeTempDirectory()
+
+      const result = await runInitCommand(projectPath, homePath, { args: ["--agents"] })
+
+      expect(result.exitCode).toBe(1)
+      expect(result.stdout).toContain("Setup flags require --non-interactive")
+      expect(await exists(join(projectPath, ".packref"))).toBe(false)
+    })
+  })
+
   describe("project registration", () => {
     it("creates a project lockfile and registers the project", async () => {
       const projectPath = await makeTempDirectory()

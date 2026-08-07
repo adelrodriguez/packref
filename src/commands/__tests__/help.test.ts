@@ -23,13 +23,14 @@ describe("CLI help", () => {
     expect(result.output).toMatch(/^[ \t]*sync[ \t]+Update dependency-tracked references\b/m)
   })
 
-  it("documents optional package selection and global cleaning", async () => {
+  it("documents optional package selection, init setup, and global cleaning", async () => {
     const projectPath = await context.makeTempDirectory()
     const homePath = await context.makeTempDirectory()
-    const [addHelp, removeHelp, cleanHelp] = await Promise.all([
+    const [addHelp, removeHelp, cleanHelp, initHelp] = await Promise.all([
       context.runCli({ args: ["add", "--help"], homePath, projectPath }),
       context.runCli({ args: ["remove", "--help"], homePath, projectPath }),
       context.runCli({ args: ["clean", "--help"], homePath, projectPath }),
+      context.runCli({ args: ["init", "--help"], homePath, projectPath }),
     ])
 
     expect(addHelp.exitCode).toBe(0)
@@ -40,5 +41,9 @@ describe("CLI help", () => {
     expect(cleanHelp.exitCode).toBe(0)
     expect(cleanHelp.output).toContain("--global, -g")
     expect(cleanHelp.output).toContain("global Packref store")
+    expect(initHelp.exitCode).toBe(0)
+    expect(initHelp.output).toContain("--non-interactive")
+    expect(initHelp.output).toContain("--ignore")
+    expect(initHelp.output).toContain("--agents")
   })
 })

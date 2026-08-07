@@ -2,6 +2,8 @@ import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Path from "effect/Path"
 import * as Command from "effect/unstable/cli/Command"
+import * as Flag from "effect/unstable/cli/Flag"
+import { RequestedIntegrationError } from "#lib/core/errors.ts"
 import { Prompter } from "#lib/services/prompter.ts"
 import { printTitle } from "#lib/shared/terminal.ts"
 import { registerProject } from "#lib/workspace/config.ts"
@@ -13,29 +15,54 @@ import {
 import { initializeLockfile } from "#lib/workspace/lockfile.ts"
 import { ensureDirectory } from "#lib/workspace/project.ts"
 
-export default Command.make("init").pipe(
+const nonInteractive = Flag.boolean("non-interactive").pipe(
+  Flag.withDescription("Configure the project from flags without prompts")
+)
+
+const ignore = Flag.boolean("ignore").pipe(
+  Flag.withDescription("Update .gitignore and exclude .packref from TypeScript")
+)
+
+const agents = Flag.boolean("agents").pipe(
+  Flag.withDescription("Add Packref guidance to AGENTS.md")
+)
+
+export default Command.make("init", { agents, ignore, nonInteractive }).pipe(
   Command.withDescription("Initialize Packref files and agent guidance in the current project"),
-  Command.withHandler(() =>
+  Command.withHandler(({ agents, ignore, nonInteractive }) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem
       const path = yield* Path.Path
       const prompter = yield* Prompter
       const projectPath = yield* fs.realPath(path.resolve())
 
+      if (!nonInteractive && (ignore || agents)) {
+        return yield* Effect.fail(
+          new Error(
+            "Setup flags require --non-interactive. Run `packref init` for interactive setup."
+          )
+        )
+      }
+
       yield* printTitle()
 
-      yield* prompter.intro("🚚 packref init")
+      yield* prompter.intro(`🚚 packref init${nonInteractive ? " --non-interactive" : ""}`)
       yield* prompter.log.info(`Preparing project at ${projectPath}`)
 
-      const shouldAddIgnoreEntries = yield* prompter.confirm({
-        initialValue: true,
-        message: "Ignore generated Packref references and exclude `.packref` from TypeScript?",
-      })
+      const shouldAddIgnoreEntries = nonInteractive
+        ? ignore
+        : yield* prompter.confirm({
+            initialValue: true,
+            message: "Ignore generated Packref references and exclude `.packref` from TypeScript?",
+          })
 
-      const shouldAddAgentsGuidance = yield* prompter.confirm({
-        initialValue: true,
-        message: "Add a guidance section to AGENTS.md so coding agents know how to use Packref?",
-      })
+      const shouldAddAgentsGuidance = nonInteractive
+        ? agents
+        : yield* prompter.confirm({
+            initialValue: true,
+            message:
+              "Add a guidance section to AGENTS.md so coding agents know how to use Packref?",
+          })
 
       yield* prompter.withSpinner(() => ensureDirectory(projectPath), {
         failure: "Failed to prepare project directory",
@@ -80,6 +107,10 @@ export default Command.make("init").pipe(
           yield* prompter.log.warning(
             "Could not update tsconfig.json because it is malformed. Add `.packref` to `exclude` manually."
           )
+
+          if (nonInteractive) {
+            return yield* new RequestedIntegrationError({ target: "tsconfig.json" })
+          }
         }
       }
 
@@ -95,6 +126,10 @@ export default Command.make("init").pipe(
           yield* prompter.log.warning(
             "Could not update AGENTS.md because Packref markers are incomplete. Remove the stale PACKREF marker and run packref init again."
           )
+
+          if (nonInteractive) {
+            return yield* new RequestedIntegrationError({ target: "AGENTS.md" })
+          }
         }
       }
 

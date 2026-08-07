@@ -54,6 +54,23 @@ npx packref init
 Initialization creates `.packref/packref-lock.json`, registers the project for global-store
 pruning, and can update `.gitignore`, `tsconfig.json`, and `AGENTS.md` with Packref guidance.
 
+### Non-interactive setup for agents
+
+Use `--non-interactive` to initialize Packref entirely from flags. Add `--ignore` to update
+`.gitignore` and exclude `.packref` from TypeScript. Add `--agents` to write Packref guidance to
+`AGENTS.md`.
+
+```sh
+# Initialize only the Packref lockfile and project registration
+npx packref init --non-interactive
+
+# Recommended unattended setup for coding agents
+npx packref init --non-interactive --ignore --agents
+```
+
+Omitted setup flags are disabled. The `--ignore` and `--agents` flags require
+`--non-interactive`; without setup flags, `packref init` keeps the interactive setup flow.
+
 Add the exact installed version of a dependency, or request a package and version explicitly:
 
 ```sh
@@ -81,8 +98,9 @@ new dependencies, or change lockfile contents.
 ### `packref init`
 
 Initialize the current project, create or preserve its lockfile, register it globally, and offer to
-write ignore rules and agent guidance. If a committed lockfile already has entries, run
-`npx packref install` afterward to materialize them.
+write ignore rules and agent guidance. Use `--non-interactive` with `--ignore` and/or `--agents` for
+an unattended setup. If a committed lockfile already has entries, run `npx packref install`
+afterward to materialize them.
 
 ### `packref add [package]`
 
