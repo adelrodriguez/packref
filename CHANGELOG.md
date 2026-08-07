@@ -1,5 +1,11 @@
 # packref
 
+## 0.1.1
+
+### Patch Changes
+
+- 878cefd: Update development dependencies and fix deployment credentials.
+
 ## 0.1.0
 
 ### Minor Changes
