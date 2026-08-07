@@ -13,6 +13,6 @@
     "verbatimModuleSyntax": true,
     "types": ["bun"]
   },
-  "include": ["src", "bunup.config.ts"],
+  "include": ["src", "*.config.ts"],
   "exclude": ["node_modules", "dist", ".packref"]
 }

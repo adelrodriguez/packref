@@ -1,36 +1,27 @@
 # AGENTS.md
 
-This project was built with [`pastry`](https://github.com/adelrodriguez/pastry) template.
+Use ASD-STE100 Simplified Technical English for all communication.
 
-## Project Context
+Before you explore or change code, read the relevant `CONTEXT.md` files. Use the
+ubiquitous language in these files.
 
-- Domain language: `CONTEXT.md`
-- Product and behavior reference: `README.md`
-- Current architecture: `docs/architecture.md`
-- Durable technical decisions: `docs/adr/`
-- Implementation plans: `.plans/`
-- Dependency source policy: `docs/adr/0001-use-packref-for-dependency-source-inspection.md`
+## Agent skills
 
-## Quality Control
+### Issue tracker
 
-- We use `adamantite` for linting, formatting and type checking.
-- Always run `bun run format` after editing files.
-- After making changes, run `bun run check` and `bun run test` to ensure the code is still valid.
-- After installing or removing dependencies, run `bun run analyze` to ensure we are not using any dependencies that are not needed.
+Issues and PRDs are tracked as GitHub issues at `metaideas/packref`. See `docs/agents/issue-tracker.md`.
 
-## Effect
+### Triage labels
 
-- When writing an Effect function, yield all service dependencies inside that function instead of resolving them outside and passing them in.
-- When failing with a tagged error inside `Effect.gen`, prefer `yield* new SomeTaggedError(...)` over `yield* Effect.fail(new SomeTaggedError(...))`.
-- If a standalone Effect implementation is not using `Effect.gen`, prefer `function` syntax over arrow function syntax. Callback functions passed to combinators like `Effect.catchTag` can still use arrow function syntax.
+Use the default five-role triage vocabulary. See `docs/agents/triage-labels.md`.
 
-## Changesets
+### Domain docs
 
-- We use `changesets` for versioning and changelog management.
-- Run `bun changeset --empty` to create a new empty changeset file.
-- Never make a major version bump unless the user requests it.
-- If a breaking change is being made, and we are on v1.0.0 or higher, alert the user.
-- Include a changeset with every user-facing change.
+Use the single-context domain-doc layout. See `docs/agents/domain.md`.
+
+### Changesets
+
+Use Changesets for versioning and changelog management. See `docs/agents/changesets.md`.
 
 <!-- PACKREF:START -->
 
@@ -54,3 +45,18 @@ Packref provides local copies of dependency source code so you can inspect the e
 - Multiple versions of the same package can coexist; check `.packref/packref-lock.json` for the full list
 
 <!-- PACKREF:END -->
+
+<!-- ADAMANTITE:START -->
+
+## Adamantite
+
+This project uses Adamantite for its managed formatting, linting, type checking, and dependency-analysis setup.
+
+- Prefer the package scripts Adamantite added for this workspace.
+- Run `bun run format` after editing files. Direct command: `adamantite format`.
+- Run `bun run check` to catch lint and type issues. Direct command: `adamantite check`.
+- Run `bun run fix` to apply safe lint fixes. Direct command: `adamantite fix`.
+- Run `bun run analyze` after changing dependencies, imports, or exports. Direct command: `adamantite analyze`.
+- Use `adamantite doctor` to inspect managed setup and `adamantite doctor --fix` for safe local fixes.
+
+<!-- ADAMANTITE:END -->
