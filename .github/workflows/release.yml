@@ -12,7 +12,7 @@ permissions:
   pull-requests: write
   id-token: write # Required for OIDC
 
-concurrency: ${{ github.workflow }}-${{ github.ref }}
+concurrency: release-v2-${{ github.ref }}
 
 jobs:
   release:
