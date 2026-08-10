@@ -45,6 +45,7 @@ const AppLayer = Layer.provideMerge(PackrefServices, NodePlatform)
 
 const program = Command.run(main, { version }).pipe(
   Effect.as(0),
+  Effect.catchTag("ShowHelp", (error) => Effect.succeed(error.errors.length === 0 ? 0 : 1)),
   Effect.catch((error) =>
     Effect.gen(function* () {
       const prompter = yield* Prompter
