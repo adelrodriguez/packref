@@ -116,12 +116,13 @@ reused; missing snapshots are fetched from the source metadata already recorded 
 ### `packref list`
 
 List the current project's references in deterministic order, including version, source host or
-tarball type, and a marker for manually tracked entries.
+tarball type, and a marker for manually tracked entries. Also available as `packref ls`.
 
 ### `packref remove [package]`
 
 Remove matching project-local source trees and lockfile entries. Omit the package to select from all
-references. If a name matches multiple versions, Packref asks which versions to remove.
+references. If a name matches multiple versions, Packref asks which versions to remove. Also
+available as `packref rm`.
 
 ```sh
 npx packref remove react
