@@ -111,6 +111,7 @@ const removeSelectedReferences = Effect.fn("removeSelectedReferences")(function*
 })
 
 export default Command.make("remove", { pkg }).pipe(
+  Command.withAlias("rm"),
   Command.withDescription("Remove package source references by name, version, or selection"),
   Command.withHandler(({ pkg }) =>
     Effect.gen(function* () {

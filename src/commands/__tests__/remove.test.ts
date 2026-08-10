@@ -15,9 +15,15 @@ import { type PackageEntry, readProjectLockfile } from "#lib/workspace/lockfile.
 
 const context = makeCommandTestContext("packref-remove-test-")
 
-const runRemove = (projectPath: string, homePath: string, packageSpec?: string, input?: string) =>
+const runRemove = (
+  projectPath: string,
+  homePath: string,
+  packageSpec?: string,
+  input?: string,
+  command: "remove" | "rm" = "remove"
+) =>
   context.runCli({
-    args: ["remove", ...(Predicate.isUndefined(packageSpec) ? [] : [packageSpec])],
+    args: [command, ...(Predicate.isUndefined(packageSpec) ? [] : [packageSpec])],
     homePath,
     input,
     projectPath,
@@ -76,6 +82,20 @@ describe("remove", () => {
     expect(await exists(storedSourcePath)).toBe(true)
     const lockfile = await readLockfile(projectPath)
     expect(lockfile.packages).toEqual([react19])
+  })
+
+  it("supports rm as an alias", async () => {
+    const projectPath = await context.makeTempDirectory()
+    const homePath = await context.makeTempDirectory()
+    const entry = repositoryEntry("react", "19.0.0")
+    await initializeProject(projectPath, [entry])
+    const referencePath = await materializeReference(projectPath, entry)
+
+    const result = await runRemove(projectPath, homePath, "react", undefined, "rm")
+
+    expect(result.exitCode).toBe(0)
+    expect(result.output).toContain("Removed npm:react@19.0.0")
+    expect(await exists(referencePath)).toBe(false)
   })
 
   it("removes a name-only match directly when only one version exists", async () => {

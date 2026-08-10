@@ -17,9 +17,9 @@ describe("CLI help", () => {
     expect(result.output).toMatch(/^[ \t]*clean[ \t]+Clear current-project references\b/m)
     expect(result.output).toMatch(/^[ \t]*init[ \t]+Initialize Packref files\b/m)
     expect(result.output).toMatch(/^[ \t]*install[ \t]+Install Packref source references\b/m)
-    expect(result.output).toMatch(/^[ \t]*list[ \t]+List package source references\b/m)
+    expect(result.output).toMatch(/^[ \t]*list, ls[ \t]+List package source references\b/m)
     expect(result.output).toMatch(/^[ \t]*prune[ \t]+Remove global store entries\b/m)
-    expect(result.output).toMatch(/^[ \t]*remove[ \t]+Remove package source references\b/m)
+    expect(result.output).toMatch(/^[ \t]*remove, rm[ \t]+Remove package source references\b/m)
     expect(result.output).toMatch(/^[ \t]*sync[ \t]+Update dependency-tracked references\b/m)
   })
 
