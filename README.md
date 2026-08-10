@@ -95,77 +95,31 @@ new dependencies, or change lockfile contents.
 
 ## Commands
 
-### `packref init`
-
-Initialize the current project, create or preserve its lockfile, register it globally, and offer to
-write ignore rules and agent guidance. Use `--non-interactive` with `--ignore` and/or `--agents` for
-an unattended setup. If a committed lockfile already has entries, run `npx packref install`
-afterward to materialize them.
-
-### `packref add [package]`
-
-Add a package source reference. A versionless dependency uses the project's exact installed version
-when available. Explicit versions such as `hono@4.2.0` are tracked manually. Omit the package to
-select one or more unresolved project dependencies interactively.
-
-### `packref install`
-
-Materialize missing source trees from `.packref/packref-lock.json`. Matching global snapshots are
-reused; missing snapshots are fetched from the source metadata already recorded in the lockfile.
-
-### `packref list`
-
-List the current project's references in deterministic order, including version, source host or
-tarball type, and a marker for manually tracked entries. Also available as `packref ls`.
-
-### `packref remove [package]`
-
-Remove matching project-local source trees and lockfile entries. Omit the package to select from all
-references. If a name matches multiple versions, Packref asks which versions to remove. Also
-available as `packref rm`.
-
-```sh
-npx packref remove react
-npx packref remove react@18.3.1
-```
-
-### `packref sync`
-
-Update existing dependency-tracked references to the exact versions resolved for the project and
-remove dependency-tracked references no longer present in the manifest. Manual references are
-preserved, and unreferenced manifest dependencies are not automatically adopted.
-
-```sh
-npx packref sync
-```
-
-### `packref prune`
-
-Remove global store entries unused by every registered project. Missing or unreadable registered
-projects are reported and prevent unsafe pruning; stale registrations can be removed interactively.
-
-```sh
-npx packref prune
-```
-
-### `packref clean`
-
-Clear all references from the current project and reset its lockfile after confirmation. Use the
-global flag to wipe only the global source store; registered projects and project-local state are
-preserved.
-
-```sh
-npx packref clean
-npx packref clean --global
-```
+| Command                                              | Description                                                                                                                                                                                                                                                                                                                      |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packref init`                                       | Initialize the current project, create or preserve its lockfile, register it globally, and offer to write ignore rules and agent guidance. Use `--non-interactive` with `--ignore` and/or `--agents` for unattended setup. If a committed lockfile already has entries, run `npx packref install` afterward to materialize them. |
+| `packref add [package]`                              | Add a package source reference. A versionless dependency uses the project's exact installed version when available. Explicit versions such as `hono@4.2.0` are tracked manually. Omit the package to select one or more unresolved project dependencies interactively.                                                           |
+| `packref install`                                    | Materialize missing source trees from `.packref/packref-lock.json`. Packref reuses matching global snapshots and fetches missing snapshots from the source metadata in the lockfile.                                                                                                                                             |
+| `packref list`<br>`packref ls`                       | List the current project's references in deterministic order, including the version, source host or tarball type, and a marker for manually tracked entries.                                                                                                                                                                     |
+| `packref remove [package]`<br>`packref rm [package]` | Remove matching project-local source trees and lockfile entries. Omit the package to select from all references. If a name matches multiple versions, Packref asks which versions to remove. For example: `npx packref remove react` or `npx packref remove react@18.3.1`.                                                       |
+| `packref sync`                                       | Update existing dependency-tracked references to the exact versions resolved for the project. Remove dependency-tracked references that are no longer in the manifest. Manual references are preserved, and unreferenced manifest dependencies are not automatically adopted.                                                    |
+| `packref prune`                                      | Remove global store entries that no registered project uses. Missing or unreadable registered projects are reported and prevent unsafe pruning. Stale registrations can be removed interactively.                                                                                                                                |
+| `packref clean`<br>`packref clean --global`          | Clear all references from the current project and reset its lockfile after confirmation. The `--global` flag wipes only the global source store; registered projects and project-local state are preserved.                                                                                                                      |
 
 ## Files and storage
 
-- `.packref/packref-lock.json` — committed package identities, exact versions, source metadata, and
-  dependency/manual tracking modes.
-- `.packref/packages/` — ignored, generated project-local source trees agents inspect.
-- `~/.agents/packref/store/` — deduplicated global source snapshots reused across projects.
-- `~/.agents/packref/config.json` — registered project paths used by `packref prune`.
+```text
+<project>/
+└── .packref/
+    ├── packref-lock.json  # Committed package identities, versions, source metadata, and tracking modes
+    └── packages/          # Ignored project-local package source references
+
+~/
+└── .agents/
+    └── packref/
+        ├── config.json    # Registered project paths used by packref prune
+        └── store/         # Deduplicated source snapshots shared across projects
+```
 
 Only `.packref/packages/` and temporary lockfile writes should be ignored. The lockfile is the
 reproducibility boundary and belongs in version control.

@@ -26,7 +26,7 @@ The remaining coupling points are:
 - `DEPENDENCY_GROUPS` in `src/lib/manifests/manifest.ts` hardcodes JavaScript group names, and
   `manifestAdapters` in `src/lib/manifests/index.ts` selects the first matching adapter only.
 - npm version resolution (`resolveVersion` in `src/lib/registries/npm/resolver.ts`) is
-  semver-only. That is correct for npm/JSR/crates; PyPI needs its own scheme (see Plan 12).
+  semver-only. That is correct for npm/JSR/crates; PyPI needs its own scheme (see Plan 13).
 
 ## Scope
 
@@ -76,6 +76,6 @@ bun run test
 
 ## Out Of Scope
 
-- Any actual new registry adapter (Plans 11–13).
+- Any actual new registry adapter (Plans 12–14).
 - Lockfile or store layout changes.
-- Non-semver version resolution (owned by Plan 12).
+- Non-semver version resolution (owned by Plan 13).
