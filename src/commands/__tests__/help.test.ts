@@ -23,6 +23,22 @@ describe("CLI help", () => {
     expect(result.output).toMatch(/^[ \t]*sync[ \t]+Update dependency-tracked references\b/m)
   })
 
+  it("does not expose the internal help signal", async () => {
+    const projectPath = await context.makeTempDirectory()
+    const homePath = await context.makeTempDirectory()
+    const [empty, unknown] = await Promise.all([
+      context.runCli({ args: [], homePath, projectPath }),
+      context.runCli({ args: ["unknown"], homePath, projectPath }),
+    ])
+
+    expect(empty.exitCode).toBe(0)
+    expect(empty.output).toContain("USAGE")
+    expect(empty.output).not.toContain("Help requested")
+    expect(unknown.exitCode).toBe(1)
+    expect(unknown.output).toContain('Unknown subcommand "unknown"')
+    expect(unknown.output).not.toContain("Help requested")
+  })
+
   it("documents optional package selection, init setup, and global cleaning", async () => {
     const projectPath = await context.makeTempDirectory()
     const homePath = await context.makeTempDirectory()
