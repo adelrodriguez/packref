@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test"
 import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -12,17 +13,18 @@ import { createTarGzip } from "nanotar"
 import type { NpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
 import { NetworkError, ReflinkError, SnapshotFetchError } from "#lib/core/errors.ts"
 import { parsePackageSpec } from "#lib/core/packages.ts"
+import { ProjectDependencyReader } from "#lib/manifests/index.ts"
 import { PackageManagerResolver } from "#lib/manifests/javascript.ts"
 import {
   addPackageCandidateReference,
   addPackageReference,
-  findAddPackageCandidates,
+  findPackageCandidates,
 } from "#lib/references/add.ts"
 import { NpmRegistryClient } from "#lib/registries/npm/client.ts"
-import { CommandRunner } from "#lib/services/command-runner.ts"
-import { PackrefHome } from "#lib/services/packref-home.ts"
-import { Reflinker } from "#lib/services/reflinker.ts"
 import { RepositoryDownloader } from "#lib/sources/repository/fetch.ts"
+import { RemoteTagReader } from "#lib/sources/repository/tags.ts"
+import { PackrefHome } from "#lib/workspace/home.ts"
+import { Reflinker } from "#lib/workspace/reflinker.ts"
 
 const temporaryPaths: string[] = []
 
@@ -75,37 +77,42 @@ interface TestServices {
   readonly tarballDownload?: () => Effect.Effect<Uint8Array>
 }
 
-const makeTestLayer = (services: TestServices, home: string) =>
-  Layer.mergeAll(
+const makeTestLayer = (services: TestServices, home: string) => {
+  const packageManagerLayer = Layer.succeed(PackageManagerResolver)({
+    resolveLockedVersions: (_projectPath, dependencies) => {
+      const exactVersion = services.exactVersion
+
+      return Effect.succeed(
+        exactVersion === undefined
+          ? new Map<string, string>()
+          : new Map(dependencies.map((dependency) => [dependency.name, exactVersion] as const))
+      )
+    },
+  })
+  const manifestLayer = Layer.provideMerge(
+    ProjectDependencyReader.layer,
+    Layer.mergeAll(NodeServices.layer, packageManagerLayer)
+  )
+
+  return Layer.mergeAll(
     NodeServices.layer,
     PackrefHome.at(home),
+    manifestLayer,
     Reflinker.layer,
     Layer.succeed(NpmRegistryClient)({
       getPackageMetadata: () => Effect.succeed(services.metadata),
     }),
-    Layer.succeed(PackageManagerResolver)({
-      resolveLockedVersions: (_projectPath, dependencies) => {
-        const exactVersion = services.exactVersion
-
-        return Effect.succeed(
-          exactVersion === undefined
-            ? new Map<string, string>()
-            : new Map(dependencies.map((dependency) => [dependency.name, exactVersion] as const))
-        )
-      },
-    }),
-    Layer.succeed(CommandRunner)({
-      run: () =>
-        Effect.succeed(
-          services.commandResult ?? {
-            exitCode: 0,
-            stderr: "",
-            stdout: Object.keys(services.metadata.versions)
-              .map((version) => `abc123\trefs/tags/v${version}`)
-              .join("\n"),
-          }
-        ),
-    }),
+    RemoteTagReader.layerWithCommand(() =>
+      Effect.succeed(
+        services.commandResult ?? {
+          exitCode: 0,
+          stderr: "",
+          stdout: Object.keys(services.metadata.versions)
+            .map((version) => `abc123\trefs/tags/v${version}`)
+            .join("\n"),
+        }
+      )
+    ),
     Layer.succeed(RepositoryDownloader)({
       download:
         services.repositoryDownload ??
@@ -132,6 +139,7 @@ const makeTestLayer = (services: TestServices, home: string) =>
       )
     )
   )
+}
 
 const runAdd = (packageSpec: string, projectPath: string, home: string, services: TestServices) =>
   Effect.runPromise(
@@ -147,7 +155,7 @@ const runAdd = (packageSpec: string, projectPath: string, home: string, services
 const runCandidateAdd = (projectPath: string, home: string, services: TestServices) =>
   Effect.runPromise(
     Effect.gen(function* () {
-      const candidates = yield* findAddPackageCandidates({ projectPath })
+      const candidates = yield* findPackageCandidates({ projectPath })
       const dependency = candidates.dependencies[0]
 
       if (Predicate.isUndefined(dependency)) {
@@ -444,8 +452,8 @@ describe("addPackageReference", () => {
     await writeFile(join(projectPath, "package.json"), JSON.stringify({}))
     let tarballDownloadCount = 0
 
-    try {
-      await runAdd("example@1.0.0", projectPath, home, {
+    expect(
+      runAdd("example@1.0.0", projectPath, home, {
         commandResult: {
           exitCode: 128,
           stderr: "authentication failed",
@@ -457,10 +465,7 @@ describe("addPackageReference", () => {
           return Effect.succeed(new Uint8Array())
         },
       })
-      throw new Error("Expected repository resolution to fail.")
-    } catch (error) {
-      expect(error).toBeInstanceOf(NetworkError)
-    }
+    ).rejects.toBeInstanceOf(NetworkError)
 
     expect(tarballDownloadCount).toBe(0)
     const lockfile = JSON.parse(
@@ -474,8 +479,8 @@ describe("addPackageReference", () => {
     const home = await makeTempDirectory()
     await writeFile(join(projectPath, "package.json"), JSON.stringify({}))
 
-    try {
-      await runAdd("example@1.0.0", projectPath, home, {
+    expect(
+      runAdd("example@1.0.0", projectPath, home, {
         metadata: makeMetadata("example", ["1.0.0"]),
         repositoryDownload: () =>
           Effect.fail(
@@ -485,10 +490,7 @@ describe("addPackageReference", () => {
             })
           ),
       })
-      throw new Error("Expected snapshot fetching to fail.")
-    } catch (error) {
-      expect(error).toBeInstanceOf(SnapshotFetchError)
-    }
+    ).rejects.toBeInstanceOf(SnapshotFetchError)
 
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
@@ -518,14 +520,11 @@ describe("addPackageReference", () => {
       },
     } satisfies NpmPackageMetadata
 
-    try {
-      await runAdd("example@1.0.0", projectPath, home, {
+    expect(
+      runAdd("example@1.0.0", projectPath, home, {
         metadata,
       })
-      throw new Error("Expected project reference materialization to fail.")
-    } catch (error) {
-      expect(error).toBeInstanceOf(ReflinkError)
-    }
+    ).rejects.toBeInstanceOf(ReflinkError)
 
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")

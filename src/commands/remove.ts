@@ -10,8 +10,8 @@ import {
   listPackageReferences,
   removePackageReferences,
 } from "#lib/references/remove.ts"
-import { Prompter } from "#lib/services/prompter.ts"
-import { printTitle } from "#lib/shared/terminal.ts"
+import { Prompter } from "#terminal/prompter.ts"
+import { printTitle } from "#terminal/title.ts"
 
 const pkg = Argument.string("package").pipe(
   Argument.withDescription("Package name to remove (e.g. react, @effect/cli)"),

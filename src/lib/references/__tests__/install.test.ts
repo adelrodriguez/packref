@@ -10,12 +10,16 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse"
 import { createTarGzip } from "nanotar"
 import type { PackageEntry } from "#lib/workspace/lockfile.ts"
 import { exists, initializeProject } from "#commands/__tests__/helpers.ts"
-import { StoreSourceMismatchError, TarballFetchError } from "#lib/core/errors.ts"
+import {
+  InstallPackageReferencesError,
+  StoreSourceMismatchError,
+  TarballFetchError,
+} from "#lib/core/errors.ts"
 import { installPackageReferences } from "#lib/references/install.ts"
-import { CommandRunner } from "#lib/services/command-runner.ts"
-import { PackrefHome } from "#lib/services/packref-home.ts"
-import { Reflinker } from "#lib/services/reflinker.ts"
 import { RepositoryDownloader } from "#lib/sources/repository/fetch.ts"
+import { RemoteTagReader } from "#lib/sources/repository/tags.ts"
+import { PackrefHome } from "#lib/workspace/home.ts"
+import { Reflinker } from "#lib/workspace/reflinker.ts"
 
 const temporaryPaths: string[] = []
 
@@ -88,7 +92,7 @@ const materializeStoredEntry = async (home: string, entry: PackageEntry) => {
 }
 
 interface TestControls {
-  readonly failedTarballUrl?: string
+  readonly failedTarballUrls?: readonly string[]
   repositoryDownloads: number
   tarballDownloads: number
 }
@@ -98,14 +102,13 @@ const makeTestLayer = (home: string, controls: TestControls) =>
     NodeServices.layer,
     PackrefHome.at(home),
     Reflinker.layer,
-    Layer.succeed(CommandRunner)({
-      run: () =>
-        Effect.succeed({
-          exitCode: 0,
-          stderr: "",
-          stdout: "abc123\trefs/tags/v1.0.0\nabc456\trefs/tags/v2.0.0",
-        }),
-    }),
+    RemoteTagReader.layerWithCommand(() =>
+      Effect.succeed({
+        exitCode: 0,
+        stderr: "",
+        stdout: "abc123\trefs/tags/v1.0.0\nabc456\trefs/tags/v2.0.0",
+      })
+    ),
     Layer.succeed(RepositoryDownloader)({
       download: (_source, _ref, destination) => {
         const nextDownloadCount = controls.repositoryDownloads + 1
@@ -123,7 +126,7 @@ const makeTestLayer = (home: string, controls: TestControls) =>
         const nextDownloadCount = controls.tarballDownloads + 1
         Object.assign(controls, { tarballDownloads: nextDownloadCount })
 
-        if (url.href === controls.failedTarballUrl) {
+        if (controls.failedTarballUrls?.includes(url.href) === true) {
           return Effect.succeed(
             HttpClientResponse.fromWeb(request, new Response(null, { status: 500 }))
           )
@@ -310,7 +313,10 @@ describe("installPackageReferences", () => {
       mismatch = error
     }
 
-    expect(mismatch).toBeInstanceOf(StoreSourceMismatchError)
+    expect(mismatch).toBeInstanceOf(InstallPackageReferencesError)
+    expect(mismatch).toMatchObject({
+      failures: [{ cause: expect.any(StoreSourceMismatchError), identity: lockedEntry }],
+    })
     expect(await exists(getReferencePath(projectPath, lockedEntry))).toBe(false)
   })
 
@@ -323,7 +329,7 @@ describe("installPackageReferences", () => {
     const lockfilePath = join(projectPath, ".packref", "packref-lock.json")
     const before = await readFile(lockfilePath, "utf8")
     const failingControls = {
-      failedTarballUrl: second.source.url,
+      failedTarballUrls: [second.source.url],
       repositoryDownloads: 0,
       tarballDownloads: 0,
     }
@@ -336,7 +342,10 @@ describe("installPackageReferences", () => {
       failure = error
     }
 
-    expect(failure).toBeInstanceOf(TarballFetchError)
+    expect(failure).toBeInstanceOf(InstallPackageReferencesError)
+    expect(failure).toMatchObject({
+      failures: [{ cause: expect.any(TarballFetchError), identity: second }],
+    })
     expect(await exists(getReferencePath(projectPath, first))).toBe(true)
     expect(await exists(getReferencePath(projectPath, second))).toBe(false)
     expect(await readFile(lockfilePath, "utf8")).toBe(before)
@@ -347,6 +356,38 @@ describe("installPackageReferences", () => {
     expect(result.fetched).toEqual([second])
     expect(await exists(getReferencePath(projectPath, second))).toBe(true)
     expect(await readFile(lockfilePath, "utf8")).toBe(before)
+  })
+
+  it("reports every failed package identity and preserves successful work", async () => {
+    const projectPath = await makeTempDirectory()
+    const home = await makeTempDirectory()
+    const firstFailure = tarballEntry("first-failure", "1.0.0")
+    const success = tarballEntry("success", "1.0.0")
+    const secondFailure = tarballEntry("second-failure", "1.0.0")
+    await initializeProject(projectPath, [firstFailure, success, secondFailure])
+
+    let failure: unknown
+
+    try {
+      await runInstall(projectPath, home, {
+        failedTarballUrls: [firstFailure.source.url, secondFailure.source.url],
+        repositoryDownloads: 0,
+        tarballDownloads: 0,
+      })
+    } catch (error) {
+      failure = error
+    }
+
+    expect(failure).toBeInstanceOf(InstallPackageReferencesError)
+    expect(failure).toMatchObject({
+      failures: [
+        { cause: expect.any(TarballFetchError), identity: firstFailure },
+        { cause: expect.any(TarballFetchError), identity: secondFailure },
+      ],
+    })
+    expect(await exists(getReferencePath(projectPath, success))).toBe(true)
+    expect(await exists(getReferencePath(projectPath, firstFailure))).toBe(false)
+    expect(await exists(getReferencePath(projectPath, secondFailure))).toBe(false)
   })
 
   it("rejects absent projects and malformed lockfiles", async () => {

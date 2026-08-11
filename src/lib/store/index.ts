@@ -2,19 +2,24 @@ import type * as PlatformError from "effect/PlatformError"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Filter from "effect/Filter"
+import * as Order from "effect/Order"
 import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
-import type { PackageIdentity } from "#lib/core/packages.ts"
+import * as Semaphore from "effect/Semaphore"
 import type { PackageSource } from "#lib/core/source.ts"
-import { StoreCorruptedError } from "#lib/core/errors.ts"
-import { PACKAGE_DIRECTORY_NAME } from "#lib/core/packages.ts"
+import { GlobalStoreFilesystemError, StoreCorruptedError } from "#lib/core/errors.ts"
+import {
+  packageIdentityOrder,
+  PACKAGE_DIRECTORY_NAME,
+  type PackageIdentity,
+} from "#lib/core/packages.ts"
 import { PackageSourceSchema } from "#lib/core/source.ts"
-import { PackrefHome } from "#lib/services/packref-home.ts"
 import { formatJson } from "#lib/shared/json.ts"
 import {
   getGlobalStorePath,
   getStoreEntryPaths as getPathsForStoreEntry,
 } from "#lib/store/paths.ts"
+import { PackrefHome } from "#lib/workspace/home.ts"
 
 export interface StoreEntry {
   readonly identity: PackageIdentity
@@ -36,6 +41,15 @@ const StoreEntryMetadataSchema = Schema.Struct({
   source: PackageSourceSchema,
 })
 const StoreEntryMetadataJsonSchema = Schema.fromJsonString(StoreEntryMetadataSchema)
+const decodeStoreEntryMetadata = Schema.decodeUnknownEffect(StoreEntryMetadataJsonSchema)
+const STORE_TRAVERSAL_CONCURRENCY = 16
+
+const makeStoreCorruptedError = (path: string) => (cause: unknown) =>
+  new StoreCorruptedError({ cause, path })
+
+const makeStoreFilesystemError =
+  (operation: GlobalStoreFilesystemError["operation"], path: string) => (cause: unknown) =>
+    new GlobalStoreFilesystemError({ cause, operation, path })
 
 const getStoreEntryPaths = Effect.fn("getStoreEntryPaths")(function* (identity: PackageIdentity) {
   const path = yield* Path.Path
@@ -54,31 +68,19 @@ export const hasStoreEntry = Effect.fn("hasStoreEntry")(function* (identity: Pac
   const fs = yield* FileSystem.FileSystem
   const entryPath = yield* getStoreEntryPath(identity)
 
-  return yield* fs.exists(entryPath)
+  return yield* fs
+    .exists(entryPath)
+    .pipe(Effect.mapError(makeStoreFilesystemError("access", entryPath)))
 })
 
 export const readStoreEntry = Effect.fn("readStoreEntry")(function* (identity: PackageIdentity) {
   const fs = yield* FileSystem.FileSystem
   const { entryPath, metadataPath } = yield* getStoreEntryPaths(identity)
-  const rawMetadata = yield* fs.readFileString(metadataPath).pipe(
-    Effect.mapError(
-      (cause) =>
-        new StoreCorruptedError({
-          cause,
-          path: entryPath,
-        })
-    )
-  )
-  const metadata = yield* Schema.decodeUnknownEffect(StoreEntryMetadataJsonSchema)(
-    rawMetadata
-  ).pipe(
-    Effect.mapError(
-      (cause) =>
-        new StoreCorruptedError({
-          cause,
-          path: entryPath,
-        })
-    )
+  const rawMetadata = yield* fs
+    .readFileString(metadataPath)
+    .pipe(Effect.mapError(makeStoreFilesystemError("access", metadataPath)))
+  const metadata = yield* decodeStoreEntryMetadata(rawMetadata).pipe(
+    Effect.mapError(makeStoreCorruptedError(entryPath))
   )
 
   return {
@@ -87,12 +89,16 @@ export const readStoreEntry = Effect.fn("readStoreEntry")(function* (identity: P
   } satisfies StoredEntry
 })
 
-const listDirectoryOrEmpty = Effect.fn("listDirectoryOrEmpty")(function* (directoryPath: string) {
+const listDirectoryOrEmpty = Effect.fn("listDirectoryOrEmpty")(function* (
+  directoryPath: string,
+  semaphore: Semaphore.Semaphore
+) {
   const fs = yield* FileSystem.FileSystem
 
-  return yield* fs
-    .readDirectory(directoryPath)
-    .pipe(Effect.catchFilter(Filter.reason("PlatformError", "NotFound"), () => Effect.succeed([])))
+  return yield* semaphore.withPermit(fs.readDirectory(directoryPath)).pipe(
+    Effect.catchFilter(Filter.reason("PlatformError", "NotFound"), () => Effect.succeed([])),
+    Effect.mapError(makeStoreFilesystemError("list", directoryPath))
+  )
 })
 
 export const listStoreEntries = Effect.fn("listStoreEntries")(function* () {
@@ -100,51 +106,60 @@ export const listStoreEntries = Effect.fn("listStoreEntries")(function* () {
   const home = yield* PackrefHome
   const storeRoot = getGlobalStorePath(path, home.path)
   const packagesRoot = path.join(storeRoot, PACKAGE_DIRECTORY_NAME)
-  const registries = yield* listDirectoryOrEmpty(packagesRoot)
-  const entries: StoreEntry[] = []
+  const semaphore = yield* Semaphore.make(STORE_TRAVERSAL_CONCURRENCY)
+  const registries = yield* listDirectoryOrEmpty(packagesRoot, semaphore)
+  const registryEntries = yield* Effect.forEach(
+    registries,
+    Effect.fn(function* (registry) {
+      const registryPath = path.join(packagesRoot, registry)
+      const packageSegments = yield* listDirectoryOrEmpty(registryPath, semaphore)
 
-  for (const registry of registries) {
-    const registryPath = path.join(packagesRoot, registry)
-    const packageSegments = yield* listDirectoryOrEmpty(registryPath)
+      const packageEntries = yield* Effect.forEach(
+        packageSegments,
+        Effect.fn(function* (packageSegment) {
+          const packageSegmentPath = path.join(registryPath, packageSegment)
 
-    for (const packageSegment of packageSegments) {
-      const packageSegmentPath = path.join(registryPath, packageSegment)
+          if (packageSegment.startsWith("@")) {
+            const scopedPackages = yield* listDirectoryOrEmpty(packageSegmentPath, semaphore)
 
-      if (packageSegment.startsWith("@")) {
-        const scopedPackages = yield* listDirectoryOrEmpty(packageSegmentPath)
+            return yield* Effect.forEach(
+              scopedPackages,
+              Effect.fn(function* (packageName) {
+                const name = `${packageSegment}/${packageName}`
+                const packagePath = path.join(packageSegmentPath, packageName)
+                const versions = yield* listDirectoryOrEmpty(packagePath, semaphore)
 
-        for (const packageName of scopedPackages) {
-          const name = `${packageSegment}/${packageName}`
-          const packagePath = path.join(packageSegmentPath, packageName)
-          const versions = yield* listDirectoryOrEmpty(packagePath)
-
-          for (const version of versions) {
-            entries.push({
-              identity: { name, registry, version },
-              path: path.join(packagePath, version),
-            })
+                return versions.map((version) => ({
+                  identity: { name, registry, version },
+                  path: path.join(packagePath, version),
+                }))
+              }),
+              { concurrency: "unbounded" }
+            ).pipe(Effect.map((entries) => entries.flat()))
           }
-        }
 
-        continue
-      }
+          const versions = yield* listDirectoryOrEmpty(packageSegmentPath, semaphore)
 
-      const versions = yield* listDirectoryOrEmpty(packageSegmentPath)
+          return versions.map((version) => ({
+            identity: {
+              name: packageSegment,
+              registry,
+              version,
+            },
+            path: path.join(packageSegmentPath, version),
+          }))
+        }),
+        { concurrency: "unbounded" }
+      )
 
-      for (const version of versions) {
-        entries.push({
-          identity: {
-            name: packageSegment,
-            registry,
-            version,
-          },
-          path: path.join(packageSegmentPath, version),
-        })
-      }
-    }
-  }
+      return packageEntries.flat()
+    }),
+    { concurrency: "unbounded" }
+  )
 
-  return entries
+  return registryEntries
+    .flat()
+    .toSorted(Order.mapInput(packageIdentityOrder, (entry: StoreEntry) => entry.identity))
 })
 
 export const cleanStore = Effect.fn("cleanStore")(function* () {
@@ -154,10 +169,12 @@ export const cleanStore = Effect.fn("cleanStore")(function* () {
   const storeRoot = getGlobalStorePath(path, home.path)
   const entryCount = yield* listStoreEntries().pipe(
     Effect.map((entries) => entries.length),
-    Effect.orElseSucceed(() => 0)
+    Effect.catchTag("GlobalStoreFilesystemError", () => Effect.succeed(0))
   )
 
-  yield* fs.remove(storeRoot, { force: true, recursive: true })
+  yield* fs
+    .remove(storeRoot, { force: true, recursive: true })
+    .pipe(Effect.mapError(makeStoreFilesystemError("clean", storeRoot)))
 
   return entryCount
 })
@@ -168,8 +185,12 @@ export const removeStoreEntry = Effect.fn("removeStoreEntry")(function* (
   const fs = yield* FileSystem.FileSystem
   const { entryPath, metadataPath } = yield* getStoreEntryPaths(identity)
 
-  yield* fs.remove(entryPath, { force: true, recursive: true })
-  yield* fs.remove(metadataPath, { force: true })
+  yield* fs
+    .remove(entryPath, { force: true, recursive: true })
+    .pipe(Effect.mapError(makeStoreFilesystemError("remove", entryPath)))
+  yield* fs
+    .remove(metadataPath, { force: true })
+    .pipe(Effect.mapError(makeStoreFilesystemError("remove", metadataPath)))
 })
 
 export const materializeStoreEntry = Effect.fn("materializeStoreEntry")(function* <E, R>(
@@ -181,7 +202,7 @@ export const materializeStoreEntry = Effect.fn("materializeStoreEntry")(function
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const { entryPath: storePath, metadataPath } = yield* getStoreEntryPaths(identity)
-  const exists = yield* fs.exists(storePath)
+  const exists = yield* fs.exists(storePath).pipe(Effect.mapError(mapPlatformError))
 
   if (exists) {
     const storedEntry = yield* readStoreEntry(identity)

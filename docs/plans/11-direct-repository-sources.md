@@ -92,8 +92,9 @@ The gaps:
    path segments (the scoped-name branch already does this for `@scope/name`), so
    `owner/repo` produces `packages/<provider>/<owner>/<repo>/<version>`.
 3. Add a direct-ref resolver in `src/lib/sources/repository/` (e.g. `resolveDirectRepositoryRef`):
-   normalize the spec through `normalizeRepositorySource`, run `git ls-remote` (reuse the
-   `CommandRunner` pattern in `tags.ts`, extended to list heads + HEAD as well as tags), and
+   normalize the spec through `normalizeRepositorySource`, run `git ls-remote` through a
+   repository-specific reader like `RemoteTagReader` in `tags.ts`, extended to list heads + HEAD,
+   and
    apply the pinning rules above to produce a `ResolvedRepositoryRef` plus the pinned version.
 4. Wire a repository branch into `addPackageReference`/`addPackageReferenceToProject`
    (`src/lib/references/add.ts`): skip manifest-dependency lookup and registry resolution,
@@ -109,8 +110,8 @@ The gaps:
    union and the common lockfile selector from step 1; `sync` only touches manifest-tracked
    entries (repo entries are `manual`); `prune` and `clean` operate on identities.
 7. Tests: unit tests for spec parsing (all forms, URL user information, refs containing `/`, and
-   ambiguity with npm names and scoped packages), pinning rules with a mocked `CommandRunner`,
-   removal selectors, exact-ref reinstall behavior, and store-path segments. Include a repository
+   ambiguity with npm names and scoped packages), pinning rules with a mocked repository ref
+   reader, removal selectors, exact-ref reinstall behavior, and store-path segments. Include a repository
    with both `1.0` and `v1.0` tags and a slash-containing tag. Add one integration test in
    `src/lib/references/__tests__/` that adds a small real repo by tag and by bare `owner/repo`,
    then runs `install` from a clean store.

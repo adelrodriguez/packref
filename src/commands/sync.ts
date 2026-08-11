@@ -2,14 +2,13 @@ import * as Effect from "effect/Effect"
 import * as Command from "effect/unstable/cli/Command"
 import type { PackageIdentity } from "#lib/core/packages.ts"
 import {
-  getSyncUpdateTarget,
   preparePackageReferenceSync,
   syncPackageReferences,
   type SyncPlan,
   type SyncResult,
 } from "#lib/references/sync.ts"
-import { Prompter } from "#lib/services/prompter.ts"
-import { printTitle } from "#lib/shared/terminal.ts"
+import { Prompter } from "#terminal/prompter.ts"
+import { printTitle } from "#terminal/title.ts"
 
 const formatIdentity = (identity: PackageIdentity) =>
   `${identity.registry}:${identity.name}@${identity.version}`
@@ -22,7 +21,10 @@ const reportSyncPlan = Effect.fn("reportSyncPlan")(function* (plan: SyncPlan) {
     yield* Effect.forEach(
       plan.updates,
       (update) => {
-        const target = getSyncUpdateTarget(update)
+        const target =
+          update.type === "materialize"
+            ? update.resolution.resolvedPackage.identity
+            : update.current
 
         return Effect.forEach(
           update.previous,

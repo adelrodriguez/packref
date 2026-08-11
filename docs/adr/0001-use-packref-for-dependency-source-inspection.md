@@ -16,3 +16,9 @@ Packref exists to manage.
 Instructions that normally require a vendored checkout are satisfied by the matching Packref source
 snapshot. Public documentation remains appropriate for general guidance, but source-level claims must
 be checked against the locked local version.
+
+Source inspection can also identify version-specific operations that replace local collection ceremony.
+For example, the locked Effect version provides `Array.partition`, which applies a `Result`-returning
+filter and returns transformed failure and success arrays as a tuple. Use this operation when code must
+classify one collection into two transformed outputs. Do not force it onto classifications that must also
+discard a third outcome.

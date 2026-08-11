@@ -2,9 +2,9 @@ import * as Effect from "effect/Effect"
 import * as Command from "effect/unstable/cli/Command"
 import * as Flag from "effect/unstable/cli/Flag"
 import { applyProjectCleanPlan, discoverProjectCleanPlan } from "#lib/references/clean.ts"
-import { Prompter } from "#lib/services/prompter.ts"
-import { printTitle } from "#lib/shared/terminal.ts"
-import { cleanStore } from "#lib/store/store.ts"
+import { cleanStore } from "#lib/store/index.ts"
+import { Prompter } from "#terminal/prompter.ts"
+import { printTitle } from "#terminal/title.ts"
 
 const global = Flag.boolean("global").pipe(
   Flag.withAlias("g"),

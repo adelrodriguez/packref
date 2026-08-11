@@ -1,6 +1,7 @@
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Filter from "effect/Filter"
+import * as Option from "effect/Option"
 import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
 import { applyEdits, modify, type ParseError, parse } from "jsonc-parser"
@@ -53,70 +54,77 @@ export const TsconfigSchema = Schema.StructWithRest(
   }),
   [Schema.Record(Schema.String, Schema.Unknown)]
 )
-export type Tsconfig = typeof TsconfigSchema.Type
 
-const readOptionalFile = (path: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem
+const decodeTsconfig = Schema.decodeUnknownEffect(TsconfigSchema)
 
-    return yield* fs.readFileString(path)
-  }).pipe(Effect.catchFilter(Filter.reason("PlatformError", "NotFound"), () => Effect.void))
+const readOptionalFile = Effect.fn("readOptionalFile")(function* (path: string) {
+  const fs = yield* FileSystem.FileSystem
+
+  return yield* fs.readFileString(path).pipe(
+    Effect.map(Option.some),
+    Effect.catchFilter(Filter.reason("PlatformError", "NotFound"), () =>
+      Effect.succeed(Option.none())
+    )
+  )
+})
 
 const checkIsPackrefEntry = (entry: string) => LEGACY_PACKREF_IGNORE_ENTRIES.has(entry.trim())
 
-export const ensureGitignoreEntry = (projectPath: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem
-    const path = yield* Path.Path
-    const gitignorePath = path.join(projectPath, GITIGNORE_NAME)
-    const existing = yield* readOptionalFile(gitignorePath)
+export const ensureGitignoreEntry = Effect.fn("ensureGitignoreEntry")(function* (
+  projectPath: string
+) {
+  const fs = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
+  const gitignorePath = path.join(projectPath, GITIGNORE_NAME)
+  const existing = yield* readOptionalFile(gitignorePath)
 
-    const content = existing ?? ""
-    const newline = content.includes("\r\n") ? "\r\n" : "\n"
-    const hasFinalNewline = content.endsWith(newline)
-    const body = hasFinalNewline ? content.slice(0, -newline.length) : content
-    const lines = body.length === 0 ? [] : body.split(newline)
-    const nextLines: string[] = []
-    const foundEntries = new Set(lines.filter((line) => PACKREF_IGNORE_ENTRY_SET.has(line)))
+  const content = Option.getOrElse(existing, () => "")
+  const newline = content.includes("\r\n") ? "\r\n" : "\n"
+  const hasFinalNewline = content.endsWith(newline)
+  const body = hasFinalNewline ? content.slice(0, -newline.length) : content
+  const lines = body.length === 0 ? [] : body.split(newline)
+  const nextLines: string[] = []
+  const foundEntries = new Set(lines.filter((line) => PACKREF_IGNORE_ENTRY_SET.has(line)))
 
-    for (const line of lines) {
-      if (!checkIsPackrefEntry(line)) {
-        nextLines.push(line)
-        continue
-      }
-
-      for (const entry of PACKREF_IGNORE_ENTRIES) {
-        if (!foundEntries.has(entry)) {
-          nextLines.push(entry)
-          foundEntries.add(entry)
-        }
-      }
+  for (const line of lines) {
+    if (!checkIsPackrefEntry(line)) {
+      nextLines.push(line)
+      continue
     }
 
     for (const entry of PACKREF_IGNORE_ENTRIES) {
       if (!foundEntries.has(entry)) {
         nextLines.push(entry)
+        foundEntries.add(entry)
       }
     }
+  }
 
-    const nextContent = `${nextLines.join(newline)}${existing === undefined || hasFinalNewline ? newline : ""}`
-
-    if (nextContent !== content) {
-      yield* fs.writeFileString(gitignorePath, nextContent)
+  for (const entry of PACKREF_IGNORE_ENTRIES) {
+    if (!foundEntries.has(entry)) {
+      nextLines.push(entry)
     }
-  })
+  }
 
-export const ensureTsconfigExclude = (projectPath: string) =>
-  Effect.gen(function* () {
+  const nextContent = `${nextLines.join(newline)}${Option.isNone(existing) || hasFinalNewline ? newline : ""}`
+
+  if (nextContent !== content) {
+    yield* fs.writeFileString(gitignorePath, nextContent)
+  }
+})
+
+export const ensureTsconfigExclude = Effect.fn("ensureTsconfigExclude")(
+  function* (projectPath: string) {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
     const tsconfigPath = path.join(projectPath, TSCONFIG_NAME)
-    const existing = yield* readOptionalFile(tsconfigPath)
+    const optionalExisting = yield* readOptionalFile(tsconfigPath)
 
-    if (existing === undefined) {
+    if (Option.isNone(optionalExisting)) {
       return "missing"
     }
 
+    const existing = optionalExisting.value
     const parseErrors: ParseError[] = []
     const decoded = parse(existing, parseErrors, { allowTrailingComma: true })
 
@@ -124,7 +132,7 @@ export const ensureTsconfigExclude = (projectPath: string) =>
       return "malformed"
     }
 
-    const parsed: Tsconfig = yield* Schema.decodeUnknownEffect(TsconfigSchema)(decoded)
+    const parsed = yield* decodeTsconfig(decoded)
 
     if (parsed.exclude?.some((entry) => checkIsPackrefEntry(entry))) {
       return "updated"
@@ -136,35 +144,36 @@ export const ensureTsconfigExclude = (projectPath: string) =>
 
     yield* fs.writeFileString(tsconfigPath, applyEdits(existing, edits))
     return "updated"
-  }).pipe(Effect.catchTag("SchemaError", () => Effect.succeed("malformed")))
+  },
+  Effect.catchTag("SchemaError", () => Effect.succeed("malformed"))
+)
 
-export const writeAgentsSection = (projectPath: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem
-    const path = yield* Path.Path
-    const agentsPath = path.join(projectPath, AGENTS_NAME)
-    const existing = yield* readOptionalFile(agentsPath)
-    const content = existing ?? ""
-    const start = content.indexOf(PACKREF_AGENTS_START_MARKER)
-    const endMarkerIndex = content.indexOf(PACKREF_AGENTS_END_MARKER)
+export const writeAgentsSection = Effect.fn("writeAgentsSection")(function* (projectPath: string) {
+  const fs = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
+  const agentsPath = path.join(projectPath, AGENTS_NAME)
+  const existing = yield* readOptionalFile(agentsPath)
+  const content = Option.getOrElse(existing, () => "")
+  const start = content.indexOf(PACKREF_AGENTS_START_MARKER)
+  const endMarkerIndex = content.indexOf(PACKREF_AGENTS_END_MARKER)
 
-    if (start !== -1 && endMarkerIndex !== -1 && start < endMarkerIndex) {
-      const end = endMarkerIndex + PACKREF_AGENTS_END_MARKER.length
-      const nextContent = `${content.slice(0, start)}${PACKREF_AGENTS_SECTION.trimEnd()}${content.slice(end)}`
+  if (start !== -1 && endMarkerIndex !== -1 && start < endMarkerIndex) {
+    const end = endMarkerIndex + PACKREF_AGENTS_END_MARKER.length
+    const nextContent = `${content.slice(0, start)}${PACKREF_AGENTS_SECTION.trimEnd()}${content.slice(end)}`
 
-      yield* fs.writeFileString(
-        agentsPath,
-        nextContent.endsWith("\n") ? nextContent : `${nextContent}\n`
-      )
-      return "updated"
-    }
-
-    if (start !== -1 || endMarkerIndex !== -1) {
-      return "malformed"
-    }
-
-    const separator = content.length === 0 ? "" : content.endsWith("\n") ? "\n" : "\n\n"
-
-    yield* fs.writeFileString(agentsPath, `${content}${separator}${PACKREF_AGENTS_SECTION}`)
+    yield* fs.writeFileString(
+      agentsPath,
+      nextContent.endsWith("\n") ? nextContent : `${nextContent}\n`
+    )
     return "updated"
-  })
+  }
+
+  if (start !== -1 || endMarkerIndex !== -1) {
+    return "malformed"
+  }
+
+  const separator = content.length === 0 ? "" : content.endsWith("\n") ? "\n" : "\n\n"
+
+  yield* fs.writeFileString(agentsPath, `${content}${separator}${PACKREF_AGENTS_SECTION}`)
+  return "updated"
+})

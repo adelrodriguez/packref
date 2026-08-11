@@ -9,26 +9,30 @@ export const STORE_METADATA_DIRECTORY_NAME = ".metadata"
 export const getGlobalStorePath = (path: Path.Path, home: string) =>
   path.join(getGlobalDirectoryPath(path, home), STORE_DIRECTORY_NAME)
 
-export const getStorePackagePath = (storeRoot: string, identity: PackageIdentity) =>
-  Effect.gen(function* () {
-    const path = yield* Path.Path
-    const segments = yield* getPackageIdentitySegments(identity)
+export const getStorePackagePath = Effect.fn("getStorePackagePath")(function* (
+  storeRoot: string,
+  identity: PackageIdentity
+) {
+  const path = yield* Path.Path
+  const segments = yield* getPackageIdentitySegments(identity)
 
-    return path.join(storeRoot, ...segments)
-  })
+  return path.join(storeRoot, ...segments)
+})
 
-export const getStoreEntryPaths = (storeRoot: string, identity: PackageIdentity) =>
-  Effect.gen(function* () {
-    const path = yield* Path.Path
-    const segments = yield* getPackageIdentitySegments(identity)
+export const getStoreEntryPaths = Effect.fn("getStoreEntryPaths")(function* (
+  storeRoot: string,
+  identity: PackageIdentity
+) {
+  const path = yield* Path.Path
+  const segments = yield* getPackageIdentitySegments(identity)
 
-    return {
-      entryPath: path.join(storeRoot, ...segments),
-      metadataPath: path.join(
-        storeRoot,
-        STORE_METADATA_DIRECTORY_NAME,
-        ...segments.slice(0, -1),
-        `${identity.version}.json`
-      ),
-    }
-  })
+  return {
+    entryPath: path.join(storeRoot, ...segments),
+    metadataPath: path.join(
+      storeRoot,
+      STORE_METADATA_DIRECTORY_NAME,
+      ...segments.slice(0, -1),
+      `${identity.version}.json`
+    ),
+  }
+})

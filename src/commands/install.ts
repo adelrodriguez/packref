@@ -4,8 +4,8 @@ import {
   installPackageReferences,
   type InstallPackageReferencesResult,
 } from "#lib/references/install.ts"
-import { Prompter } from "#lib/services/prompter.ts"
-import { printTitle } from "#lib/shared/terminal.ts"
+import { Prompter } from "#terminal/prompter.ts"
+import { printTitle } from "#terminal/title.ts"
 
 const reportInstallResult = Effect.fn("reportInstallResult")(function* (
   result: InstallPackageReferencesResult

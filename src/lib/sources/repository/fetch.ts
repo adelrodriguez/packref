@@ -5,7 +5,7 @@ import { downloadTemplate } from "giget"
 import type { PackageIdentity } from "#lib/core/packages.ts"
 import type { RepositorySource, ResolvedRepositoryRef } from "#lib/core/source.ts"
 import { SnapshotFetchError } from "#lib/core/errors.ts"
-import { materializeStoreEntry } from "#lib/store/store.ts"
+import { materializeStoreEntry } from "#lib/store/index.ts"
 
 interface RepositoryDownloaderService {
   readonly download: (

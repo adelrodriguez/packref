@@ -30,74 +30,81 @@ export const LockfileSchema = Schema.Struct({
 export type Lockfile = typeof LockfileSchema.Type
 
 const LockfileJsonSchema = Schema.fromJsonString(LockfileSchema)
+const decodeLockfile = Schema.decodeUnknownEffect(LockfileJsonSchema)
+const encodeLockfile = Schema.encodeEffect(LockfileJsonSchema)
 
 export const emptyLockfile: Lockfile = {
   packages: [],
 }
 
-export const readLockfileAtPath = (lockfilePath: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem
-    const rawLockfile = yield* fs.readFileString(lockfilePath)
-    const lockfile = yield* Schema.decodeUnknownEffect(LockfileJsonSchema)(rawLockfile).pipe(
-      Effect.mapError(
-        (cause) =>
-          new LockfileParseError({
-            cause,
-            path: lockfilePath,
-          })
-      )
-    )
+const packageIdentityKey = (identity: PackageIdentity) =>
+  `${identity.registry}:${identity.name}@${identity.version}`
 
-    for (const [index, entry] of lockfile.packages.entries()) {
-      if (
-        lockfile.packages
-          .slice(0, index)
-          .some((candidate) => packageIdentityEquivalence(candidate, entry))
-      ) {
-        return yield* new LockfileParseError({
-          cause: new Error(
-            `Duplicate package identity: ${entry.registry}:${entry.name}@${entry.version}`
-          ),
+export const readLockfileAtPath = Effect.fn("readLockfileAtPath")(function* (lockfilePath: string) {
+  const fs = yield* FileSystem.FileSystem
+  const rawLockfile = yield* fs.readFileString(lockfilePath)
+  const lockfile = yield* decodeLockfile(rawLockfile).pipe(
+    Effect.mapError(
+      (cause) =>
+        new LockfileParseError({
+          cause,
           path: lockfilePath,
         })
-      }
+    )
+  )
+
+  const packageIdentities = new Set<string>()
+
+  for (const entry of lockfile.packages) {
+    const identityKey = packageIdentityKey(entry)
+
+    if (packageIdentities.has(identityKey)) {
+      return yield* new LockfileParseError({
+        cause: new Error(
+          `Duplicate package identity: ${entry.registry}:${entry.name}@${entry.version}`
+        ),
+        path: lockfilePath,
+      })
     }
 
-    return lockfile
-  })
+    packageIdentities.add(identityKey)
+  }
 
-export const writeLockfileAtPath = (lockfilePath: string, lockfile: Lockfile) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem
-    const path = yield* Path.Path
-    const encodedLockfile = formatJson(yield* Schema.encodeEffect(LockfileJsonSchema)(lockfile))
+  return lockfile
+})
 
-    yield* Effect.scoped(
-      Effect.gen(function* () {
-        const temporaryPath = yield* fs.makeTempFileScoped({
-          directory: path.dirname(lockfilePath),
-          prefix: ".packref-lock-",
-          suffix: ".tmp",
-        })
+export const writeLockfileAtPath = Effect.fn("writeLockfileAtPath")(function* (
+  lockfilePath: string,
+  lockfile: Lockfile
+) {
+  const fs = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
+  const encodedLockfile = formatJson(yield* encodeLockfile(lockfile))
 
-        yield* fs.writeFileString(temporaryPath, encodedLockfile)
-        yield* fs.rename(temporaryPath, lockfilePath)
+  yield* Effect.scoped(
+    Effect.gen(function* () {
+      const temporaryPath = yield* fs.makeTempFileScoped({
+        directory: path.dirname(lockfilePath),
+        prefix: ".packref-lock-",
+        suffix: ".tmp",
       })
-    )
-  })
 
-export const initializeLockfile = (projectPath: string) =>
-  Effect.gen(function* () {
-    const path = yield* Path.Path
-    const lockfilePath = getProjectLockfilePath(path, projectPath)
+      yield* fs.writeFileString(temporaryPath, encodedLockfile)
+      yield* fs.rename(temporaryPath, lockfilePath)
+    })
+  )
+})
 
-    return yield* readLockfileAtPath(lockfilePath).pipe(
-      Effect.catchFilter(Filter.reason("PlatformError", "NotFound"), () =>
-        writeLockfileAtPath(lockfilePath, emptyLockfile).pipe(Effect.as(emptyLockfile))
-      )
+export const initializeLockfile = Effect.fn("initializeLockfile")(function* (projectPath: string) {
+  const path = yield* Path.Path
+  const lockfilePath = getProjectLockfilePath(path, projectPath)
+
+  return yield* readLockfileAtPath(lockfilePath).pipe(
+    Effect.catchFilter(Filter.reason("PlatformError", "NotFound"), () =>
+      writeLockfileAtPath(lockfilePath, emptyLockfile).pipe(Effect.as(emptyLockfile))
     )
-  })
+  )
+})
 
 export const readProjectLockfile = Effect.fn("readProjectLockfile")(function* (
   projectPath: string
@@ -120,26 +127,28 @@ export const findPackageEntries = (lockfile: Lockfile, spec: ParsedPackageSpec) 
     )
     .toSorted((left, right) => packageIdentityOrder(left, right))
 
-export const upsertPackageEntry = (projectPath: string, entry: PackageEntry) =>
-  Effect.gen(function* () {
-    const path = yield* Path.Path
-    const lockfilePath = getProjectLockfilePath(path, projectPath)
-    const lockfile = yield* initializeLockfile(projectPath)
-    const existingIndex = lockfile.packages.findIndex((candidate) =>
-      packageIdentityEquivalence(candidate, entry)
-    )
-    const packages =
-      existingIndex === -1
-        ? [...lockfile.packages, entry]
-        : lockfile.packages.map((candidate, index) => (index === existingIndex ? entry : candidate))
-    const updatedLockfile = {
-      packages,
-    } satisfies Lockfile
+export const upsertPackageEntry = Effect.fn("upsertPackageEntry")(function* (
+  projectPath: string,
+  entry: PackageEntry
+) {
+  const path = yield* Path.Path
+  const lockfilePath = getProjectLockfilePath(path, projectPath)
+  const lockfile = yield* initializeLockfile(projectPath)
+  const existingIndex = lockfile.packages.findIndex((candidate) =>
+    packageIdentityEquivalence(candidate, entry)
+  )
+  const packages =
+    existingIndex === -1
+      ? [...lockfile.packages, entry]
+      : lockfile.packages.map((candidate, index) => (index === existingIndex ? entry : candidate))
+  const updatedLockfile = {
+    packages,
+  } satisfies Lockfile
 
-    yield* writeLockfileAtPath(lockfilePath, updatedLockfile)
+  yield* writeLockfileAtPath(lockfilePath, updatedLockfile)
 
-    return updatedLockfile
-  })
+  return updatedLockfile
+})
 
 export const removePackageEntries = Effect.fn("removePackageEntries")(function* (
   projectPath: string,

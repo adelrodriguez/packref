@@ -8,7 +8,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
-import { getManifestAdapter, readProjectDependencies } from "#lib/manifests/index.ts"
+import { ProjectDependencyReader } from "#lib/manifests/index.ts"
 import {
   PackageManagerResolver,
   readJavascriptManifest,
@@ -19,7 +19,22 @@ import {
 } from "#lib/manifests/javascript.ts"
 
 const temporaryPaths: string[] = []
-const ManifestTestLayer = Layer.mergeAll(NodeServices.layer, PackageManagerResolver.layer)
+const PackageManagerTestLayer = PackageManagerResolver.layer.pipe(Layer.provide(NodeServices.layer))
+const ManifestTestLayer = Layer.mergeAll(
+  NodeServices.layer,
+  PackageManagerTestLayer,
+  ProjectDependencyReader.layer.pipe(
+    Layer.provide(Layer.merge(NodeServices.layer, PackageManagerTestLayer))
+  )
+)
+
+const readProjectDependencies = Effect.fn("test.readProjectDependencies")(function* (
+  projectPath: string
+) {
+  const reader = yield* ProjectDependencyReader
+
+  return yield* reader.readProjectDependencies(projectPath)
+})
 
 const makeTempDirectory = async () => {
   const directoryPath = await mkdtemp(join(tmpdir(), "packref-manifest-test-"))
@@ -28,7 +43,11 @@ const makeTempDirectory = async () => {
 }
 
 const run = <A, E>(
-  effect: Effect.Effect<A, E, FileSystem.FileSystem | PackageManagerResolver | Path.Path>
+  effect: Effect.Effect<
+    A,
+    E,
+    FileSystem.FileSystem | PackageManagerResolver | Path.Path | ProjectDependencyReader
+  >
 ) => Effect.runPromise(effect.pipe(Effect.provide(ManifestTestLayer)))
 
 afterEach(async () => {
@@ -55,7 +74,7 @@ describe("JavaScript manifest lockfile parsers", () => {
 `,
         "effect"
       )
-    ).toBe("4.0.0-beta.56")
+    ).toEqual(Option.some("4.0.0-beta.56"))
   })
 
   it("resolves scoped dependencies from Bun lockfiles", () => {
@@ -70,7 +89,7 @@ describe("JavaScript manifest lockfile parsers", () => {
 `,
         "@scope/name"
       )
-    ).toBe("1.2.3")
+    ).toEqual(Option.some("1.2.3"))
   })
 
   it("resolves direct dependencies from npm lockfiles", () => {
@@ -85,7 +104,7 @@ describe("JavaScript manifest lockfile parsers", () => {
         }),
         "react"
       )
-    ).toBe("19.0.0")
+    ).toEqual(Option.some("19.0.0"))
   })
 
   it("resolves scoped dependencies from npm lockfiles", () => {
@@ -100,7 +119,7 @@ describe("JavaScript manifest lockfile parsers", () => {
         }),
         "@scope/name"
       )
-    ).toBe("1.2.3")
+    ).toEqual(Option.some("1.2.3"))
   })
 
   it("resolves direct dependencies from pnpm lockfiles", () => {
@@ -116,7 +135,7 @@ importers:
 `,
         "react"
       )
-    ).toBe("19.1.0")
+    ).toEqual(Option.some("19.1.0"))
   })
 
   it("resolves scoped dependencies with peer suffixes from pnpm lockfiles", () => {
@@ -135,7 +154,7 @@ packages:
 `,
         "@scope/name"
       )
-    ).toBe("1.2.3")
+    ).toEqual(Option.some("1.2.3"))
   })
 
   it("resolves dependencies from the requested pnpm workspace importer", () => {
@@ -153,7 +172,7 @@ importers:
         version: 18.3.1
 `
 
-    expect(resolvePnpmLockVersion(lockfile, "react", "packages/app")).toBe("18.3.1")
+    expect(resolvePnpmLockVersion(lockfile, "react", "packages/app")).toEqual(Option.some("18.3.1"))
   })
 
   it("resolves scalar dependencies from legacy pnpm lockfiles", () => {
@@ -168,7 +187,7 @@ dependencies:
 `,
         "react"
       )
-    ).toBe("18.3.1")
+    ).toEqual(Option.some("18.3.1"))
   })
 
   it("resolves direct dependencies from Yarn lockfiles", () => {
@@ -182,7 +201,7 @@ dependencies:
         "react",
         "^19.0.0"
       )
-    ).toBe("19.1.0")
+    ).toEqual(Option.some("19.1.0"))
   })
 
   it("resolves scoped dependencies from Yarn classic and Berry lockfiles", () => {
@@ -197,8 +216,12 @@ dependencies:
   resolution: "@scope/name@npm:1.2.4"
 `
 
-    expect(resolveYarnLockVersion(classicLockfile, "@scope/name", "^1.0.0")).toBe("1.2.3")
-    expect(resolveYarnLockVersion(berryLockfile, "@scope/name", "^1.0.0")).toBe("1.2.4")
+    expect(resolveYarnLockVersion(classicLockfile, "@scope/name", "^1.0.0")).toEqual(
+      Option.some("1.2.3")
+    )
+    expect(resolveYarnLockVersion(berryLockfile, "@scope/name", "^1.0.0")).toEqual(
+      Option.some("1.2.4")
+    )
   })
 
   it("does not match a selector embedded in a scoped Yarn package name", () => {
@@ -213,7 +236,7 @@ dependencies:
         "name",
         "^1.0.0"
       )
-    ).toBe("2.3.4")
+    ).toEqual(Option.some("2.3.4"))
   })
 })
 
@@ -229,10 +252,7 @@ describe("readJavascriptManifest", () => {
       })
     )
 
-    const adapter = await run(getManifestAdapter(projectPath))
-    const dependencies = await run(readProjectDependencies(projectPath))
-
-    expect(Option.getOrUndefined(adapter)?.name).toBe("javascript")
+    const dependencies = Option.getOrThrow(await run(readProjectDependencies(projectPath)))
     expect(
       dependencies.map(({ group, name, specifier }) => ({
         group,
@@ -465,7 +485,7 @@ importers:
     const projectPath = await makeTempDirectory()
     await writeFile(join(projectPath, "package.json"), JSON.stringify({ dependencies: {} }))
 
-    const dependencies = await run(readProjectDependencies(projectPath))
+    const dependencies = Option.getOrThrow(await run(readProjectDependencies(projectPath)))
 
     expect(dependencies.find((dependency) => dependency.name === "react")).toBeUndefined()
   })

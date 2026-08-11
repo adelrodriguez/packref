@@ -1,13 +1,9 @@
 import type * as Effect from "effect/Effect"
 import type { Registry } from "#lib/core/registry.ts"
 
-export const DEPENDENCY_GROUPS = ["dependencies", "devDependencies", "peerDependencies"] as const
-
-export type DependencyGroup = (typeof DEPENDENCY_GROUPS)[number]
-
 export interface ManifestDependency {
   readonly exactVersion?: string
-  readonly group: DependencyGroup
+  readonly group: string
   readonly name: string
   readonly registry: Registry
   readonly specifier: string

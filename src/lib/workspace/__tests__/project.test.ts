@@ -1,20 +1,22 @@
 import { afterEach, describe, expect, it } from "bun:test"
-import type * as FileSystem from "effect/FileSystem"
 import type * as Path from "effect/Path"
 import { access, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Effect from "effect/Effect"
+import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
-import { ReflinkError } from "#lib/core/errors.ts"
-import { Reflinker } from "#lib/services/reflinker.ts"
+import * as PlatformError from "effect/PlatformError"
+import { LockfileParseError, ReflinkError } from "#lib/core/errors.ts"
+import { ensureGitignoreEntry } from "#lib/workspace/integration.ts"
 import {
   initializeLockfile,
   readLockfileAtPath,
   upsertPackageEntry,
 } from "#lib/workspace/lockfile.ts"
 import { createProjectReference, ensureDirectory } from "#lib/workspace/project.ts"
+import { Reflinker } from "#lib/workspace/reflinker.ts"
 
 const temporaryPaths: string[] = []
 const ProjectTestLayer = Layer.mergeAll(NodeServices.layer, Reflinker.layer)
@@ -76,6 +78,39 @@ describe("project references", () => {
     expect(
       await readdir(join(projectPath, ".packref", "packages", "npm", "@effect", "cli"))
     ).toEqual(["0.70.0"])
+  })
+
+  it("maps target existence failures to ReflinkError", async () => {
+    const projectPath = await makeTempDirectory()
+    const storePath = await makeTempDirectory()
+    const failingFileSystem = Layer.effect(
+      FileSystem.FileSystem,
+      Effect.map(FileSystem.FileSystem, (fs) => ({
+        ...fs,
+        exists: (path) =>
+          Effect.fail(
+            PlatformError.systemError({
+              _tag: "PermissionDenied",
+              method: "exists",
+              module: "FileSystem",
+              pathOrDescriptor: path,
+            })
+          ),
+      }))
+    ).pipe(Layer.provide(NodeServices.layer))
+
+    const failure = await Effect.runPromise(
+      Effect.flip(
+        createProjectReference(
+          projectPath,
+          { name: "example", registry: "npm", version: "1.0.0" },
+          storePath,
+          { type: "tarball", url: "https://registry.npmjs.org/example/-/example-1.0.0.tgz" }
+        )
+      ).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, Reflinker.layer, failingFileSystem)))
+    )
+
+    expect(failure).toBeInstanceOf(ReflinkError)
   })
 
   it("rejects repository directories that escape the stored snapshot", async () => {
@@ -165,7 +200,36 @@ describe("project references", () => {
   })
 })
 
+describe("workspace integration", () => {
+  it("preserves optional-file failures other than NotFound", async () => {
+    const projectPath = await makeTempDirectory()
+    await mkdir(join(projectPath, ".gitignore"))
+
+    const failure = await run(Effect.flip(ensureGitignoreEntry(projectPath)))
+
+    expect(failure).toMatchObject({ _tag: "PlatformError" })
+  })
+})
+
 describe("lockfile upsert", () => {
+  it("rejects duplicate package identities", async () => {
+    const projectPath = await makeTempDirectory()
+    const lockfilePath = join(projectPath, "packref-lock.json")
+    const entry = {
+      name: "react",
+      registry: "npm",
+      source: { type: "tarball", url: "https://registry.npmjs.org/react/-/react-19.0.0.tgz" },
+      tracking: "manual",
+      version: "19.0.0",
+    }
+    await writeFile(lockfilePath, JSON.stringify({ packages: [entry, entry] }))
+
+    const failure = await run(Effect.flip(readLockfileAtPath(lockfilePath)))
+
+    expect(failure).toBeInstanceOf(LockfileParseError)
+    expect(failure.cause).toHaveProperty("message", "Duplicate package identity: npm:react@19.0.0")
+  })
+
   it("is idempotent by full identity and allows multiple versions", async () => {
     const projectPath = await makeTempDirectory()
     await run(ensureDirectory(projectPath))

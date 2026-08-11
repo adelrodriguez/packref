@@ -3,17 +3,20 @@ import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Filter from "effect/Filter"
 import * as Layer from "effect/Layer"
+import * as Match from "effect/Match"
 import * as Option from "effect/Option"
 import * as Path from "effect/Path"
+import * as Predicate from "effect/Predicate"
+import * as Result from "effect/Result"
 import * as Schema from "effect/Schema"
 import { detectPackageManager, type PackageManagerName } from "nypm"
 import { valid } from "semver"
 import { ManifestParseError, ManifestResolutionError } from "#lib/core/errors.ts"
-import {
-  DEPENDENCY_GROUPS,
-  defineManifest,
-  type ManifestDependency,
-} from "#lib/manifests/manifest.ts"
+import { defineManifest, type ManifestDependency } from "#lib/manifests/manifest.ts"
+
+const DEPENDENCY_GROUPS = ["dependencies", "devDependencies", "peerDependencies"] as const
+
+const NODE_MODULES_RESOLUTION_CONCURRENCY = 8
 
 const DependencyRecordSchema = Schema.Record(Schema.String, Schema.String)
 
@@ -48,6 +51,15 @@ const NpmLockfileEntrySchema = Schema.StructWithRest(
   [Schema.Record(Schema.String, Schema.Unknown)]
 )
 
+const decodeJavascriptManifest = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(JavascriptPackageManifestSchema)
+)
+const decodeInstalledPackage = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(InstalledPackageSchema)
+)
+const decodeNpmLockfile = Schema.decodeUnknownOption(Schema.fromJsonString(NpmLockfileSchema))
+const decodeNpmLockfileEntry = Schema.decodeUnknownOption(NpmLockfileEntrySchema)
+
 interface LockedVersionDependency {
   readonly name: string
   readonly specifier: string
@@ -64,19 +76,24 @@ interface Lockfile {
 
 interface PackageManagerLockfileStrategy {
   readonly lockfiles: readonly Lockfile[]
-  readonly resolve: (rawLockfile: string, request: LockfileResolutionRequest) => string | undefined
+  readonly resolve: (
+    rawLockfile: string,
+    request: LockfileResolutionRequest
+  ) => Option.Option<string>
 }
 
 interface PackageManagerResolverService {
   readonly resolveLockedVersions: (
     projectPath: string,
     dependencies: readonly LockedVersionDependency[]
-  ) => Effect.Effect<
-    ReadonlyMap<string, string>,
-    ManifestResolutionError,
-    FileSystem.FileSystem | Path.Path
-  >
+  ) => Effect.Effect<ReadonlyMap<string, string>, ManifestResolutionError>
 }
+
+const toManifestParseError = (path: string) =>
+  Effect.mapError((cause: unknown) => new ManifestParseError({ cause, path }))
+
+const toManifestResolutionError = (path: string) =>
+  Effect.mapError((cause: unknown) => new ManifestResolutionError({ cause, path }))
 
 const escapeRegularExpression = (value: string) =>
   value.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`)
@@ -85,12 +102,13 @@ const unquoteYamlValue = (value: string) => value.replaceAll(/^["']|["']$/gu, ""
 
 export const resolveBunLockVersion = (rawLockfile: string, name: string) => {
   const escapedName = escapeRegularExpression(name)
-  const match = new RegExp(
-    String.raw`^\s*"${escapedName}":\s*\[\s*"${escapedName}@([^"]+)"`,
-    "mu"
-  ).exec(rawLockfile)
+  const match = Option.fromNullishOr(
+    new RegExp(String.raw`^\s*"${escapedName}":\s*\[\s*"${escapedName}@([^"]+)"`, "mu").exec(
+      rawLockfile
+    )
+  )
 
-  return match?.[1]
+  return Option.flatMap(match, (result) => Option.fromNullishOr(result[1]))
 }
 
 export const resolveYarnLockVersion = (rawLockfile: string, name: string, specifier: string) => {
@@ -108,14 +126,16 @@ export const resolveYarnLockVersion = (rawLockfile: string, name: string, specif
       continue
     }
 
-    const versionMatch = /^\s+version:?\s+["']?([^"'\s]+)["']?\s*$/mu.exec(block)
+    const version = Option.fromNullishOr(
+      /^\s+version:?\s+["']?([^"'\s]+)["']?\s*$/mu.exec(block)
+    ).pipe(Option.flatMap((match) => Option.fromNullishOr(match[1])))
 
-    if (versionMatch?.[1] !== undefined) {
-      return versionMatch[1]
+    if (Option.isSome(version)) {
+      return version
     }
   }
 
-  return void 0
+  return Option.none<string>()
 }
 
 const getYamlMappingBlock = (source: string, key: string, indentation: number) => {
@@ -127,7 +147,7 @@ const getYamlMappingBlock = (source: string, key: string, indentation: number) =
   const startIndex = lines.findIndex((line) => keyPattern.test(line))
 
   if (startIndex === -1) {
-    return
+    return Option.none<string>()
   }
 
   let endIndex = lines.length
@@ -147,7 +167,7 @@ const getYamlMappingBlock = (source: string, key: string, indentation: number) =
     }
   }
 
-  return lines.slice(startIndex + 1, endIndex).join("\n")
+  return Option.some(lines.slice(startIndex + 1, endIndex).join("\n"))
 }
 
 const normalizePnpmVersion = (value: string) => unquoteYamlValue(value).replace(/\(.+$/u, "").trim()
@@ -162,7 +182,7 @@ const resolvePnpmDependencyFromBlock = (source: string, name: string) => {
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index]
-    const match = line === undefined ? undefined : dependencyPattern.exec(line)
+    const match = line === undefined ? null : dependencyPattern.exec(line)
 
     if (match?.groups === undefined) {
       continue
@@ -174,7 +194,7 @@ const resolvePnpmDependencyFromBlock = (source: string, name: string) => {
       const version = normalizePnpmVersion(inlineValue)
 
       if (valid(version) !== null) {
-        return version
+        return Option.some(version)
       }
 
       continue
@@ -195,60 +215,57 @@ const resolvePnpmDependencyFromBlock = (source: string, name: string) => {
         break
       }
 
-      const versionMatch = /^\s+version:\s*(.+?)\s*$/u.exec(nestedLine)
+      const versionMatch = Option.fromNullishOr(/^\s+version:\s*(.+?)\s*$/u.exec(nestedLine)).pipe(
+        Option.flatMap((match) => Option.fromNullishOr(match[1]))
+      )
 
-      if (versionMatch?.[1] !== undefined) {
-        const version = normalizePnpmVersion(versionMatch[1])
+      if (Option.isSome(versionMatch)) {
+        const version = normalizePnpmVersion(versionMatch.value)
 
         if (valid(version) !== null) {
-          return version
+          return Option.some(version)
         }
       }
     }
   }
 
-  return void 0
+  return Option.none<string>()
 }
 
 export const resolvePnpmLockVersion = (
   rawLockfile: string,
   name: string,
   projectRelativePath = "."
-) => {
-  const importers = getYamlMappingBlock(rawLockfile, "importers", 0)
-
-  if (importers !== undefined) {
-    const importer = getYamlMappingBlock(importers, projectRelativePath, 2)
-
-    return importer === undefined ? void 0 : resolvePnpmDependencyFromBlock(importer, name)
-  }
-
-  return resolvePnpmDependencyFromBlock(rawLockfile, name)
-}
+) =>
+  Option.match(getYamlMappingBlock(rawLockfile, "importers", 0), {
+    onNone: () => resolvePnpmDependencyFromBlock(rawLockfile, name),
+    onSome: (importers) =>
+      getYamlMappingBlock(importers, projectRelativePath, 2).pipe(
+        Option.flatMap((importer) => resolvePnpmDependencyFromBlock(importer, name))
+      ),
+  })
 
 export const resolveNpmLockVersion = (
   rawLockfile: string,
   name: string,
   projectRelativePath = "."
-) => {
-  const lockfile = Option.getOrUndefined(
-    Schema.decodeUnknownOption(Schema.fromJsonString(NpmLockfileSchema))(rawLockfile)
+) =>
+  decodeNpmLockfile(rawLockfile).pipe(
+    Option.flatMap((lockfile) => {
+      const workspacePackagePath =
+        projectRelativePath === "." ? undefined : `${projectRelativePath}/node_modules/${name}`
+
+      return Option.fromNullishOr(
+        (workspacePackagePath === undefined
+          ? undefined
+          : lockfile.packages?.[workspacePackagePath]) ??
+          lockfile.packages?.[`node_modules/${name}`] ??
+          lockfile.dependencies?.[name]
+      )
+    }),
+    Option.flatMap(decodeNpmLockfileEntry),
+    Option.map((entry) => entry.version)
   )
-
-  if (lockfile === undefined) {
-    return void 0
-  }
-
-  const workspacePackagePath =
-    projectRelativePath === "." ? undefined : `${projectRelativePath}/node_modules/${name}`
-  const rawEntry =
-    (workspacePackagePath === undefined ? undefined : lockfile.packages?.[workspacePackagePath]) ??
-    lockfile.packages?.[`node_modules/${name}`] ??
-    lockfile.dependencies?.[name]
-  const entry = Option.getOrUndefined(Schema.decodeUnknownOption(NpmLockfileEntrySchema)(rawEntry))
-
-  return entry?.version
-}
 
 const packageManagerLockfileStrategies: Partial<
   Record<PackageManagerName, PackageManagerLockfileStrategy>
@@ -283,152 +300,160 @@ const getLockfiles = (
   detectedLockfile: string | readonly string[] | undefined
 ) => {
   const strategy = packageManagerLockfileStrategies[managerName]
-  const lockfileNames =
-    detectedLockfile === undefined
-      ? (strategy?.lockfiles.map((lockfile) => lockfile.name) ?? [])
-      : typeof detectedLockfile === "string"
-        ? [detectedLockfile]
-        : [...detectedLockfile]
+  const lockfileNames = Match.value(detectedLockfile).pipe(
+    Match.when(Predicate.isUndefined, () =>
+      strategy === undefined ? [] : strategy.lockfiles.map((lockfile) => lockfile.name)
+    ),
+    Match.when(Match.string, (name) => [name]),
+    Match.orElse((names) => [...names])
+  )
 
   return lockfileNames.map(
     (name) => strategy?.lockfiles.find((lockfile) => lockfile.name === name) ?? { name }
   )
 }
 
-const findNearestLockfiles = Effect.fn("findNearestLockfiles")(function* (
-  projectPath: string,
-  lockfiles: readonly Lockfile[]
-) {
-  const fs = yield* FileSystem.FileSystem
-  const path = yield* Path.Path
-  let directoryPath = projectPath
+const ancestorDirectories = (path: Path.Path, startPath: string) => {
+  const directories: string[] = []
+  let directoryPath = startPath
 
   while (directoryPath.length > 0) {
-    const matches: Array<Lockfile & { readonly path: string }> = []
-
-    for (const lockfile of lockfiles) {
-      const lockfilePath = path.join(directoryPath, lockfile.name)
-      const exists = yield* fs.exists(lockfilePath).pipe(
-        Effect.mapError(
-          (cause) =>
-            new ManifestResolutionError({
-              cause,
-              path: lockfilePath,
-            })
-        )
-      )
-
-      if (exists) {
-        matches.push({
-          ...lockfile,
-          path: lockfilePath,
-        })
-      }
-    }
-
-    if (matches.length > 0) {
-      return {
-        directoryPath,
-        lockfiles: matches,
-      }
-    }
+    directories.push(directoryPath)
 
     const parentPath = path.dirname(directoryPath)
 
     if (parentPath === directoryPath) {
-      return void 0
+      break
     }
 
     directoryPath = parentPath
   }
 
-  return void 0
-})
+  return directories
+}
 
 export class PackageManagerResolver extends Context.Service<
   PackageManagerResolver,
   PackageManagerResolverService
 >()("PackageManagerResolver") {
-  static readonly layer = Layer.succeed(this)({
-    resolveLockedVersions: Effect.fn("PackageManagerResolver.resolveLockedVersions")(
-      function* (projectPath, dependencies) {
-        const fs = yield* FileSystem.FileSystem
-        const path = yield* Path.Path
-        const manager = yield* Effect.tryPromise({
-          catch: (cause) =>
-            new ManifestResolutionError({
-              cause,
-              path: projectPath,
-            }),
-          try: () =>
-            detectPackageManager(projectPath, {
-              ignoreArgv: true,
-              includeParentDirs: true,
-            }),
-        })
+  static readonly layer = Layer.effect(
+    this,
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
 
-        if (manager === undefined) {
-          return new Map<string, string>()
-        }
+      const findNearestLockfiles = Effect.fn("findNearestLockfiles")(function* (
+        projectPath: string,
+        lockfiles: readonly Lockfile[]
+      ) {
+        return yield* Effect.findFirstFilter(
+          ancestorDirectories(path, projectPath),
+          (directoryPath) =>
+            Effect.gen(function* () {
+              const matches: Array<Lockfile & { readonly path: string }> = []
 
-        const strategy = packageManagerLockfileStrategies[manager.name]
-        const locatedLockfiles = yield* findNearestLockfiles(
-          projectPath,
-          getLockfiles(manager.name, manager.lockFile)
+              for (const lockfile of lockfiles) {
+                const lockfilePath = path.join(directoryPath, lockfile.name)
+                const exists = yield* fs
+                  .exists(lockfilePath)
+                  .pipe(toManifestResolutionError(lockfilePath))
+
+                if (exists) {
+                  matches.push({
+                    ...lockfile,
+                    path: lockfilePath,
+                  })
+                }
+              }
+
+              return matches.length > 0
+                ? Result.succeed({
+                    directoryPath,
+                    lockfiles: matches,
+                  })
+                : Result.fail(void 0)
+            })
         )
+      })
 
-        if (strategy === undefined || locatedLockfiles === undefined) {
-          return new Map<string, string>()
-        }
+      return {
+        resolveLockedVersions: Effect.fn("PackageManagerResolver.resolveLockedVersions")(function* (
+          projectPath: string,
+          dependencies: readonly LockedVersionDependency[]
+        ) {
+          const manager = yield* Effect.tryPromise({
+            catch: (cause) =>
+              new ManifestResolutionError({
+                cause,
+                path: projectPath,
+              }),
+            try: () =>
+              detectPackageManager(projectPath, {
+                ignoreArgv: true,
+                includeParentDirs: true,
+              }),
+          })
 
-        const rawProjectRelativePath = path.relative(locatedLockfiles.directoryPath, projectPath)
-        const projectRelativePath =
-          rawProjectRelativePath.length === 0
-            ? "."
-            : rawProjectRelativePath.split(path.sep).join("/")
-        const unresolved = new Set(dependencies.map((dependency) => dependency.name))
-        const versions = new Map<string, string>()
-
-        for (const lockfile of locatedLockfiles.lockfiles) {
-          if (lockfile.isText === false) {
-            continue
+          if (manager === undefined) {
+            return new Map<string, string>()
           }
 
-          const rawLockfile = yield* fs.readFileString(lockfile.path).pipe(
-            Effect.mapError(
-              (cause) =>
-                new ManifestResolutionError({
-                  cause,
-                  path: lockfile.path,
-                })
-            )
+          const strategy = packageManagerLockfileStrategies[manager.name]
+          const locatedLockfiles = yield* findNearestLockfiles(
+            projectPath,
+            getLockfiles(manager.name, manager.lockFile)
           )
 
-          for (const dependency of dependencies) {
-            if (!unresolved.has(dependency.name)) {
+          if (strategy === undefined || Option.isNone(locatedLockfiles)) {
+            return new Map<string, string>()
+          }
+
+          const located = locatedLockfiles.value
+          const rawProjectRelativePath = path.relative(located.directoryPath, projectPath)
+          const projectRelativePath =
+            rawProjectRelativePath.length === 0
+              ? "."
+              : rawProjectRelativePath.split(path.sep).join("/")
+          const unresolved = new Set(dependencies.map((dependency) => dependency.name))
+          const versions = new Map<string, string>()
+
+          for (const lockfile of located.lockfiles) {
+            if (lockfile.isText === false) {
               continue
             }
 
-            const resolvedVersion = strategy.resolve(rawLockfile, {
-              ...dependency,
-              projectRelativePath,
-            })
+            const rawLockfile = yield* fs
+              .readFileString(lockfile.path)
+              .pipe(toManifestResolutionError(lockfile.path))
 
-            if (resolvedVersion !== undefined && valid(resolvedVersion) !== null) {
-              versions.set(dependency.name, resolvedVersion)
-              unresolved.delete(dependency.name)
+            for (const dependency of dependencies) {
+              if (!unresolved.has(dependency.name)) {
+                continue
+              }
+
+              const resolvedVersion = strategy
+                .resolve(rawLockfile, {
+                  ...dependency,
+                  projectRelativePath,
+                })
+                .pipe(Option.filter((version) => valid(version) !== null))
+
+              if (Option.isSome(resolvedVersion)) {
+                versions.set(dependency.name, resolvedVersion.value)
+                unresolved.delete(dependency.name)
+              }
+            }
+
+            if (unresolved.size === 0) {
+              break
             }
           }
 
-          if (unresolved.size === 0) {
-            break
-          }
-        }
-
-        return versions
+          return versions
+        }),
       }
-    ),
-  })
+    })
+  )
 }
 
 const readNodeModulesVersion = Effect.fn("readNodeModulesVersion")(function* (
@@ -437,49 +462,30 @@ const readNodeModulesVersion = Effect.fn("readNodeModulesVersion")(function* (
 ) {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
-  let directoryPath = projectPath
 
-  while (directoryPath.length > 0) {
-    const packageJsonPath = path.join(directoryPath, "node_modules", packageName, "package.json")
-    const rawPackageJson = yield* fs.readFileString(packageJsonPath).pipe(
-      Effect.catchFilter(Filter.reason("PlatformError", "NotFound"), () => Effect.succeed(void 0)),
-      Effect.mapError(
-        (cause) =>
-          new ManifestParseError({
-            cause,
-            path: packageJsonPath,
-          })
-      )
-    )
-
-    if (rawPackageJson !== undefined) {
-      const manifest = yield* Schema.decodeUnknownEffect(
-        Schema.fromJsonString(InstalledPackageSchema)
-      )(rawPackageJson).pipe(
-        Effect.mapError(
-          (cause) =>
-            new ManifestParseError({
-              cause,
-              path: packageJsonPath,
-            })
-        )
+  return yield* Effect.findFirstFilter(ancestorDirectories(path, projectPath), (directoryPath) =>
+    Effect.gen(function* () {
+      const packageJsonPath = path.join(directoryPath, "node_modules", packageName, "package.json")
+      const rawPackageJson = yield* fs.readFileString(packageJsonPath).pipe(
+        Effect.catchFilter(Filter.reason("PlatformError", "NotFound"), () =>
+          Effect.succeed(void 0)
+        ),
+        toManifestParseError(packageJsonPath)
       )
 
-      if (valid(manifest.version) !== null) {
-        return manifest.version
+      if (rawPackageJson === undefined) {
+        return Result.fail(void 0)
       }
-    }
 
-    const parentPath = path.dirname(directoryPath)
+      const manifest = yield* decodeInstalledPackage(rawPackageJson).pipe(
+        toManifestParseError(packageJsonPath)
+      )
 
-    if (parentPath === directoryPath) {
-      return void 0
-    }
-
-    directoryPath = parentPath
-  }
-
-  return void 0
+      return valid(manifest.version) === null
+        ? Result.fail(void 0)
+        : Result.succeed(manifest.version)
+    })
+  )
 })
 
 export const readJavascriptManifest = Effect.fn("readJavascriptManifest")(function* (
@@ -489,17 +495,11 @@ export const readJavascriptManifest = Effect.fn("readJavascriptManifest")(functi
   const path = yield* Path.Path
   const packageManagerResolver = yield* PackageManagerResolver
   const manifestPath = path.join(projectPath, "package.json")
-  const rawManifest = yield* fs.readFileString(manifestPath)
-  const manifest = yield* Schema.decodeUnknownEffect(
-    Schema.fromJsonString(JavascriptPackageManifestSchema)
-  )(rawManifest).pipe(
-    Effect.mapError(
-      (cause) =>
-        new ManifestParseError({
-          cause,
-          path: manifestPath,
-        })
-    )
+  const rawManifest = yield* fs
+    .readFileString(manifestPath)
+    .pipe(toManifestParseError(manifestPath))
+  const manifest = yield* decodeJavascriptManifest(rawManifest).pipe(
+    toManifestParseError(manifestPath)
   )
   const dependencies = new Map<string, Omit<ManifestDependency, "exactVersion">>()
 
@@ -525,32 +525,38 @@ export const readJavascriptManifest = Effect.fn("readJavascriptManifest")(functi
   const lockedVersions = yield* packageManagerResolver.resolveLockedVersions(projectPath, [
     ...dependencies.values(),
   ])
-  const resolvedDependencies: ManifestDependency[] = []
 
-  for (const dependency of dependencies.values()) {
-    const lockedVersion = lockedVersions.get(dependency.name)
-    const exactVersion =
-      lockedVersion ?? (yield* readNodeModulesVersion(projectPath, dependency.name))
+  return yield* Effect.forEach(
+    dependencies.values(),
+    (dependency) => {
+      const lockedVersion = lockedVersions.get(dependency.name)
+      const exactVersion =
+        lockedVersion === undefined
+          ? readNodeModulesVersion(projectPath, dependency.name)
+          : Effect.succeedSome(lockedVersion)
 
-    resolvedDependencies.push(
-      exactVersion === undefined
-        ? dependency
-        : {
+      return Effect.map(
+        exactVersion,
+        Option.match({
+          onNone: (): ManifestDependency => dependency,
+          onSome: (exactVersion): ManifestDependency => ({
             ...dependency,
             exactVersion,
-          }
-    )
-  }
-
-  return resolvedDependencies
+          }),
+        })
+      )
+    },
+    { concurrency: NODE_MODULES_RESOLUTION_CONCURRENCY }
+  )
 })
 
 export default defineManifest({
   detect: Effect.fn("javascriptManifest.detect")(function* (projectPath) {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
+    const manifestPath = path.join(projectPath, "package.json")
 
-    return yield* fs.exists(path.join(projectPath, "package.json"))
+    return yield* fs.exists(manifestPath).pipe(toManifestParseError(manifestPath))
   }),
   name: "javascript",
   read: readJavascriptManifest,

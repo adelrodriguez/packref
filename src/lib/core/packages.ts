@@ -44,36 +44,34 @@ export const PACKAGE_DIRECTORY_NAME = "packages"
 
 type PackageIdentityField = "name" | "registry" | "version"
 
-function validatePathSegment(
+const validatePathSegment = Effect.fn("validatePathSegment")(function* (
   field: PackageIdentityField,
   value: string
-): Effect.Effect<void, InvalidPackageIdentity> {
-  return Effect.gen(function* () {
-    if (value.length === 0) {
-      return yield* new InvalidPackageIdentity({
-        field,
-        reason: "must not be empty",
-        value,
-      })
-    }
+): Effect.fn.Return<void, InvalidPackageIdentity> {
+  if (value.length === 0) {
+    return yield* new InvalidPackageIdentity({
+      field,
+      reason: "must not be empty",
+      value,
+    })
+  }
 
-    if (value === "." || value === "..") {
-      return yield* new InvalidPackageIdentity({
-        field,
-        reason: "must not be a reserved path segment",
-        value,
-      })
-    }
+  if (value === "." || value === "..") {
+    return yield* new InvalidPackageIdentity({
+      field,
+      reason: "must not be a reserved path segment",
+      value,
+    })
+  }
 
-    if (value.includes("/") || value.includes("\\")) {
-      return yield* new InvalidPackageIdentity({
-        field,
-        reason: "must not contain path separators",
-        value,
-      })
-    }
-  })
-}
+  if (value.includes("/") || value.includes("\\")) {
+    return yield* new InvalidPackageIdentity({
+      field,
+      reason: "must not contain path separators",
+      value,
+    })
+  }
+})
 
 const checkHasRegistryPrefix = (value: string) => {
   const prefixSeparatorIndex = value.indexOf(":")
@@ -87,100 +85,85 @@ const checkHasRegistryPrefix = (value: string) => {
   return firstPathSeparatorIndex === -1 || prefixSeparatorIndex < firstPathSeparatorIndex
 }
 
-export const getPackageIdentitySegments = ({ registry, name, version }: PackageIdentity) =>
-  Effect.gen(function* () {
-    yield* validatePathSegment("registry", registry)
-    yield* validatePathSegment("version", version)
+export const getPackageIdentitySegments = Effect.fn("getPackageIdentitySegments")(function* ({
+  registry,
+  name,
+  version,
+}: PackageIdentity) {
+  yield* validatePathSegment("registry", registry)
+  yield* validatePathSegment("version", version)
 
-    if (name.startsWith("@")) {
-      const nameSegments = name.split("/")
+  if (name.startsWith("@")) {
+    const nameSegments = name.split("/")
 
-      if (nameSegments.length !== 2) {
-        return yield* new InvalidPackageIdentity({
-          field: "name",
-          reason: "scoped package names must contain exactly one scope separator",
-          value: name,
-        })
-      }
-
-      const [scope = "", packageName = ""] = nameSegments
-
-      if (scope === "@") {
-        return yield* new InvalidPackageIdentity({
-          field: "name",
-          reason: "scoped package names must include a non-empty scope",
-          value: name,
-        })
-      }
-
-      yield* validatePathSegment("name", scope)
-      yield* validatePathSegment("name", packageName)
-
-      return [PACKAGE_DIRECTORY_NAME, registry, scope, packageName, version]
-    }
-
-    yield* validatePathSegment("name", name)
-
-    return [PACKAGE_DIRECTORY_NAME, registry, name, version]
-  })
-
-export const getPackageIdentityPath = (identity: PackageIdentity) =>
-  Effect.gen(function* () {
-    const path = yield* Path.Path
-    const segments = yield* getPackageIdentitySegments(identity)
-
-    return path.join(...segments)
-  })
-
-export const parsePackageSpec = (input: string) =>
-  Effect.gen(function* () {
-    const rawSpec = input.trim()
-
-    let spec = rawSpec
-    let registry: Registry = DEFAULT_REGISTRY
-
-    if (checkHasRegistryPrefix(rawSpec)) {
-      const [rawRegistry = "", ...rest] = rawSpec.split(":")
-      const packageSpec = rest.join(":").trim()
-
-      if (!checkIsRegistry(rawRegistry)) {
-        return yield* new UnsupportedRegistryError({ registry: rawRegistry })
-      }
-
-      registry = rawRegistry
-      spec = packageSpec
-    }
-
-    if (spec.length === 0) {
+    if (nameSegments.length !== 2) {
       return yield* new InvalidPackageIdentity({
         field: "name",
-        reason: "must not be empty",
-        value: spec,
+        reason: "scoped package names must contain exactly one scope separator",
+        value: name,
       })
     }
 
-    if (spec.startsWith("@")) {
-      const versionSeparatorIndex = spec.lastIndexOf("@")
+    const [scope = "", packageName = ""] = nameSegments
 
-      if (versionSeparatorIndex <= 0) {
-        return {
-          name: spec,
-          registry,
-        } satisfies ParsedPackageSpec
-      }
-
-      const specifier = spec.slice(versionSeparatorIndex + 1)
-
-      return {
-        name: spec.slice(0, versionSeparatorIndex),
-        registry,
-        ...(specifier.length === 0 ? {} : { specifier }),
-      } satisfies ParsedPackageSpec
+    if (scope === "@") {
+      return yield* new InvalidPackageIdentity({
+        field: "name",
+        reason: "scoped package names must include a non-empty scope",
+        value: name,
+      })
     }
 
-    const versionSeparatorIndex = spec.indexOf("@")
+    yield* validatePathSegment("name", scope)
+    yield* validatePathSegment("name", packageName)
 
-    if (versionSeparatorIndex === -1) {
+    return [PACKAGE_DIRECTORY_NAME, registry, scope, packageName, version]
+  }
+
+  yield* validatePathSegment("name", name)
+
+  return [PACKAGE_DIRECTORY_NAME, registry, name, version]
+})
+
+export const getPackageIdentityPath = Effect.fn("getPackageIdentityPath")(function* (
+  identity: PackageIdentity
+) {
+  const path = yield* Path.Path
+  const segments = yield* getPackageIdentitySegments(identity)
+
+  return path.join(...segments)
+})
+
+export const parsePackageSpec = Effect.fn("parsePackageSpec")(function* (input: string) {
+  const rawSpec = input.trim()
+
+  let spec = rawSpec
+  let registry: Registry = DEFAULT_REGISTRY
+
+  if (checkHasRegistryPrefix(rawSpec)) {
+    const [rawRegistry = "", ...rest] = rawSpec.split(":")
+    const packageSpec = rest.join(":").trim()
+
+    if (!checkIsRegistry(rawRegistry)) {
+      return yield* new UnsupportedRegistryError({ registry: rawRegistry })
+    }
+
+    registry = rawRegistry
+    spec = packageSpec
+  }
+
+  if (spec.length === 0) {
+    return yield* new InvalidPackageIdentity({
+      field: "name",
+      reason: "must not be empty",
+      value: spec,
+    })
+  }
+
+  if (spec.startsWith("@")) {
+    const versionSeparatorIndex = spec.lastIndexOf("@")
+
+    if (versionSeparatorIndex <= 0) {
       return {
         name: spec,
         registry,
@@ -194,4 +177,22 @@ export const parsePackageSpec = (input: string) =>
       registry,
       ...(specifier.length === 0 ? {} : { specifier }),
     } satisfies ParsedPackageSpec
-  })
+  }
+
+  const versionSeparatorIndex = spec.indexOf("@")
+
+  if (versionSeparatorIndex === -1) {
+    return {
+      name: spec,
+      registry,
+    } satisfies ParsedPackageSpec
+  }
+
+  const specifier = spec.slice(versionSeparatorIndex + 1)
+
+  return {
+    name: spec.slice(0, versionSeparatorIndex),
+    registry,
+    ...(specifier.length === 0 ? {} : { specifier }),
+  } satisfies ParsedPackageSpec
+})

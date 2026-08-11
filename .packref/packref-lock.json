@@ -34,6 +34,17 @@
       },
       "tracking": "dependency",
       "version": "0.34.1"
+    },
+    {
+      "name": "nanotar",
+      "registry": "npm",
+      "source": {
+        "host": "github.com",
+        "type": "repository",
+        "url": "https://github.com/unjs/nanotar"
+      },
+      "tracking": "dependency",
+      "version": "0.3.0"
     }
   ]
 }

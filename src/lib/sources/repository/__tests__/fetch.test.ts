@@ -8,8 +8,8 @@ import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { SnapshotFetchError } from "#lib/core/errors.ts"
-import { PackrefHome } from "#lib/services/packref-home.ts"
 import { fetchRepositorySnapshot, RepositoryDownloader } from "#lib/sources/repository/fetch.ts"
+import { PackrefHome } from "#lib/workspace/home.ts"
 
 const temporaryPaths: string[] = []
 
@@ -41,11 +41,7 @@ const exists = (path: string) =>
     .catch(() => false)
 
 const run = <A, E>(
-  effect: Effect.Effect<
-    A,
-    E,
-    FileSystem.FileSystem | Path.Path | RepositoryDownloader | PackrefHome
-  >,
+  effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | RepositoryDownloader>,
   home: string,
   download: RepositoryDownloader["Service"]["download"]
 ) =>

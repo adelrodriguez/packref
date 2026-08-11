@@ -11,13 +11,14 @@ import { createTarGzip } from "nanotar"
 import type { NpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
 import type { Lockfile, PackageEntry } from "#lib/workspace/lockfile.ts"
 import { NotInitializedError, UnsupportedManifestError } from "#lib/core/errors.ts"
+import { ProjectDependencyReader } from "#lib/manifests/index.ts"
 import { PackageManagerResolver } from "#lib/manifests/javascript.ts"
 import { preparePackageReferenceSync, syncPackageReferences } from "#lib/references/sync.ts"
 import { NpmRegistryClient } from "#lib/registries/npm/client.ts"
-import { CommandRunner } from "#lib/services/command-runner.ts"
-import { PackrefHome } from "#lib/services/packref-home.ts"
-import { Reflinker } from "#lib/services/reflinker.ts"
 import { RepositoryDownloader } from "#lib/sources/repository/fetch.ts"
+import { RemoteTagReader } from "#lib/sources/repository/tags.ts"
+import { PackrefHome } from "#lib/workspace/home.ts"
+import { Reflinker } from "#lib/workspace/reflinker.ts"
 
 const temporaryPaths: string[] = []
 
@@ -95,22 +96,28 @@ interface TestServices {
   readonly tarballStatus?: number
 }
 
-const makeTestLayer = (homePath: string, services: TestServices = {}) =>
-  Layer.mergeAll(
+const makeTestLayer = (homePath: string, services: TestServices = {}) => {
+  const packageManagerLayer = Layer.succeed(PackageManagerResolver)({
+    resolveLockedVersions: (_projectPath, dependencies) =>
+      Effect.succeed(
+        new Map(
+          dependencies.flatMap((dependency) => {
+            const version = services.exactVersions?.[dependency.name]
+            return version === undefined ? [] : [[dependency.name, version] as const]
+          })
+        )
+      ),
+  })
+  const manifestLayer = Layer.provideMerge(
+    ProjectDependencyReader.layer,
+    Layer.mergeAll(NodeServices.layer, packageManagerLayer)
+  )
+
+  return Layer.mergeAll(
     NodeServices.layer,
     PackrefHome.at(homePath),
+    manifestLayer,
     Reflinker.layer,
-    Layer.succeed(PackageManagerResolver)({
-      resolveLockedVersions: (_projectPath, dependencies) =>
-        Effect.succeed(
-          new Map(
-            dependencies.flatMap((dependency) => {
-              const version = services.exactVersions?.[dependency.name]
-              return version === undefined ? [] : [[dependency.name, version] as const]
-            })
-          )
-        ),
-    }),
     Layer.succeed(NpmRegistryClient)({
       getPackageMetadata: (name) => {
         services.onMetadataRequest?.(name)
@@ -120,9 +127,9 @@ const makeTestLayer = (homePath: string, services: TestServices = {}) =>
           : Effect.succeed(metadata)
       },
     }),
-    Layer.succeed(CommandRunner)({
-      run: () => Effect.die("Repository commands are not expected in sync tests"),
-    }),
+    RemoteTagReader.layerWithCommand(() =>
+      Effect.die("Repository tag commands are not expected in sync tests")
+    ),
     Layer.succeed(RepositoryDownloader)({
       download: () => Effect.die("Repository downloads are not expected in sync tests"),
     }),
@@ -147,6 +154,7 @@ const makeTestLayer = (homePath: string, services: TestServices = {}) =>
       )
     )
   )
+}
 
 const runSync = async (projectPath: string, homePath: string, services: TestServices = {}) =>
   Effect.runPromise(
