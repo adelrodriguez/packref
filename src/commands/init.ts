@@ -1,11 +1,11 @@
+import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
+import * as Match from "effect/Match"
 import * as Path from "effect/Path"
 import * as Command from "effect/unstable/cli/Command"
 import * as Flag from "effect/unstable/cli/Flag"
 import { RequestedIntegrationError } from "#lib/core/errors.ts"
-import { Prompter } from "#lib/services/prompter.ts"
-import { printTitle } from "#lib/shared/terminal.ts"
 import { registerProject } from "#lib/workspace/config.ts"
 import {
   ensureGitignoreEntry,
@@ -14,6 +14,8 @@ import {
 } from "#lib/workspace/integration.ts"
 import { initializeLockfile } from "#lib/workspace/lockfile.ts"
 import { ensureDirectory } from "#lib/workspace/project.ts"
+import { Prompter } from "#terminal/prompter.ts"
+import { printTitle } from "#terminal/title.ts"
 
 const nonInteractive = Flag.boolean("non-interactive").pipe(
   Flag.withDescription("Configure the project from flags without prompts")
@@ -27,6 +29,16 @@ const agents = Flag.boolean("agents").pipe(
   Flag.withDescription("Add Packref guidance to AGENTS.md")
 )
 
+export class InitFlagsRequireNonInteractiveError extends Data.TaggedError(
+  "InitFlagsRequireNonInteractiveError"
+)<{
+  requiredMode: "non-interactive"
+}> {
+  override get message() {
+    return `Setup flags require --${this.requiredMode}. Run \`packref init\` for interactive setup.`
+  }
+}
+
 export default Command.make("init", { agents, ignore, nonInteractive }).pipe(
   Command.withDescription("Initialize Packref files and agent guidance in the current project"),
   Command.withHandler(({ agents, ignore, nonInteractive }) =>
@@ -37,11 +49,7 @@ export default Command.make("init", { agents, ignore, nonInteractive }).pipe(
       const projectPath = yield* fs.realPath(path.resolve())
 
       if (!nonInteractive && (ignore || agents)) {
-        return yield* Effect.fail(
-          new Error(
-            "Setup flags require --non-interactive. Run `packref init` for interactive setup."
-          )
-        )
+        return yield* new InitFlagsRequireNonInteractiveError({ requiredMode: "non-interactive" })
       }
 
       yield* printTitle()
@@ -95,11 +103,11 @@ export default Command.make("init", { agents, ignore, nonInteractive }).pipe(
             failure: "Failed to update tsconfig.json",
             start: "Updating tsconfig.json...",
             success: (result) =>
-              result === "missing"
-                ? "No tsconfig.json found"
-                : result === "malformed"
-                  ? "Could not update tsconfig.json"
-                  : "tsconfig.json is ready",
+              Match.value(result).pipe(
+                Match.when("missing", () => "No tsconfig.json found"),
+                Match.when("malformed", () => "Could not update tsconfig.json"),
+                Match.orElse(() => "tsconfig.json is ready")
+              ),
           }
         )
 
@@ -119,7 +127,10 @@ export default Command.make("init", { agents, ignore, nonInteractive }).pipe(
           failure: "Failed to update AGENTS.md",
           start: "Updating AGENTS.md...",
           success: (result) =>
-            result === "malformed" ? "Could not update AGENTS.md" : "AGENTS.md is ready",
+            Match.value(result).pipe(
+              Match.when("malformed", () => "Could not update AGENTS.md"),
+              Match.orElse(() => "AGENTS.md is ready")
+            ),
         })
 
         if (agentsResult === "malformed") {

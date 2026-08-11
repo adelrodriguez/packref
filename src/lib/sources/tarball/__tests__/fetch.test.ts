@@ -11,8 +11,8 @@ import * as HttpClient from "effect/unstable/http/HttpClient"
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse"
 import { createTarGzip } from "nanotar"
 import { TarballFetchError } from "#lib/core/errors.ts"
-import { PackrefHome } from "#lib/services/packref-home.ts"
 import { fetchTarballSnapshot } from "#lib/sources/tarball/fetch.ts"
+import { PackrefHome } from "#lib/workspace/home.ts"
 
 const temporaryPaths: string[] = []
 
@@ -36,14 +36,10 @@ const exists = (path: string) =>
     .catch(() => false)
 
 const run = <A, E>(
-  effect: Effect.Effect<
-    A,
-    E,
-    FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | PackrefHome
-  >,
+  effect: Effect.Effect<A, E, FileSystem.FileSystem | HttpClient.HttpClient | Path.Path>,
   home: string,
   download: () => Effect.Effect<Uint8Array>,
-  status = 200
+  status: number | (() => number) = 200
 ) =>
   Effect.runPromise(
     effect.pipe(
@@ -56,7 +52,12 @@ const run = <A, E>(
             HttpClient.make((request) =>
               download().pipe(
                 Effect.map((archive) =>
-                  HttpClientResponse.fromWeb(request, new Response(archive, { status }))
+                  HttpClientResponse.fromWeb(
+                    request,
+                    new Response(archive, {
+                      status: typeof status === "function" ? status() : status,
+                    })
+                  )
                 )
               )
             )
@@ -100,20 +101,62 @@ describe("fetchTarballSnapshot", () => {
     expect(await exists(join(result.path, "package"))).toBe(false)
   })
 
-  it("strips a package-specific top-level archive directory", async () => {
+  it("strips a crate-style top-level archive directory", async () => {
     const home = await makeTempDirectory()
     const archive = await createTarGzip([
       {
-        data: "export interface Node {}",
-        name: "estree/index.d.ts",
+        data: '[package]\nname = "example"',
+        name: "example-1.0.0/Cargo.toml",
       },
     ])
     const result = await run(fetchTarballSnapshot(identity, tarballUrl), home, () =>
       Effect.succeed(archive)
     )
 
-    expect(await readFile(join(result.path, "index.d.ts"), "utf8")).toBe("export interface Node {}")
-    expect(await exists(join(result.path, "estree"))).toBe(false)
+    expect(await readFile(join(result.path, "Cargo.toml"), "utf8")).toBe(
+      '[package]\nname = "example"'
+    )
+    expect(await exists(join(result.path, "example-1.0.0"))).toBe(false)
+  })
+
+  it("strips an sdist-style top-level archive directory", async () => {
+    const home = await makeTempDirectory()
+    const archive = await createTarGzip([
+      {
+        data: '[project]\nname = "example"',
+        name: "Example-1.0.0/pyproject.toml",
+      },
+    ])
+    const result = await run(fetchTarballSnapshot(identity, tarballUrl), home, () =>
+      Effect.succeed(archive)
+    )
+
+    expect(await readFile(join(result.path, "pyproject.toml"), "utf8")).toBe(
+      '[project]\nname = "example"'
+    )
+    expect(await exists(join(result.path, "Example-1.0.0"))).toBe(false)
+  })
+
+  it("rejects archives with multiple top-level directories", async () => {
+    const home = await makeTempDirectory()
+    const archive = await createTarGzip([
+      {
+        data: "{}",
+        name: "package/package.json",
+      },
+      {
+        data: "unexpected",
+        name: "other/file.txt",
+      },
+    ])
+
+    const extraction = run(fetchTarballSnapshot(identity, tarballUrl), home, () =>
+      Effect.succeed(archive)
+    )
+
+    expect(extraction).rejects.toMatchObject({
+      cause: "Package archive must contain exactly one top-level directory",
+    })
   })
 
   it("reuses an existing tarball store entry", async () => {
@@ -141,33 +184,73 @@ describe("fetchTarballSnapshot", () => {
   it("fails safely and removes temporary data for invalid archives", async () => {
     const home = await makeTempDirectory()
 
-    try {
-      await run(fetchTarballSnapshot(identity, tarballUrl), home, () =>
+    expect(
+      run(fetchTarballSnapshot(identity, tarballUrl), home, () =>
         Effect.succeed(new Uint8Array([1, 2, 3]))
       )
-      throw new Error("Expected tarball extraction to fail.")
-    } catch (error) {
-      expect(error).toBeInstanceOf(TarballFetchError)
-    }
+    ).rejects.toBeInstanceOf(TarballFetchError)
 
     const packageParent = join(home, ".agents", "packref", "store", "packages", "npm", "example")
     expect(await exists(join(packageParent, "1.0.0"))).toBe(false)
     expect(await readdir(packageParent)).toEqual([])
   })
 
-  it("rejects non-successful tarball responses", async () => {
+  it("retries transient tarball responses before it succeeds", async () => {
     const home = await makeTempDirectory()
+    const archive = await createTarGzip([
+      {
+        data: "{}",
+        name: "package/package.json",
+      },
+    ])
+    let requestCount = 0
 
-    try {
-      await run(
-        fetchTarballSnapshot(identity, tarballUrl),
-        home,
-        () => Effect.succeed(new Uint8Array()),
-        404
-      )
-      throw new Error("Expected tarball download to fail.")
-    } catch (error) {
-      expect(error).toBeInstanceOf(TarballFetchError)
-    }
+    const result = await run(
+      fetchTarballSnapshot(identity, tarballUrl),
+      home,
+      () => Effect.succeed(archive),
+      () => {
+        requestCount += 1
+        return requestCount < 3 ? 503 : 200
+      }
+    )
+
+    expect(result.reused).toBe(false)
+    expect(requestCount).toBe(3)
+  })
+
+  it("does not retry a 404 tarball response", async () => {
+    const home = await makeTempDirectory()
+    let requestCount = 0
+    const download = run(
+      fetchTarballSnapshot(identity, tarballUrl),
+      home,
+      () => Effect.succeed(new Uint8Array()),
+      () => {
+        requestCount += 1
+        return 404
+      }
+    )
+
+    expect(download).rejects.toBeInstanceOf(TarballFetchError)
+    expect(requestCount).toBe(1)
+  })
+
+  it("rejects non-successful tarball responses after bounded retries", async () => {
+    const home = await makeTempDirectory()
+    let requestCount = 0
+
+    const download = run(
+      fetchTarballSnapshot(identity, tarballUrl),
+      home,
+      () => Effect.succeed(new Uint8Array()),
+      () => {
+        requestCount += 1
+        return 503
+      }
+    )
+
+    expect(download).rejects.toBeInstanceOf(TarballFetchError)
+    expect(requestCount).toBe(3)
   })
 })

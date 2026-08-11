@@ -1,12 +1,14 @@
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
+import * as Option from "effect/Option"
 import * as Order from "effect/Order"
 import * as Path from "effect/Path"
 import * as Predicate from "effect/Predicate"
-import type { ParsedPackageSpec } from "#lib/core/packages.ts"
 import type { ManifestDependency } from "#lib/manifests/manifest.ts"
 import type { ResolvedPackageReference } from "#lib/registries/registry.ts"
-import { readProjectDependencies } from "#lib/manifests/index.ts"
+import { ProjectFilesystemError } from "#lib/core/errors.ts"
+import { packageCoordinatesEquivalence, type ParsedPackageSpec } from "#lib/core/packages.ts"
+import { ProjectDependencyReader } from "#lib/manifests/index.ts"
 import { resolvePackageReference } from "#lib/registries/index.ts"
 import { fetchRepositorySnapshot } from "#lib/sources/repository/fetch.ts"
 import { resolveRepositoryRef } from "#lib/sources/repository/normalize.ts"
@@ -38,7 +40,7 @@ export interface AddPackageResult {
   readonly storePath: string
 }
 
-export interface AddPackageCandidates {
+export interface PackageCandidates {
   readonly dependencies: readonly ManifestDependency[]
   readonly projectPath: string
 }
@@ -47,6 +49,24 @@ export interface ResolvedPackageCandidateReference {
   readonly manifestRange: string | undefined
   readonly resolvedPackage: ResolvedPackageReference
 }
+
+const noManifestDependencies: readonly ManifestDependency[] = []
+const useTarball = () => Effect.succeed(Option.none())
+
+const toProjectFilesystemError =
+  (operation: ProjectFilesystemError["operation"], path: string) => (cause: unknown) =>
+    new ProjectFilesystemError({ cause, operation, path })
+
+const readAvailableProjectDependencies = Effect.fn("readAvailableProjectDependencies")(function* (
+  projectPath: string
+) {
+  const projectDependencyReader = yield* ProjectDependencyReader
+
+  return Option.getOrElse(
+    yield* projectDependencyReader.readProjectDependencies(projectPath),
+    () => noManifestDependencies
+  )
+})
 
 const getRegistrySpecifier = (specifier: string) =>
   specifier.startsWith("workspace:") ? specifier.slice("workspace:".length) || "*" : specifier
@@ -59,9 +79,13 @@ const initializeAddProject = Effect.fn("initializeAddProject")(function* (
   const requestedProjectPath = Predicate.isUndefined(options.projectPath)
     ? path.resolve()
     : path.resolve(options.projectPath)
-  const projectPath = yield* fs.realPath(requestedProjectPath)
+  const projectPath = yield* fs
+    .realPath(requestedProjectPath)
+    .pipe(Effect.mapError(toProjectFilesystemError("resolve", requestedProjectPath)))
 
-  yield* ensureDirectory(projectPath)
+  yield* ensureDirectory(projectPath).pipe(
+    Effect.mapError(toProjectFilesystemError("prepare", projectPath))
+  )
   const lockfile = yield* initializeLockfile(projectPath)
   yield* registerProject(projectPath)
 
@@ -71,7 +95,7 @@ const initializeAddProject = Effect.fn("initializeAddProject")(function* (
   }
 })
 
-export const findAddPackageCandidates = Effect.fn("findAddPackageCandidates")(function* (
+export const findPackageCandidates = Effect.fn("findPackageCandidates")(function* (
   options: AddPackageOptions = {}
 ) {
   const { lockfile, projectPath } = yield* initializeAddProject(options)
@@ -79,14 +103,14 @@ export const findAddPackageCandidates = Effect.fn("findAddPackageCandidates")(fu
   const referencedPackages = new Set(
     listPackageEntries(lockfile).map((entry) => `${entry.registry}:${entry.name}`)
   )
-  const dependencies = (yield* readProjectDependencies(projectPath))
+  const dependencies = (yield* readAvailableProjectDependencies(projectPath))
     .filter((dependency) => !referencedPackages.has(`${dependency.registry}:${dependency.name}`))
     .toSorted((left, right) => Order.String(left.name, right.name))
 
   return {
     dependencies,
     projectPath,
-  } satisfies AddPackageCandidates
+  } satisfies PackageCandidates
 })
 
 const materializePackageReferenceToProject = Effect.fn("materializePackageReferenceToProject")(
@@ -96,20 +120,26 @@ const materializePackageReferenceToProject = Effect.fn("materializePackageRefere
     manifestRange: string | undefined,
     tracking: PackageEntry["tracking"]
   ) {
-    const resolvedRepository = Predicate.isUndefined(resolvedPackage.repository)
-      ? undefined
-      : yield* resolveRepositoryRef(resolvedPackage.identity, resolvedPackage.repository).pipe(
-          Effect.catchTags({
-            // Ignore repository resolution errors, since the package may be a tarball or registry package
-            InvalidRepositoryUrlError: () => Effect.succeed(void 0),
-            TagNotFoundError: () => Effect.succeed(void 0),
-            UnsupportedRepositoryHostError: () => Effect.succeed(void 0),
-          })
-        )
+    const resolvedRepository = yield* Option.match(
+      Option.fromNullishOr(resolvedPackage.repository),
+      {
+        onNone: useTarball,
+        onSome: (repository) =>
+          resolveRepositoryRef(resolvedPackage.identity, repository).pipe(
+            Effect.map(Option.some),
+            Effect.catchTags({
+              InvalidRepositoryUrlError: useTarball,
+              TagNotFoundError: useTarball,
+              UnsupportedRepositoryHostError: useTarball,
+            })
+          ),
+      }
+    )
 
-    const storeEntry = yield* Predicate.isUndefined(resolvedRepository)
-      ? fetchTarballSnapshot(resolvedPackage.identity, resolvedPackage.tarballUrl)
-      : fetchRepositorySnapshot(resolvedPackage.identity, resolvedRepository)
+    const storeEntry = yield* Option.match(resolvedRepository, {
+      onNone: () => fetchTarballSnapshot(resolvedPackage.identity, resolvedPackage.tarballUrl),
+      onSome: (repository) => fetchRepositorySnapshot(resolvedPackage.identity, repository),
+    })
 
     const referencePath = yield* createProjectReference(
       projectPath,
@@ -211,8 +241,8 @@ export const addPackageReference = Effect.fn("addPackageReference")(function* (
   const { projectPath } = yield* initializeAddProject(options)
 
   const manifestDependency = Predicate.isUndefined(inputSpec.specifier)
-    ? (yield* readProjectDependencies(projectPath)).find(
-        (dependency) => dependency.name === inputSpec.name
+    ? (yield* readAvailableProjectDependencies(projectPath)).find((dependency) =>
+        packageCoordinatesEquivalence(dependency, inputSpec)
       )
     : undefined
 

@@ -2,8 +2,8 @@ import * as Effect from "effect/Effect"
 import * as Command from "effect/unstable/cli/Command"
 import type { PackageIdentity } from "#lib/core/packages.ts"
 import { applyPrunePlan, discoverPrunePlan } from "#lib/references/prune.ts"
-import { Prompter } from "#lib/services/prompter.ts"
-import { printTitle } from "#lib/shared/terminal.ts"
+import { Prompter } from "#terminal/prompter.ts"
+import { printTitle } from "#terminal/title.ts"
 
 const formatIdentity = (identity: PackageIdentity) =>
   `${identity.registry}:${identity.name}@${identity.version}`

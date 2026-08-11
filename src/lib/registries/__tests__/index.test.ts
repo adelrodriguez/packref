@@ -18,6 +18,10 @@ describe("getRegistryAdapter", () => {
       throw new Error("Expected registry lookup to fail.")
     } catch (error) {
       expect(error).toBeInstanceOf(UnsupportedRegistryError)
+
+      if (error instanceof UnsupportedRegistryError) {
+        expect(error.message).toBe("Unsupported registry prefix `jsr`. Supported registries: npm.")
+      }
     }
   })
 })

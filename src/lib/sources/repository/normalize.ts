@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect"
+import * as Option from "effect/Option"
 import type { PackageIdentity } from "#lib/core/packages.ts"
 import type {
   NormalizedRepositorySource,
@@ -10,204 +11,130 @@ import {
   TagNotFoundError,
   UnsupportedRepositoryHostError,
 } from "#lib/core/errors.ts"
-import { listRemoteTags, matchRepositoryTag } from "#lib/sources/repository/tags.ts"
+import { matchRepositoryTag, RemoteTagReader } from "#lib/sources/repository/tags.ts"
 
-const SHORTHAND_PROVIDERS = {
+const KNOWN_PROVIDERS = ["bitbucket", "github", "gitlab", "sourcehut"] as const
+
+type KnownProvider = (typeof KNOWN_PROVIDERS)[number]
+
+const PROVIDER_HOSTS: Record<KnownProvider, string> = {
   bitbucket: "bitbucket.org",
   github: "github.com",
   gitlab: "gitlab.com",
   sourcehut: "git.sr.ht",
-} as const
+}
 
-type KnownProvider = keyof typeof SHORTHAND_PROVIDERS
+const HOST_PROVIDERS = new Map<string, KnownProvider>(
+  KNOWN_PROVIDERS.map((provider) => [PROVIDER_HOSTS[provider], provider])
+)
 
 const DEFAULT_SHORTHAND_PROVIDER = "github" satisfies KnownProvider
 const SHORTHAND_PATTERN = new RegExp(
-  `^(?<provider>${Object.keys(SHORTHAND_PROVIDERS).join("|")}):(?<repositoryPath>.+)$`,
+  `^(?<provider>${KNOWN_PROVIDERS.join("|")}):(?<repositoryPath>.+)$`,
   "u"
 )
 
-const FETCH_SOURCE_PROVIDERS = new Map<string, KnownProvider>([
-  ["bitbucket.org", "bitbucket"],
-  ["github.com", "github"],
-  ["gitlab.com", "gitlab"],
-  ["git.sr.ht", "sourcehut"],
-])
-
 const checkIsKnownProvider = (value: string): value is KnownProvider =>
-  Object.hasOwn(SHORTHAND_PROVIDERS, value)
+  KNOWN_PROVIDERS.some((provider) => provider === value)
 
 const cleanRepositoryPath = (repositoryPath: string) =>
   repositoryPath
-    .replace(/\/+$/, "")
+    .replace(/\/+$/u, "")
     .replace(/\.git$/u, "")
     .replace(/^\/+/u, "")
 
-const getProviderFetchSource = (host: string, repositoryPath: string) => {
-  const provider = FETCH_SOURCE_PROVIDERS.get(host)
+const invalidRepositoryUrl = (candidate: RepositorySourceCandidate, reason: string) =>
+  new InvalidRepositoryUrlError({ reason, url: candidate.url })
 
-  if (provider === undefined) {
-    return
-  }
-
-  const fetchRepositoryPath =
-    provider === "sourcehut" ? repositoryPath.replace(/^~/u, "") : repositoryPath
-
-  return `${provider}:${fetchRepositoryPath}`
-}
-
-const normalizeFromStandardUrl = (
+const makeNormalizedSource = (
   candidate: RepositorySourceCandidate,
-  rawUrl: string
-): Effect.Effect<NormalizedRepositorySource, InvalidRepositoryUrlError> =>
-  Effect.gen(function* () {
-    const parsedUrl = yield* Effect.try({
-      catch: (cause) =>
-        new InvalidRepositoryUrlError({
-          reason: `failed to parse URL (${String(cause)})`,
-          url: candidate.url,
-        }),
-      try: () => new URL(rawUrl),
-    })
-    const repositoryPath = cleanRepositoryPath(parsedUrl.pathname)
-
-    if (repositoryPath.length === 0) {
-      return yield* new InvalidRepositoryUrlError({
-        reason: "repository path must not be empty",
-        url: candidate.url,
-      })
-    }
-
-    const host = parsedUrl.host.toLowerCase()
-    const url = `https://${host}/${repositoryPath}`
-
-    return {
-      ...(candidate.directory === undefined ? {} : { directory: candidate.directory }),
-      fetchSource: getProviderFetchSource(host, repositoryPath),
-      host,
-      type: "repository",
-      url,
-    } satisfies NormalizedRepositorySource
-  })
-
-const normalizeFromScpLikeUrl = (
-  candidate: RepositorySourceCandidate,
-  rawUrl: string
+  host: string,
+  rawRepositoryPath: string
 ): Effect.Effect<NormalizedRepositorySource, InvalidRepositoryUrlError> => {
-  const match = /^(?:[^@]+@)?(?<host>[^:]+):(?<repositoryPath>.+)$/u.exec(rawUrl)
-
-  if (match?.groups === undefined) {
-    return Effect.fail(
-      new InvalidRepositoryUrlError({
-        reason: "unsupported repository URL format",
-        url: candidate.url,
-      })
-    )
-  }
-
-  const { host: rawHost, repositoryPath: rawRepositoryPath } = match.groups
-
-  if (rawHost === undefined || rawRepositoryPath === undefined) {
-    return Effect.fail(
-      new InvalidRepositoryUrlError({
-        reason: "unsupported repository URL format",
-        url: candidate.url,
-      })
-    )
-  }
-
-  const host = rawHost.toLowerCase()
   const repositoryPath = cleanRepositoryPath(rawRepositoryPath)
 
   if (repositoryPath.length === 0) {
-    return Effect.fail(
-      new InvalidRepositoryUrlError({
-        reason: "repository path must not be empty",
-        url: candidate.url,
-      })
-    )
+    return Effect.fail(invalidRepositoryUrl(candidate, "repository path must not be empty"))
   }
 
-  const url = `https://${host}/${repositoryPath}`
+  const provider = HOST_PROVIDERS.get(host)
+  const fetchRepositoryPath =
+    provider === "sourcehut" ? repositoryPath.replace(/^~/u, "") : repositoryPath
 
   return Effect.succeed({
     ...(candidate.directory === undefined ? {} : { directory: candidate.directory }),
-    fetchSource: getProviderFetchSource(host, repositoryPath),
+    fetchSource: provider === undefined ? undefined : `${provider}:${fetchRepositoryPath}`,
     host,
     type: "repository",
-    url,
+    url: `https://${host}/${repositoryPath}`,
   } satisfies NormalizedRepositorySource)
 }
 
 const normalizeFromShorthandUrl = (
   candidate: RepositorySourceCandidate,
-  provider: keyof typeof SHORTHAND_PROVIDERS,
+  provider: KnownProvider,
   repositoryPath: string
-): Effect.Effect<NormalizedRepositorySource, InvalidRepositoryUrlError> => {
-  const cleanedRepositoryPath = cleanRepositoryPath(repositoryPath)
-  const fetchRepositoryPath =
-    provider === "sourcehut" ? cleanedRepositoryPath.replace(/^~/u, "") : cleanedRepositoryPath
+) => {
+  const barePath = cleanRepositoryPath(repositoryPath).replace(/^~/u, "")
 
-  if (fetchRepositoryPath.length === 0) {
-    return Effect.fail(
-      new InvalidRepositoryUrlError({
-        reason: "repository path must not be empty",
-        url: candidate.url,
-      })
-    )
+  if (barePath.length === 0) {
+    return Effect.fail(invalidRepositoryUrl(candidate, "repository path must not be empty"))
   }
 
-  const host = SHORTHAND_PROVIDERS[provider]
-  const urlRepositoryPath =
-    provider === "sourcehut" ? `~${fetchRepositoryPath}` : fetchRepositoryPath
-  const url = `https://${host}/${urlRepositoryPath}`
+  return makeNormalizedSource(
+    candidate,
+    PROVIDER_HOSTS[provider],
+    provider === "sourcehut" ? `~${barePath}` : barePath
+  )
+}
 
-  return Effect.succeed({
-    ...(candidate.directory === undefined ? {} : { directory: candidate.directory }),
-    fetchSource: `${provider}:${fetchRepositoryPath}`,
-    host,
-    type: "repository",
-    url,
-  } satisfies NormalizedRepositorySource)
+const normalizeFromStandardUrl = (candidate: RepositorySourceCandidate, rawUrl: string) =>
+  Effect.try({
+    catch: (cause) => invalidRepositoryUrl(candidate, `failed to parse URL (${String(cause)})`),
+    try: () => new URL(rawUrl),
+  }).pipe(
+    Effect.flatMap((parsedUrl) =>
+      makeNormalizedSource(candidate, parsedUrl.host.toLowerCase(), parsedUrl.pathname)
+    )
+  )
+
+const normalizeFromScpLikeUrl = (candidate: RepositorySourceCandidate, rawUrl: string) => {
+  const groups = Option.fromNullishOr(
+    /^(?:[^@]+@)?(?<host>[^:]+):(?<repositoryPath>.+)$/u.exec(rawUrl)
+  ).pipe(Option.flatMap((match) => Option.fromNullishOr(match.groups)))
+  const host = Option.getOrUndefined(groups)?.host
+  const repositoryPath = Option.getOrUndefined(groups)?.repositoryPath
+
+  if (host === undefined || repositoryPath === undefined) {
+    return Effect.fail(invalidRepositoryUrl(candidate, "unsupported repository URL format"))
+  }
+
+  return makeNormalizedSource(candidate, host.toLowerCase(), repositoryPath)
 }
 
 export const normalizeRepositorySource = Effect.fn("normalizeRepositorySource")((
   candidate: RepositorySourceCandidate
 ) => {
-  const trimmedUrl = candidate.url.trim()
-  const withoutGitPrefix = trimmedUrl.replace(/^git\+/u, "")
-  const shorthandMatch = SHORTHAND_PATTERN.exec(withoutGitPrefix)
-  const bareShorthandMatch = /^(?<repositoryPath>[^/:\s]+\/[^/:\s]+)$/u.exec(withoutGitPrefix)
+  const url = candidate.url.trim().replace(/^git\+/u, "")
+  const shorthandGroups = Option.fromNullishOr(SHORTHAND_PATTERN.exec(url)).pipe(
+    Option.flatMap((match) => Option.fromNullishOr(match.groups))
+  )
+  const provider = Option.getOrUndefined(shorthandGroups)?.provider
+  const shorthandPath = Option.getOrUndefined(shorthandGroups)?.repositoryPath
 
-  if (shorthandMatch?.groups !== undefined) {
-    const provider = shorthandMatch.groups.provider
-    const repositoryPath = shorthandMatch.groups.repositoryPath
-
-    if (provider === undefined || repositoryPath === undefined || !checkIsKnownProvider(provider)) {
-      return Effect.fail(
-        new InvalidRepositoryUrlError({
-          reason: "unsupported repository URL format",
-          url: candidate.url,
-        })
-      )
-    }
-
-    return normalizeFromShorthandUrl(candidate, provider, repositoryPath)
+  if (provider !== undefined && shorthandPath !== undefined && checkIsKnownProvider(provider)) {
+    return normalizeFromShorthandUrl(candidate, provider, shorthandPath)
   }
 
-  if (bareShorthandMatch?.groups?.repositoryPath !== undefined) {
-    return normalizeFromShorthandUrl(
-      candidate,
-      DEFAULT_SHORTHAND_PROVIDER,
-      bareShorthandMatch.groups.repositoryPath
-    )
+  if (/^[^/:\s]+\/[^/:\s]+$/u.test(url)) {
+    return normalizeFromShorthandUrl(candidate, DEFAULT_SHORTHAND_PROVIDER, url)
   }
 
-  if (/^[a-z][a-z0-9+.-]*:\/\//iu.test(withoutGitPrefix)) {
-    return normalizeFromStandardUrl(candidate, withoutGitPrefix)
+  if (/^[a-z][a-z0-9+.-]*:\/\//iu.test(url)) {
+    return normalizeFromStandardUrl(candidate, url)
   }
 
-  return normalizeFromScpLikeUrl(candidate, withoutGitPrefix)
+  return normalizeFromScpLikeUrl(candidate, url)
 })
 
 export const resolveRepositoryRef = Effect.fn("resolveRepositoryRef")(function* (
@@ -223,10 +150,11 @@ export const resolveRepositoryRef = Effect.fn("resolveRepositoryRef")(function* 
     })
   }
 
-  const tags = yield* listRemoteTags(source)
+  const remoteTagReader = yield* RemoteTagReader
+  const tags = yield* remoteTagReader.list(source)
   const ref = matchRepositoryTag(identity, tags)
 
-  if (ref === undefined) {
+  if (Option.isNone(ref)) {
     return yield* new TagNotFoundError({
       repository: source.url,
       version: identity.version,
@@ -234,7 +162,7 @@ export const resolveRepositoryRef = Effect.fn("resolveRepositoryRef")(function* 
   }
 
   return {
-    ref,
+    ref: ref.value,
     source,
   } satisfies ResolvedRepositoryRef
 })

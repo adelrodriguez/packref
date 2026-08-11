@@ -1,6 +1,11 @@
-import { describe, expect, it } from "bun:test"
+import { afterEach, describe, expect, it } from "bun:test"
+import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as PlatformError from "effect/PlatformError"
 import type { PackageIdentity } from "#lib/core/packages.ts"
 import type { NormalizedRepositorySource } from "#lib/core/source.ts"
@@ -10,28 +15,40 @@ import {
   TagNotFoundError,
   UnsupportedRepositoryHostError,
 } from "#lib/core/errors.ts"
-import { CommandRunner } from "#lib/services/command-runner.ts"
 import { resolveRepositoryRef } from "#lib/sources/repository/normalize.ts"
 import {
   getTagCandidates,
-  listRemoteTags,
   matchRepositoryTag,
   parseGitRemoteTagsOutput,
+  RemoteTagReader,
 } from "#lib/sources/repository/tags.ts"
 
-const runWithCommandRunner = <A, E>(
-  effect: Effect.Effect<A, E, CommandRunner>,
-  run: CommandRunner["Service"]["run"]
-) =>
+const temporaryPaths: string[] = []
+
+const runWithRemoteTagCommand = <A, E>(
+  effect: Effect.Effect<A, E, RemoteTagReader>,
+  runCommand: Parameters<typeof RemoteTagReader.layerWithCommand>[0]
+) => Effect.runPromise(effect.pipe(Effect.provide(RemoteTagReader.layerWithCommand(runCommand))))
+
+const runWithLiveRemoteTagReader = <A, E>(effect: Effect.Effect<A, E, RemoteTagReader>) =>
   Effect.runPromise(
-    effect.pipe(
-      Effect.provide(
-        Layer.succeed(CommandRunner)({
-          run,
-        })
-      )
-    )
+    effect.pipe(Effect.provide(RemoteTagReader.layer.pipe(Layer.provide(NodeServices.layer))))
   )
+
+const makeTempDirectory = async () => {
+  const directoryPath = await mkdtemp(join(tmpdir(), "packref-tags-test-"))
+  temporaryPaths.push(directoryPath)
+  return directoryPath
+}
+
+const originalPath = process.env.PATH
+
+afterEach(async () => {
+  process.env.PATH = originalPath
+  await Promise.all(
+    temporaryPaths.splice(0).map((path) => rm(path, { force: true, recursive: true }))
+  )
+})
 
 const reactIdentity = {
   name: "react",
@@ -66,7 +83,9 @@ describe("getTagCandidates", () => {
 
 describe("matchRepositoryTag", () => {
   it("matches tags in the documented priority order", () => {
-    expect(matchRepositoryTag(reactIdentity, ["19.0.0", "react@19.0.0", "v19.0.0"])).toBe("v19.0.0")
+    expect(
+      Option.getOrThrow(matchRepositoryTag(reactIdentity, ["19.0.0", "react@19.0.0", "v19.0.0"]))
+    ).toBe("v19.0.0")
   })
 
   it("supports scoped package names", () => {
@@ -76,13 +95,25 @@ describe("matchRepositoryTag", () => {
       version: "0.29.0",
     } satisfies PackageIdentity
 
-    expect(matchRepositoryTag(identity, ["@effect/cli@0.29.0"])).toBe("@effect/cli@0.29.0")
+    expect(Option.getOrThrow(matchRepositoryTag(identity, ["@effect/cli@0.29.0"]))).toBe(
+      "@effect/cli@0.29.0"
+    )
+  })
+
+  it("returns None when no tag matches", () => {
+    expect(Option.isNone(matchRepositoryTag(reactIdentity, ["v18.3.1"]))).toBe(true)
   })
 })
 
-describe("listRemoteTags", () => {
+describe("RemoteTagReader", () => {
+  const listRemoteTags = Effect.fn("test.listRemoteTags")(function* () {
+    const remoteTagReader = yield* RemoteTagReader
+
+    return yield* remoteTagReader.list(repositorySource)
+  })
+
   it("lists parsed remote tags from git ls-remote output", async () => {
-    const tags = await runWithCommandRunner(listRemoteTags(repositorySource), () =>
+    const tags = await runWithRemoteTagCommand(listRemoteTags(), () =>
       Effect.succeed({
         exitCode: 0,
         stderr: "",
@@ -93,45 +124,133 @@ describe("listRemoteTags", () => {
     expect(tags).toEqual(["v19.0.0", "19.0.0"])
   })
 
-  it("maps command failures to NetworkError", async () => {
-    try {
-      await runWithCommandRunner(listRemoteTags(repositorySource), () =>
-        Effect.succeed({
-          exitCode: 128,
-          stderr: "fatal: repository not found",
-          stdout: "",
-        })
-      )
-      throw new Error("Expected remote tag listing to fail.")
-    } catch (error) {
-      expect(error).toBeInstanceOf(NetworkError)
-    }
-  })
-
-  it("reports an actionable error when the git executable is missing", async () => {
-    try {
-      await runWithCommandRunner(listRemoteTags(repositorySource), () =>
-        Effect.fail(
-          PlatformError.systemError({
-            _tag: "NotFound",
-            method: "spawn",
-            module: "ChildProcess",
-            pathOrDescriptor: "git ls-remote --tags",
+  it("does not retry a permanent command failure", async () => {
+    let commandCount = 0
+    const listing = runWithRemoteTagCommand(listRemoteTags(), () =>
+      Effect.sync(() => {
+        commandCount += 1
+      }).pipe(
+        Effect.andThen(
+          Effect.succeed({
+            exitCode: 128,
+            stderr: "fatal: repository not found",
+            stdout: "",
           })
         )
       )
-      throw new Error("Expected remote tag listing to fail.")
-    } catch (error) {
-      expect(error).toBeInstanceOf(GitExecutableNotFoundError)
-      expect(String(error)).toContain("Install Git")
-      expect(String(error)).toContain("PATH")
-    }
+    )
+
+    const error = await listing.catch((error: unknown) => error)
+
+    expect(error).toBeInstanceOf(NetworkError)
+    expect(commandCount).toBe(1)
+  })
+
+  it("retries a transient command failure with a bounded policy", async () => {
+    let commandCount = 0
+    const listing = runWithRemoteTagCommand(listRemoteTags(), () =>
+      Effect.sync(() => {
+        commandCount += 1
+      }).pipe(
+        Effect.andThen(
+          Effect.succeed({
+            exitCode: 128,
+            stderr: "fatal: unable to access repository: Could not resolve host",
+            stdout: "",
+          })
+        )
+      )
+    )
+
+    const error = await listing.catch((error: unknown) => error)
+
+    expect(error).toBeInstanceOf(NetworkError)
+    expect(commandCount).toBe(3)
+  })
+
+  it("drains large stdout and stderr from the live command concurrently", async () => {
+    const binPath = await makeTempDirectory()
+    const gitPath = join(binPath, "git")
+    await writeFile(
+      gitPath,
+      `#!/bin/sh
+if [ "$LC_ALL" != "C" ]; then
+  printf 'expected LC_ALL=C, received %s\n' "$LC_ALL" >&2
+  exit 1
+fi
+
+i=0
+while [ "$i" -lt 12000 ]; do
+  printf '8f2b1f\\trefs/tags/v19.0.0\\n'
+  printf 'remote diagnostic output that must be drained concurrently\\n' >&2
+  i=$((i + 1))
+done
+`
+    )
+    await chmod(gitPath, 0o755)
+    process.env.PATH = `${binPath}:${originalPath ?? ""}`
+
+    const tags = await runWithLiveRemoteTagReader(listRemoteTags())
+
+    expect(tags).toEqual(["v19.0.0"])
+  }, 30_000)
+
+  it("retries spawner failures with a bounded policy", async () => {
+    let commandCount = 0
+    const listing = runWithRemoteTagCommand(listRemoteTags(), () =>
+      Effect.sync(() => {
+        commandCount += 1
+      }).pipe(
+        Effect.andThen(
+          Effect.fail(
+            PlatformError.systemError({
+              _tag: "PermissionDenied",
+              method: "spawn",
+              module: "ChildProcess",
+              pathOrDescriptor: "git ls-remote --tags",
+            })
+          )
+        )
+      )
+    )
+
+    const error = await listing.catch((error: unknown) => error)
+
+    expect(error).toBeInstanceOf(NetworkError)
+    expect(commandCount).toBe(3)
+  })
+
+  it("reports an actionable error without retry when the git executable is missing", async () => {
+    let commandCount = 0
+
+    const listing = runWithRemoteTagCommand(listRemoteTags(), () =>
+      Effect.sync(() => {
+        commandCount += 1
+      }).pipe(
+        Effect.andThen(
+          Effect.fail(
+            PlatformError.systemError({
+              _tag: "NotFound",
+              method: "spawn",
+              module: "ChildProcess",
+              pathOrDescriptor: "git ls-remote --tags",
+            })
+          )
+        )
+      )
+    )
+
+    const error = await listing.catch((error: unknown) => error)
+
+    expect(error).toBeInstanceOf(GitExecutableNotFoundError)
+    expect(error).toHaveProperty("message", expect.stringMatching(/Install Git.*PATH/su))
+    expect(commandCount).toBe(1)
   })
 })
 
 describe("resolveRepositoryRef", () => {
   it("resolves the matching remote tag for a normalized repository source candidate", async () => {
-    const resolved = await runWithCommandRunner(
+    const resolved = await runWithRemoteTagCommand(
       resolveRepositoryRef(reactIdentity, {
         url: "git+https://github.com/facebook/react.git",
       }),
@@ -149,47 +268,40 @@ describe("resolveRepositoryRef", () => {
     })
   })
 
-  it("fails with TagNotFoundError when no matching tag exists", async () => {
-    try {
-      await runWithCommandRunner(
-        resolveRepositoryRef(reactIdentity, {
-          url: "github:facebook/react",
-        }),
-        () =>
-          Effect.succeed({
-            exitCode: 0,
-            stderr: "",
-            stdout: "8f2b1f\trefs/tags/v18.3.1\n",
-          })
-      )
-      throw new Error("Expected repository ref resolution to fail.")
-    } catch (error) {
-      expect(error).toBeInstanceOf(TagNotFoundError)
-    }
+  it("fails with TagNotFoundError when no matching tag exists", () => {
+    const resolution = runWithRemoteTagCommand(
+      resolveRepositoryRef(reactIdentity, {
+        url: "github:facebook/react",
+      }),
+      () =>
+        Effect.succeed({
+          exitCode: 0,
+          stderr: "",
+          stdout: "8f2b1f\trefs/tags/v18.3.1\n",
+        })
+    )
+
+    expect(resolution).rejects.toBeInstanceOf(TagNotFoundError)
   })
 
-  it("skips tag discovery for unsupported repository hosts", async () => {
+  it("skips tag discovery for unsupported repository hosts", () => {
     let commandWasRun = false
+    const resolution = runWithRemoteTagCommand(
+      resolveRepositoryRef(reactIdentity, {
+        url: "https://code.example.com/acme/react.git",
+      }),
+      () => {
+        commandWasRun = true
 
-    try {
-      await runWithCommandRunner(
-        resolveRepositoryRef(reactIdentity, {
-          url: "https://code.example.com/acme/react.git",
-        }),
-        () => {
-          commandWasRun = true
+        return Effect.succeed({
+          exitCode: 0,
+          stderr: "",
+          stdout: "",
+        })
+      }
+    )
 
-          return Effect.succeed({
-            exitCode: 0,
-            stderr: "",
-            stdout: "",
-          })
-        }
-      )
-      throw new Error("Expected repository ref resolution to request a fallback.")
-    } catch (error) {
-      expect(error).toBeInstanceOf(UnsupportedRepositoryHostError)
-      expect(commandWasRun).toBe(false)
-    }
+    expect(resolution).rejects.toBeInstanceOf(UnsupportedRepositoryHostError)
+    expect(commandWasRun).toBe(false)
   })
 })

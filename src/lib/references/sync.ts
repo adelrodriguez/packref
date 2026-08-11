@@ -3,15 +3,16 @@ import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Option from "effect/Option"
 import * as Path from "effect/Path"
-import { UnsupportedManifestError } from "#lib/core/errors.ts"
+import * as Result from "effect/Result"
+import type { ManifestDependency } from "#lib/manifests/manifest.ts"
+import { PackageReferenceFilesystemError, UnsupportedManifestError } from "#lib/core/errors.ts"
 import {
   packageCoordinatesEquivalence,
   packageCoordinatesOrder,
   packageIdentityEquivalence,
   type PackageCoordinates,
-  type PackageIdentity,
 } from "#lib/core/packages.ts"
-import { getManifestAdapter } from "#lib/manifests/index.ts"
+import { ProjectDependencyReader } from "#lib/manifests/index.ts"
 import {
   materializePackageCandidateReference,
   resolvePackageCandidateReference,
@@ -72,9 +73,7 @@ export interface SyncResult {
 const packageKey = (value: PackageCoordinates) => `${value.registry}:${value.name}`
 
 const noPackageEntries: readonly PackageEntry[] = []
-
-export const getSyncUpdateTarget = (update: SyncUpdate): PackageIdentity =>
-  update.type === "materialize" ? update.resolution.resolvedPackage.identity : update.current
+const SYNC_PREPARE_CONCURRENCY = 8
 
 const packageReferenceExists = Effect.fn("sync.packageReferenceExists")(function* (
   projectPath: string,
@@ -85,96 +84,131 @@ const packageReferenceExists = Effect.fn("sync.packageReferenceExists")(function
   const projectDirectoryPath = getDirectoryPath(path, projectPath)
   const referencePath = yield* getStorePackagePath(projectDirectoryPath, entry)
 
-  return yield* fs.exists(referencePath)
+  return yield* fs.exists(referencePath).pipe(
+    Effect.mapError(
+      (cause) =>
+        new PackageReferenceFilesystemError({
+          cause,
+          operation: "inspect",
+          path: referencePath,
+        })
+    )
+  )
+})
+
+type PreparedDependency =
+  | { readonly type: "none" }
+  | { readonly entry: PackageEntry; readonly type: "unchanged" }
+  | { readonly type: "update"; readonly update: SyncUpdate }
+
+const prepareDependency = Effect.fn("sync.prepareDependency")(function* (
+  projectPath: string,
+  entries: readonly PackageEntry[],
+  dependency: ManifestDependency
+) {
+  const packageEntries = entries.filter((entry) => packageCoordinatesEquivalence(entry, dependency))
+  const trackedEntries = packageEntries.filter((entry) => entry.tracking === "dependency")
+
+  if (trackedEntries.length === 0) {
+    return { type: "none" } satisfies PreparedDependency
+  }
+
+  const exactMatch =
+    dependency.exactVersion === undefined
+      ? undefined
+      : packageEntries.find((entry) => entry.version === dependency.exactVersion)
+
+  if (exactMatch !== undefined) {
+    const staleEntries = trackedEntries.filter(
+      (entry) => !packageIdentityEquivalence(entry, exactMatch)
+    )
+
+    if (!(yield* packageReferenceExists(projectPath, exactMatch))) {
+      return {
+        type: "update",
+        update: {
+          previous: staleEntries,
+          resolution: yield* resolvePackageCandidateReference(dependency),
+          tracking: exactMatch.tracking,
+          type: "materialize",
+        },
+      } satisfies PreparedDependency
+    }
+
+    return staleEntries.length === 0
+      ? ({ entry: exactMatch, type: "unchanged" } satisfies PreparedDependency)
+      : ({
+          type: "update",
+          update: {
+            current: exactMatch,
+            manifestRange: undefined,
+            previous: staleEntries,
+            type: "remove-stale",
+          },
+        } satisfies PreparedDependency)
+  }
+
+  const resolution = yield* resolvePackageCandidateReference(dependency)
+  const current = packageEntries.find((entry) =>
+    packageIdentityEquivalence(entry, resolution.resolvedPackage.identity)
+  )
+  const staleEntries = trackedEntries.filter(
+    (entry) => !packageIdentityEquivalence(entry, resolution.resolvedPackage.identity)
+  )
+
+  if (current === undefined || !(yield* packageReferenceExists(projectPath, current))) {
+    return {
+      type: "update",
+      update: {
+        previous: staleEntries,
+        resolution,
+        tracking: current?.tracking ?? "dependency",
+        type: "materialize",
+      },
+    } satisfies PreparedDependency
+  }
+
+  return staleEntries.length === 0
+    ? ({ entry: current, type: "unchanged" } satisfies PreparedDependency)
+    : ({
+        type: "update",
+        update: {
+          current,
+          manifestRange: resolution.manifestRange,
+          previous: staleEntries,
+          type: "remove-stale",
+        },
+      } satisfies PreparedDependency)
 })
 
 export const preparePackageReferenceSync = Effect.fn("preparePackageReferenceSync")(function* (
   options: SyncPackageReferencesOptions = {}
 ) {
   const projectPath = yield* requireInitializedProject(options.projectPath)
-  const adapter = yield* getManifestAdapter(projectPath)
+  const projectDependencyReader = yield* ProjectDependencyReader
+  const projectDependencies = yield* projectDependencyReader.readProjectDependencies(projectPath)
 
-  if (Option.isNone(adapter)) {
+  if (Option.isNone(projectDependencies)) {
     return yield* new UnsupportedManifestError({ path: projectPath })
   }
 
-  const dependencies = Array.sort(yield* adapter.value.read(projectPath), packageCoordinatesOrder)
+  const dependencies = Array.sort(projectDependencies.value, packageCoordinatesOrder)
   const lockfile = yield* readProjectLockfile(projectPath)
   const entries = listPackageEntries(lockfile)
   const manifestPackages = new Set(dependencies.map((dependency) => packageKey(dependency)))
   const removals = entries.filter(
     (entry) => entry.tracking === "dependency" && !manifestPackages.has(packageKey(entry))
   )
-  const unchanged: PackageEntry[] = []
-  const updates: SyncUpdate[] = []
-
-  for (const dependency of dependencies) {
-    const packageEntries = entries.filter((entry) =>
-      packageCoordinatesEquivalence(entry, dependency)
-    )
-    const trackedEntries = packageEntries.filter((entry) => entry.tracking === "dependency")
-
-    if (trackedEntries.length === 0) {
-      continue
-    }
-
-    const exactMatch =
-      dependency.exactVersion === undefined
-        ? undefined
-        : packageEntries.find((entry) => entry.version === dependency.exactVersion)
-
-    if (exactMatch !== undefined) {
-      const staleEntries = trackedEntries.filter(
-        (entry) => !packageIdentityEquivalence(entry, exactMatch)
-      )
-
-      if (!(yield* packageReferenceExists(projectPath, exactMatch))) {
-        updates.push({
-          previous: staleEntries,
-          resolution: yield* resolvePackageCandidateReference(dependency),
-          tracking: exactMatch.tracking,
-          type: "materialize",
-        })
-      } else if (staleEntries.length === 0) {
-        unchanged.push(exactMatch)
-      } else {
-        updates.push({
-          current: exactMatch,
-          manifestRange: undefined,
-          previous: staleEntries,
-          type: "remove-stale",
-        })
-      }
-
-      continue
-    }
-
-    const resolution = yield* resolvePackageCandidateReference(dependency)
-    const current = packageEntries.find((entry) =>
-      packageIdentityEquivalence(entry, resolution.resolvedPackage.identity)
-    )
-    const staleEntries = trackedEntries.filter(
-      (entry) => !packageIdentityEquivalence(entry, resolution.resolvedPackage.identity)
-    )
-
-    if (current === undefined || !(yield* packageReferenceExists(projectPath, current))) {
-      updates.push({
-        previous: staleEntries,
-        resolution,
-        tracking: current?.tracking ?? "dependency",
-        type: "materialize",
-      })
-    } else if (staleEntries.length === 0) {
-      unchanged.push(current)
-    } else {
-      updates.push({
-        current,
-        manifestRange: resolution.manifestRange,
-        previous: staleEntries,
-        type: "remove-stale",
-      })
-    }
-  }
+  const preparedDependencies = yield* Effect.forEach(
+    dependencies,
+    (dependency) => prepareDependency(projectPath, entries, dependency),
+    { concurrency: SYNC_PREPARE_CONCURRENCY }
+  )
+  const [unchanged, updates] = Array.partition(
+    preparedDependencies.filter((prepared) => prepared.type !== "none"),
+    (prepared) =>
+      prepared.type === "update" ? Result.succeed(prepared.update) : Result.fail(prepared.entry)
+  )
 
   return {
     projectPath,

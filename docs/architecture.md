@@ -18,19 +18,33 @@ executable `bin/packref` imports that output.
 
 | Module       | Interface and responsibility                                                                                       |
 | ------------ | ------------------------------------------------------------------------------------------------------------------ |
-| `commands`   | Parse command input, invoke one domain operation, and render user-facing progress or results.                      |
+| `commands`   | Parse command input, invoke one domain operation, and decide which progress or results to report.                  |
+| `terminal`   | Render prompts, spinners, logs, titles, and command cancellation through terminal adapters.                        |
 | `references` | Own add, install, remove, sync, prune, and clean workflows across registries, sources, storage, and project state. |
 | `registries` | Resolve a package spec into an exact package identity and source candidates. npm is the v1 adapter.                |
 | `manifests`  | Detect project manifests and resolve declared dependencies to exact versions. JavaScript is the v1 adapter.        |
-| `sources`    | Normalize, select, and fetch repository or tarball source without owning package resolution or project state.      |
+| `sources`    | Normalize, select, and fetch repository or tarball source, including source-specific external adapters.            |
 | `store`      | Address and manage immutable global source snapshots by package identity.                                          |
-| `workspace`  | Own the committed Packref lockfile, registered-project config, project paths, and generated integrations.          |
-| `services`   | Isolate variable external behavior: prompts, child processes, home location, and reflink/copy.                     |
+| `workspace`  | Own the Packref lockfile, user-level state, project paths, integrations, and reference materialization adapters.   |
 | `core`       | Define package identity, package specs, source types, registry contracts, and shared typed errors.                 |
 
 Commands remain thin so the `references` interface is also the main behavior test seam. Registry and
 manifest adapters do not know filesystem layout, while source adapters do not know project manifests
 or lockfile mutation rules.
+
+### Adding a registry adapter
+
+To add a registry:
+
+1. Add its name to `SUPPORTED_REGISTRIES` in `src/lib/core/registry.ts`.
+2. Add a self-contained adapter under `src/lib/registries/<registry>/`.
+3. Add the adapter to `registryAdapters` in `src/lib/registries/index.ts`.
+4. If the ecosystem has a project manifest, add an adapter under `src/lib/manifests/` and register it
+   in `manifestAdapters`.
+
+Registry adapters resolve package specs to exact package identities and source candidates. Manifest
+adapters detect and read ecosystem-specific dependency declarations. Neither adapter type owns the
+Packref lockfile, global store, or project source directory layout.
 
 ## Add and sync flow
 
@@ -78,15 +92,15 @@ store entries against concurrent Packref processes.
 
 ```text
 src/
-  commands/       CLI adapters
+  commands/       CLI command definitions
+  terminal/       prompts, logs, spinners, titles, and cancellation
   lib/
     core/         identities, sources, errors, registry contracts
     manifests/    project dependency adapters
     references/   command-aligned domain workflows
     registries/   package registry adapters
-    services/     injectable external behavior
-    shared/       cross-cutting helpers: JSON, paths, terminal output
-    sources/      repository and tarball fetchers
+    shared/       cross-cutting helpers: JSON and paths
+    sources/      repository and tarball fetchers and their external adapters
     store/        global snapshot storage
     workspace/    project and user-level state
   index.ts        composition root and runtime boundary

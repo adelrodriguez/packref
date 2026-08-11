@@ -1,9 +1,9 @@
 import * as Effect from "effect/Effect"
 import * as Command from "effect/unstable/cli/Command"
 import color from "picocolors"
-import { Prompter } from "#lib/services/prompter.ts"
 import { listPackageEntries, readProjectLockfile } from "#lib/workspace/lockfile.ts"
 import { requireInitializedProject } from "#lib/workspace/project.ts"
+import { Prompter } from "#terminal/prompter.ts"
 
 export default Command.make("list").pipe(
   Command.withAlias("ls"),

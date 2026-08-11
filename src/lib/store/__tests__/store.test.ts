@@ -7,13 +7,13 @@ import { join } from "node:path"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
-import { PackrefHome } from "#lib/services/packref-home.ts"
 import {
   getStoreEntryPath,
   hasStoreEntry,
   listStoreEntries,
   removeStoreEntry,
-} from "#lib/store/store.ts"
+} from "#lib/store/index.ts"
+import { PackrefHome } from "#lib/workspace/home.ts"
 
 const temporaryPaths: string[] = []
 
@@ -23,10 +23,7 @@ const makeTempDirectory = async () => {
   return directoryPath
 }
 
-const run = <A, E>(
-  effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | PackrefHome>,
-  home: string
-) =>
+const run = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>, home: string) =>
   Effect.runPromise(
     effect.pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, PackrefHome.at(home))))
   )

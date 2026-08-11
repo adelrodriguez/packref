@@ -1,12 +1,16 @@
 import { afterEach, describe, expect, it } from "bun:test"
 import type * as FileSystem from "effect/FileSystem"
 import type * as Path from "effect/Path"
-import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { access, chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Effect from "effect/Effect"
-import { PackageNotReferencedError } from "#lib/core/errors.ts"
+import {
+  PackageNotReferencedError,
+  PackageReferenceFilesystemError,
+  RemovePackageReferencesError,
+} from "#lib/core/errors.ts"
 import { findPackageReferenceMatches, removePackageReferences } from "#lib/references/remove.ts"
 import { type Lockfile, type PackageEntry, readProjectLockfile } from "#lib/workspace/lockfile.ts"
 
@@ -23,9 +27,9 @@ const exists = (path: string) =>
     .then(() => true)
     .catch(() => false)
 
-const makeEntry = (version: string) =>
+const makeEntry = (version: string, name = "react") =>
   ({
-    name: "react",
+    name,
     registry: "npm",
     source: {
       host: "github.com",
@@ -111,6 +115,46 @@ describe("remove package references", () => {
     expect(result.missingEntries).toEqual([entry])
     const lockfile = await readLockfile(projectPath)
     expect(lockfile.packages).toEqual([])
+  })
+
+  it("keeps failed removals in the lockfile and reports every failed identity", async () => {
+    const projectPath = await makeTempDirectory()
+    const firstFailure = makeEntry("1.0.0", "first-failure")
+    const removed = makeEntry("1.0.0", "removed")
+    const secondFailure = makeEntry("1.0.0", "second-failure")
+    const entries = [firstFailure, removed, secondFailure]
+    await initializeProject(projectPath, entries)
+    const firstFailurePath = await materializeReference(projectPath, firstFailure)
+    const removedPath = await materializeReference(projectPath, removed)
+    const secondFailurePath = await materializeReference(projectPath, secondFailure)
+    const firstFailureParent = join(firstFailurePath, "..")
+    const secondFailureParent = join(secondFailurePath, "..")
+    await chmod(firstFailureParent, 0o555)
+    await chmod(secondFailureParent, 0o555)
+
+    let failure: unknown
+
+    try {
+      await run(removePackageReferences(projectPath, entries))
+    } catch (error) {
+      failure = error
+    } finally {
+      await chmod(firstFailureParent, 0o755)
+      await chmod(secondFailureParent, 0o755)
+    }
+
+    expect(failure).toBeInstanceOf(RemovePackageReferencesError)
+    expect(failure).toMatchObject({
+      failures: [
+        { cause: expect.any(PackageReferenceFilesystemError), identity: firstFailure },
+        { cause: expect.any(PackageReferenceFilesystemError), identity: secondFailure },
+      ],
+    })
+    expect(await exists(firstFailurePath)).toBe(true)
+    expect(await exists(removedPath)).toBe(false)
+    expect(await exists(secondFailurePath)).toBe(true)
+    const lockfile = await readLockfile(projectPath)
+    expect(lockfile.packages).toEqual([firstFailure, secondFailure])
   })
 
   it("fails with a typed error when no reference matches", async () => {

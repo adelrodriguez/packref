@@ -1,4 +1,6 @@
 import * as Data from "effect/Data"
+import type { PackageIdentity } from "#lib/core/packages.ts"
+import { SUPPORTED_REGISTRIES } from "#lib/core/registry.ts"
 
 export class MissingPackageVersion extends Data.TaggedError("MissingPackageVersion")<{
   path?: string
@@ -102,7 +104,7 @@ export class UnsupportedRegistryError extends Data.TaggedError("UnsupportedRegis
   registry: string
 }> {
   override get message() {
-    return `Unsupported registry prefix \`${this.registry}\`.`
+    return `Unsupported registry prefix \`${this.registry}\`. Supported registries: ${SUPPORTED_REGISTRIES.join(", ")}.`
   }
 }
 
@@ -178,6 +180,67 @@ export class TarballFetchError extends Data.TaggedError("TarballFetchError")<{
 }> {
   override get message() {
     return `Failed to fetch or extract package tarball from \`${this.url}\`. Check your network access, filesystem permissions, and available disk space, then retry. If the failure persists, the archive may be corrupt or unsupported.`
+  }
+}
+
+export class ProjectFilesystemError extends Data.TaggedError("ProjectFilesystemError")<{
+  cause: unknown
+  operation: "access" | "prepare" | "resolve"
+  path: string
+}> {
+  override get message() {
+    return `Failed to ${this.operation} the project filesystem at \`${this.path}\`. Check that the path exists and that Packref has permission to access it, then retry.`
+  }
+}
+
+export class PackageReferenceFilesystemError extends Data.TaggedError(
+  "PackageReferenceFilesystemError"
+)<{
+  cause: unknown
+  operation: "inspect" | "remove"
+  path: string
+}> {
+  override get message() {
+    return `Failed to ${this.operation} the package source reference at \`${this.path}\`. Check filesystem permissions and available disk space, then retry.`
+  }
+}
+
+export interface PackageOperationFailure {
+  readonly cause: unknown
+  readonly identity: PackageIdentity
+}
+
+export class InstallPackageReferencesError extends Data.TaggedError(
+  "InstallPackageReferencesError"
+)<{
+  failures: readonly PackageOperationFailure[]
+}> {
+  override get message() {
+    const identities = this.failures.map(
+      ({ identity }) => `${identity.registry}:${identity.name}@${identity.version}`
+    )
+    return `Failed to install ${this.failures.length} package source reference${this.failures.length === 1 ? "" : "s"}: ${identities.join(", ")}. Fix the reported causes, then retry; completed references were kept.`
+  }
+}
+
+export class RemovePackageReferencesError extends Data.TaggedError("RemovePackageReferencesError")<{
+  failures: readonly PackageOperationFailure[]
+}> {
+  override get message() {
+    const identities = this.failures.map(
+      ({ identity }) => `${identity.registry}:${identity.name}@${identity.version}`
+    )
+    return `Failed to remove ${this.failures.length} package source reference${this.failures.length === 1 ? "" : "s"}: ${identities.join(", ")}. Successful and already-missing references were removed from the Packref lockfile. Fix the reported causes, then retry.`
+  }
+}
+
+export class GlobalStoreFilesystemError extends Data.TaggedError("GlobalStoreFilesystemError")<{
+  cause: unknown
+  operation: "access" | "clean" | "list" | "remove"
+  path: string
+}> {
+  override get message() {
+    return `Failed to ${this.operation} the global store filesystem at \`${this.path}\`. Check filesystem permissions and available disk space, then retry.`
   }
 }
 

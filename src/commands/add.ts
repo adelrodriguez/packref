@@ -8,13 +8,13 @@ import type { ManifestDependency } from "#lib/manifests/manifest.ts"
 import { parsePackageSpec } from "#lib/core/packages.ts"
 import {
   addPackageReference,
-  findAddPackageCandidates,
+  findPackageCandidates,
   materializePackageCandidateReference,
   resolvePackageCandidateReference,
   type AddPackageResult,
 } from "#lib/references/add.ts"
-import { Prompter } from "#lib/services/prompter.ts"
-import { printTitle } from "#lib/shared/terminal.ts"
+import { Prompter } from "#terminal/prompter.ts"
+import { printTitle } from "#terminal/title.ts"
 
 const pkg = Argument.string("package").pipe(
   Argument.withDescription("Package name with optional version (e.g. react, hono@4.2.0)"),
@@ -83,7 +83,7 @@ const addPackageCandidate = Effect.fn("addPackageCandidate")(function* (
 
 const addSelectedPackages = Effect.fn("addSelectedPackages")(function* () {
   const prompter = yield* Prompter
-  const candidates = yield* findAddPackageCandidates()
+  const candidates = yield* findPackageCandidates()
 
   return yield* Array.match(candidates.dependencies, {
     onEmpty: () =>

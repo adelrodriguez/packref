@@ -10,8 +10,8 @@ import * as Layer from "effect/Layer"
 import type { PackageIdentity } from "#lib/core/packages.ts"
 import { initializeProject, repositoryEntry } from "#commands/__tests__/helpers.ts"
 import { applyPrunePlan, discoverPrunePlan } from "#lib/references/prune.ts"
-import { PackrefHome } from "#lib/services/packref-home.ts"
-import { getStoreEntryPath } from "#lib/store/store.ts"
+import { getStoreEntryPath } from "#lib/store/index.ts"
+import { PackrefHome } from "#lib/workspace/home.ts"
 
 const temporaryPaths: string[] = []
 
@@ -22,7 +22,7 @@ const makeTempDirectory = async () => {
 }
 
 const run = <A, E>(
-  effect: Effect.Effect<A, E, FileSystem.FileSystem | PackrefHome | Path.Path>,
+  effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>,
   homePath: string
 ) =>
   Effect.runPromise(

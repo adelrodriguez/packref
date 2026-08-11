@@ -2,8 +2,9 @@ import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Filter from "effect/Filter"
 import * as Order from "effect/Order"
+import { ProjectFilesystemError } from "#lib/core/errors.ts"
 import { packageIdentityOrder, type PackageIdentity } from "#lib/core/packages.ts"
-import { listStoreEntries, removeStoreEntry, type StoreEntry } from "#lib/store/store.ts"
+import { listStoreEntries, removeStoreEntry, type StoreEntry } from "#lib/store/index.ts"
 import { initializeGlobalConfig, unregisterProjects } from "#lib/workspace/config.ts"
 import { readProjectLockfile } from "#lib/workspace/lockfile.ts"
 
@@ -37,43 +38,82 @@ const projectLockfileWarningOrder = Order.mapInput(
 const identityKey = (identity: PackageIdentity) =>
   `${identity.registry}\u0000${identity.name}\u0000${identity.version}`
 
-export const discoverPrunePlan = Effect.fn("discoverPrunePlan")(function* () {
+const PRUNE_SCAN_CONCURRENCY = 8
+
+type ProjectScan =
+  | { readonly projectPath: string; readonly type: "stale" }
+  | { readonly identities: readonly string[]; readonly type: "success" }
+  | { readonly projectPath: string; readonly type: ProjectLockfileWarning["type"] }
+
+const scanRegisteredProject = Effect.fn("prune.scanRegisteredProject")(function* (
+  projectPath: string
+) {
   const fs = yield* FileSystem.FileSystem
-  const config = yield* initializeGlobalConfig()
-  const referencedIdentities = new Set<string>()
-  const staleProjectPaths: string[] = []
-  const warnings: ProjectLockfileWarning[] = []
-
-  for (const projectPath of config.projects) {
-    const projectExists = yield* fs.exists(projectPath)
-
-    if (!projectExists || (yield* fs.stat(projectPath)).type !== "Directory") {
-      staleProjectPaths.push(projectPath)
-      continue
-    }
-
-    const lockfileResult = yield* readProjectLockfile(projectPath).pipe(
-      Effect.map((lockfile) => ({ lockfile, type: "success" }) as const),
-      Effect.catchTag("LockfileParseError", () =>
-        Effect.succeed({ type: "malformed-lockfile" } as const)
-      ),
-      Effect.catchFilter(Filter.reason("PlatformError", "NotFound"), () =>
-        Effect.succeed({ type: "missing-lockfile" } as const)
+  const projectExists = yield* fs
+    .exists(projectPath)
+    .pipe(
+      Effect.mapError(
+        (cause) => new ProjectFilesystemError({ cause, operation: "access", path: projectPath })
       )
     )
 
-    if (lockfileResult.type !== "success") {
-      warnings.push({
-        projectPath,
-        type: lockfileResult.type,
-      })
-      continue
+  if (!projectExists) {
+    return { projectPath, type: "stale" } satisfies ProjectScan
+  }
+
+  const projectType = yield* fs.stat(projectPath).pipe(
+    Effect.map((info) => info.type),
+    Effect.catchFilter(Filter.reason("PlatformError", "NotFound"), () =>
+      Effect.succeed("Missing" as const)
+    ),
+    Effect.mapError(
+      (cause) => new ProjectFilesystemError({ cause, operation: "access", path: projectPath })
+    )
+  )
+
+  if (projectType !== "Directory") {
+    return { projectPath, type: "stale" } satisfies ProjectScan
+  }
+
+  const lockfileResult = yield* readProjectLockfile(projectPath).pipe(
+    Effect.map((lockfile) => ({ lockfile, type: "success" }) as const),
+    Effect.catchTag("LockfileParseError", () =>
+      Effect.succeed({ type: "malformed-lockfile" } as const)
+    ),
+    Effect.catchFilter(Filter.reason("PlatformError", "NotFound"), () =>
+      Effect.succeed({ type: "missing-lockfile" } as const)
+    ),
+    Effect.mapError(
+      (cause) => new ProjectFilesystemError({ cause, operation: "access", path: projectPath })
+    )
+  )
+
+  return lockfileResult.type === "success"
+    ? ({
+        identities: lockfileResult.lockfile.packages.map(identityKey),
+        type: "success",
+      } satisfies ProjectScan)
+    : ({ projectPath, type: lockfileResult.type } satisfies ProjectScan)
+})
+
+export const discoverPrunePlan = Effect.fn("discoverPrunePlan")(function* () {
+  const config = yield* initializeGlobalConfig()
+  const scans = yield* Effect.forEach(config.projects, scanRegisteredProject, {
+    concurrency: PRUNE_SCAN_CONCURRENCY,
+  })
+  const referencedIdentities = new Set(
+    scans.flatMap((scan) => (scan.type === "success" ? scan.identities : []))
+  )
+  const staleProjectPaths = scans
+    .filter((scan) => scan.type === "stale")
+    .map((scan) => scan.projectPath)
+  const warnings = scans.flatMap((scan): readonly ProjectLockfileWarning[] => {
+    if (scan.type === "malformed-lockfile" || scan.type === "missing-lockfile") {
+      return [{ projectPath: scan.projectPath, type: scan.type }]
     }
 
-    for (const entry of lockfileResult.lockfile.packages) {
-      referencedIdentities.add(identityKey(entry))
-    }
-  }
+    return []
+  })
 
   const storeEntries =
     warnings.length === 0 && staleProjectPaths.length === 0
