@@ -1,4 +1,4 @@
-# Plan 12: PyPI Registry Adapter
+# Plan 13: PyPI Registry Adapter
 
 ## Goal
 

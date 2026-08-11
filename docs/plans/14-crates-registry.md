@@ -1,4 +1,4 @@
-# Plan 13: crates.io Registry Adapter
+# Plan 14: crates.io Registry Adapter
 
 ## Goal
 
@@ -36,7 +36,7 @@ Not started. Depends on Plan 10.
    repository candidate + `.crate` URL.
 4. Register the adapter in `registryAdapters`.
 5. Implement `src/lib/manifests/rust.ts` with `defineManifest` (TOML parsing shared with Plan
-   12's choice; handle string and table dependency forms, skip `path`/`git` dependencies) and
+   13's choice; handle string and table dependency forms, skip `path`/`git` dependencies) and
    register it in `manifestAdapters`.
 6. Unit tests with mocked HTTP; integration test against a small real crate.
 7. Update README and the init-generated AGENTS.md section; add a minor changeset.

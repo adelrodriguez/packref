@@ -1,4 +1,4 @@
-# Plan 11: JSR Registry Adapter
+# Plan 12: JSR Registry Adapter
 
 ## Goal
 
@@ -59,4 +59,4 @@ bun run test
 ## Out Of Scope
 
 - A Deno-native manifest adapter beyond cheap `deno.json` import detection.
-- PyPI and crates adapters (Plans 12–13).
+- PyPI and crates adapters (Plans 13–14).
