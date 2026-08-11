@@ -6,13 +6,13 @@ import type { PackageSource } from "#lib/core/source.ts"
 import { NotInitializedError, ReflinkError } from "#lib/core/errors.ts"
 import { checkIsPathWithin } from "#lib/shared/path.ts"
 import { getStorePackagePath } from "#lib/store/paths.ts"
-import { getDirectoryPath } from "#lib/workspace/paths.ts"
+import { PACKREF_DIRECTORY_NAME } from "#lib/workspace/paths.ts"
 import { Reflinker } from "#lib/workspace/reflinker.ts"
 
 export const ensureDirectory = Effect.fn("ensureDirectory")(function* (projectPath: string) {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
-  const directoryPath = getDirectoryPath(path, projectPath)
+  const directoryPath = path.join(projectPath, PACKREF_DIRECTORY_NAME)
 
   yield* fs.makeDirectory(directoryPath, { recursive: true })
 
@@ -27,7 +27,7 @@ export const requireInitializedProject = Effect.fn("requireInitializedProject")(
   const projectPath = yield* fs.realPath(
     requestedProjectPath === undefined ? path.resolve() : path.resolve(requestedProjectPath)
   )
-  const directoryPath = getDirectoryPath(path, projectPath)
+  const directoryPath = path.join(projectPath, PACKREF_DIRECTORY_NAME)
   const directoryExists = yield* fs.exists(directoryPath)
 
   if (!directoryExists || (yield* fs.stat(directoryPath)).type !== "Directory") {
@@ -43,7 +43,7 @@ export const getProjectReferencePath = Effect.fn("getProjectReferencePath")(func
 ) {
   const path = yield* Path.Path
 
-  return yield* getStorePackagePath(getDirectoryPath(path, projectPath), identity)
+  return yield* getStorePackagePath(path.join(projectPath, PACKREF_DIRECTORY_NAME), identity)
 })
 
 export const hasProjectReference = Effect.fn("hasProjectReference")(function* (
@@ -65,7 +65,7 @@ export const createProjectReference = Effect.fn("createProjectReference")(functi
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const reflinker = yield* Reflinker
-  const projectDirectoryPath = getDirectoryPath(path, projectPath)
+  const projectDirectoryPath = path.join(projectPath, PACKREF_DIRECTORY_NAME)
   const targetPath = yield* getStorePackagePath(projectDirectoryPath, identity)
   const referenceSourcePath =
     source.type === "repository" && source.directory !== undefined

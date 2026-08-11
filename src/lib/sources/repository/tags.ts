@@ -16,6 +16,7 @@ import type { PackageIdentity } from "#lib/core/packages.ts"
 import type { NormalizedRepositorySource } from "#lib/core/source.ts"
 import { GitExecutableNotFoundError, NetworkError } from "#lib/core/errors.ts"
 
+const HEADS_PREFIX = "refs/heads/"
 const TAGS_PREFIX = "refs/tags/"
 const TRANSIENT_GIT_FAILURE_PATTERN =
   /could not resolve host|connection (?:refused|reset|timed out)|failed to connect|remote end hung up unexpectedly|service unavailable|temporary failure|the requested url returned error: 5\d\d/iu
@@ -34,10 +35,39 @@ type RemoteTagCommand = (
   source: NormalizedRepositorySource
 ) => Effect.Effect<RemoteTagCommandResult, PlatformError.PlatformError>
 
+export interface RemoteRepositoryRefs {
+  readonly head: string | undefined
+  readonly heads: ReadonlyMap<string, string>
+  readonly tags: ReadonlyMap<string, string>
+}
+
 interface RemoteTagReaderService {
   readonly list: (
     source: NormalizedRepositorySource
   ) => Effect.Effect<readonly string[], GitExecutableNotFoundError | NetworkError>
+  readonly listRefs: (
+    source: NormalizedRepositorySource
+  ) => Effect.Effect<RemoteRepositoryRefs, GitExecutableNotFoundError | NetworkError>
+}
+
+export const parseGitRemoteRefsOutput = (output: string): RemoteRepositoryRefs => {
+  let head: string | undefined
+  const heads = new Map<string, string>()
+  const tags = new Map<string, string>()
+
+  for (const rawLine of output.split(/\r?\n/u)) {
+    const [sha, ref] = rawLine.trim().split(/\s+/u)
+
+    if (sha === undefined || ref === undefined) continue
+    if (ref === "HEAD") head = sha
+    else if (ref.startsWith(HEADS_PREFIX)) heads.set(ref.slice(HEADS_PREFIX.length), sha)
+    else if (ref.startsWith(TAGS_PREFIX)) {
+      const tag = ref.slice(TAGS_PREFIX.length).replace(/\^\{\}$/u, "")
+      tags.set(tag, sha)
+    }
+  }
+
+  return { head, heads, tags }
 }
 
 export const parseGitRemoteTagsOutput = (output: string) =>
@@ -63,46 +93,54 @@ export const parseGitRemoteTagsOutput = (output: string) =>
     Array.dedupe
   )
 
-const makeRemoteTagReader = (runCommand: RemoteTagCommand) =>
-  ({
-    list: Effect.fn("RemoteTagReader.list")(function* (source: NormalizedRepositorySource) {
-      const result = yield* runCommand(source).pipe(
-        Effect.timeout(REMOTE_TAG_COMMAND_TIMEOUT),
-        Effect.catchFilter(
-          Filter.reason("PlatformError", "NotFound"),
-          (cause) => Effect.fail(new GitExecutableNotFoundError({ cause, command: "git" })),
-          (cause) =>
-            Effect.fail(
+const makeRemoteTagReader = (runCommand: RemoteTagCommand) => {
+  const read = Effect.fn("RemoteTagReader.read")(function* (source: NormalizedRepositorySource) {
+    const result = yield* runCommand(source).pipe(
+      Effect.timeout(REMOTE_TAG_COMMAND_TIMEOUT),
+      Effect.catchFilter(
+        Filter.reason("PlatformError", "NotFound"),
+        (cause) => Effect.fail(new GitExecutableNotFoundError({ cause, command: "git" })),
+        (cause) =>
+          Effect.fail(
+            new NetworkError({
+              cause,
+              url: source.url,
+            })
+          )
+      ),
+      Effect.flatMap((result) =>
+        result.exitCode === 0
+          ? Effect.succeed(result)
+          : Effect.fail(
               new NetworkError({
-                cause,
+                cause:
+                  result.stderr.length > 0
+                    ? result.stderr
+                    : `git ls-remote exited with code ${result.exitCode}`,
                 url: source.url,
               })
             )
-        ),
-        Effect.flatMap((result) =>
-          result.exitCode === 0
-            ? Effect.succeed(result)
-            : Effect.fail(
-                new NetworkError({
-                  cause:
-                    result.stderr.length > 0
-                      ? result.stderr
-                      : `git ls-remote exited with code ${result.exitCode}`,
-                  url: source.url,
-                })
-              )
-        ),
-        Effect.retry({
-          schedule: REMOTE_TAG_RETRY_SCHEDULE,
-          while: (error) =>
-            Predicate.isTagged(error, "NetworkError") &&
-            (!Predicate.isString(error.cause) || TRANSIENT_GIT_FAILURE_PATTERN.test(error.cause)),
-        })
-      )
+      ),
+      Effect.retry({
+        schedule: REMOTE_TAG_RETRY_SCHEDULE,
+        while: (error) =>
+          Predicate.isTagged(error, "NetworkError") &&
+          (!Predicate.isString(error.cause) || TRANSIENT_GIT_FAILURE_PATTERN.test(error.cause)),
+      })
+    )
 
-      return parseGitRemoteTagsOutput(result.stdout)
+    return result.stdout
+  })
+
+  return {
+    list: Effect.fn("RemoteTagReader.list")(function* (source) {
+      return parseGitRemoteTagsOutput(yield* read(source))
     }),
-  }) satisfies RemoteTagReaderService
+    listRefs: Effect.fn("RemoteTagReader.listRefs")(function* (source) {
+      return parseGitRemoteRefsOutput(yield* read(source))
+    }),
+  } satisfies RemoteTagReaderService
+}
 
 export class RemoteTagReader extends Context.Service<RemoteTagReader, RemoteTagReaderService>()(
   "RemoteTagReader"
@@ -119,10 +157,14 @@ export class RemoteTagReader extends Context.Service<RemoteTagReader, RemoteTagR
         Effect.scoped(
           Effect.gen(function* () {
             const handle = yield* childProcessSpawner.spawn(
-              ChildProcess.make("git", ["ls-remote", "--tags", source.url], {
-                env: { LC_ALL: "C" },
-                extendEnv: true,
-              })
+              ChildProcess.make(
+                "git",
+                ["ls-remote", source.url, "HEAD", "refs/heads/*", "refs/tags/*"],
+                {
+                  env: { LC_ALL: "C" },
+                  extendEnv: true,
+                }
+              )
             )
             const [stdout, stderr, exitCode] = yield* Effect.all(
               [

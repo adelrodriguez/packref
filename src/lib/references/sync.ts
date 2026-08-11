@@ -26,7 +26,7 @@ import {
   readProjectLockfile,
   type PackageEntry,
 } from "#lib/workspace/lockfile.ts"
-import { getDirectoryPath } from "#lib/workspace/paths.ts"
+import { PACKREF_DIRECTORY_NAME } from "#lib/workspace/paths.ts"
 import { requireInitializedProject } from "#lib/workspace/project.ts"
 
 export interface SyncPackageReferencesOptions {
@@ -81,7 +81,7 @@ const packageReferenceExists = Effect.fn("sync.packageReferenceExists")(function
 ) {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
-  const projectDirectoryPath = getDirectoryPath(path, projectPath)
+  const projectDirectoryPath = path.join(projectPath, PACKREF_DIRECTORY_NAME)
   const referencePath = yield* getStorePackagePath(projectDirectoryPath, entry)
 
   return yield* fs.exists(referencePath).pipe(

@@ -143,7 +143,7 @@ export class UnsupportedRepositoryHostError extends Data.TaggedError(
   url: string
 }> {
   override get message() {
-    return `Repository host \`${this.host}\` is not supported for source snapshots.`
+    return `Repository host \`${this.host}\` is not supported for source snapshots. Supported providers: GitHub, GitLab, Bitbucket, SourceHut.`
   }
 }
 

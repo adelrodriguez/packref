@@ -53,6 +53,9 @@ export const fetchRepositorySnapshot = Effect.fn("fetchRepositorySnapshot")(func
       ? {}
       : { directory: resolvedRepository.source.directory }),
     host: resolvedRepository.source.host,
+    ...(resolvedRepository.source.requestedRef === undefined
+      ? {}
+      : { requestedRef: resolvedRepository.source.requestedRef }),
     type: "repository",
     url: resolvedRepository.source.url,
   } satisfies RepositorySource

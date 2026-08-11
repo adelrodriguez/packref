@@ -3,7 +3,7 @@ import * as FileSystem from "effect/FileSystem"
 import * as Path from "effect/Path"
 import { PACKAGE_DIRECTORY_NAME } from "#lib/core/packages.ts"
 import { emptyLockfile, readProjectLockfile, writeLockfileAtPath } from "#lib/workspace/lockfile.ts"
-import { getDirectoryPath, getProjectLockfilePath } from "#lib/workspace/paths.ts"
+import { LOCKFILE_NAME, PACKREF_DIRECTORY_NAME } from "#lib/workspace/paths.ts"
 import { requireInitializedProject } from "#lib/workspace/project.ts"
 
 export interface ProjectCleanPlan {
@@ -29,13 +29,13 @@ export const applyProjectCleanPlan = Effect.fn("applyProjectCleanPlan")(function
 ) {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
-  const packrefPath = getDirectoryPath(path, plan.projectPath)
+  const packrefPath = path.join(plan.projectPath, PACKREF_DIRECTORY_NAME)
 
   yield* fs.remove(path.join(packrefPath, PACKAGE_DIRECTORY_NAME), {
     force: true,
     recursive: true,
   })
-  yield* writeLockfileAtPath(getProjectLockfilePath(path, plan.projectPath), emptyLockfile)
+  yield* writeLockfileAtPath(path.join(packrefPath, LOCKFILE_NAME), emptyLockfile)
 
   return plan.entryCount
 })

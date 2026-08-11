@@ -17,7 +17,9 @@ import { Prompter } from "#terminal/prompter.ts"
 import { printTitle } from "#terminal/title.ts"
 
 const pkg = Argument.string("package").pipe(
-  Argument.withDescription("Package name with optional version (e.g. react, hono@4.2.0)"),
+  Argument.withDescription(
+    "Registry package with an optional version, or a direct repository spec (e.g. react, hono@4.2.0, metaideas/packref)"
+  ),
   Argument.optional
 )
 
@@ -127,7 +129,9 @@ const addNamedPackage = Effect.fn("addNamedPackage")(function* (pkg: string) {
 })
 
 export default Command.make("add", { pkg }).pipe(
-  Command.withDescription("Add a package source reference by name, version, or selection"),
+  Command.withDescription(
+    "Add a package source reference by registry package, direct repository, or selection"
+  ),
   Command.withHandler(({ pkg }) =>
     Effect.gen(function* () {
       const prompter = yield* Prompter

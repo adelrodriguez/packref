@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test"
-import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { access, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -11,7 +11,13 @@ import * as HttpClient from "effect/unstable/http/HttpClient"
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse"
 import { createTarGzip } from "nanotar"
 import type { NpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
-import { NetworkError, ReflinkError, SnapshotFetchError } from "#lib/core/errors.ts"
+import type { PackageEntry } from "#lib/workspace/lockfile.ts"
+import {
+  NetworkError,
+  ReflinkError,
+  SnapshotFetchError,
+  StoreSourceMismatchError,
+} from "#lib/core/errors.ts"
 import { parsePackageSpec } from "#lib/core/packages.ts"
 import { ProjectDependencyReader } from "#lib/manifests/index.ts"
 import { PackageManagerResolver } from "#lib/manifests/javascript.ts"
@@ -178,6 +184,73 @@ afterEach(async () => {
 })
 
 describe("addPackageReference", () => {
+  it("adds and materializes a direct repository reference with an exact identity", async () => {
+    const projectPath = await makeTempDirectory()
+    const home = await makeTempDirectory()
+    await writeFile(join(projectPath, "package.json"), JSON.stringify({}))
+    const commitSha = "abcdef1234567890abcdef1234567890abcdef12"
+
+    const result = await runAdd("github:owner/repo", projectPath, home, {
+      commandResult: {
+        exitCode: 0,
+        stderr: "",
+        stdout: `${commitSha}\tHEAD\n${commitSha}\trefs/heads/main\n`,
+      },
+      metadata: makeMetadata("example", ["1.0.0"]),
+    })
+    const lockfile = JSON.parse(
+      await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
+    )
+    const expectedEntry = {
+      name: "owner/repo",
+      registry: "github",
+      source: {
+        host: "github.com",
+        type: "repository",
+        url: "https://github.com/owner/repo",
+      },
+      tracking: "manual",
+      version: commitSha,
+    } satisfies PackageEntry
+    const expectedReferencePath = join(
+      await realpath(projectPath),
+      ".packref",
+      "packages",
+      "github",
+      "owner",
+      "repo",
+      commitSha
+    )
+
+    expect(result.entry).toEqual(expectedEntry)
+    expect(lockfile).toEqual({ packages: [expectedEntry] })
+    expect(result.referencePath).toBe(expectedReferencePath)
+    expect(await readFile(join(expectedReferencePath, "SOURCE.md"), "utf8")).toBe(
+      "repository source"
+    )
+  })
+
+  it("rejects a second directory for the same repository identity", async () => {
+    const projectPath = await makeTempDirectory()
+    const home = await makeTempDirectory()
+    await writeFile(join(projectPath, "package.json"), JSON.stringify({}))
+    const commitSha = "abcdef1234567890abcdef1234567890abcdef12"
+    const services = {
+      commandResult: {
+        exitCode: 0,
+        stderr: "",
+        stdout: `${commitSha}\tHEAD\n`,
+      },
+      metadata: makeMetadata("example", ["1.0.0"]),
+    }
+
+    await runAdd("github:owner/repo", projectPath, home, services)
+
+    expect(
+      runAdd("github:owner/repo/packages/a", projectPath, home, services)
+    ).rejects.toBeInstanceOf(StoreSourceMismatchError)
+  })
+
   it("adds a selected candidate through the prepared project context", async () => {
     const projectPath = await makeTempDirectory()
     const home = await makeTempDirectory()

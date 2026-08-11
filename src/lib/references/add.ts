@@ -6,12 +6,22 @@ import * as Path from "effect/Path"
 import * as Predicate from "effect/Predicate"
 import type { ManifestDependency } from "#lib/manifests/manifest.ts"
 import type { ResolvedPackageReference } from "#lib/registries/registry.ts"
-import { ProjectFilesystemError } from "#lib/core/errors.ts"
-import { packageCoordinatesEquivalence, type ParsedPackageSpec } from "#lib/core/packages.ts"
+import type { MaterializedStoreEntry } from "#lib/store/index.ts"
+import { ProjectFilesystemError, StoreSourceMismatchError } from "#lib/core/errors.ts"
+import {
+  packageCoordinatesEquivalence,
+  type PackageIdentity,
+  type ParsedPackageSpec,
+  type RegistryPackageSpec,
+  type RepositoryPackageSpec,
+} from "#lib/core/packages.ts"
 import { ProjectDependencyReader } from "#lib/manifests/index.ts"
 import { resolvePackageReference } from "#lib/registries/index.ts"
 import { fetchRepositorySnapshot } from "#lib/sources/repository/fetch.ts"
-import { resolveRepositoryRef } from "#lib/sources/repository/normalize.ts"
+import {
+  resolveDirectRepositoryRef,
+  resolveRepositoryRef,
+} from "#lib/sources/repository/normalize.ts"
 import { fetchTarballSnapshot } from "#lib/sources/tarball/fetch.ts"
 import { registerProject } from "#lib/workspace/config.ts"
 import {
@@ -113,6 +123,37 @@ export const findPackageCandidates = Effect.fn("findPackageCandidates")(function
   } satisfies PackageCandidates
 })
 
+const addMaterializedReferenceToProject = Effect.fn("addMaterializedReferenceToProject")(function* (
+  identity: PackageIdentity,
+  storeEntry: MaterializedStoreEntry,
+  projectPath: string,
+  manifestRange: string | undefined,
+  tracking: PackageEntry["tracking"]
+) {
+  const referencePath = yield* createProjectReference(
+    projectPath,
+    identity,
+    storeEntry.path,
+    storeEntry.source
+  )
+  const entry = {
+    ...identity,
+    source: storeEntry.source,
+    tracking,
+  } satisfies PackageEntry
+
+  yield* upsertPackageEntry(projectPath, entry)
+
+  return {
+    entry,
+    manifestRange,
+    projectPath,
+    referencePath,
+    reusedStoreEntry: storeEntry.reused,
+    storePath: storeEntry.path,
+  } satisfies AddPackageResult
+})
+
 const materializePackageReferenceToProject = Effect.fn("materializePackageReferenceToProject")(
   function* (
     resolvedPackage: ResolvedPackageReference,
@@ -141,33 +182,40 @@ const materializePackageReferenceToProject = Effect.fn("materializePackageRefere
       onSome: (repository) => fetchRepositorySnapshot(resolvedPackage.identity, repository),
     })
 
-    const referencePath = yield* createProjectReference(
-      projectPath,
+    return yield* addMaterializedReferenceToProject(
       resolvedPackage.identity,
-      storeEntry.path,
-      storeEntry.source
-    )
-    const entry = {
-      ...resolvedPackage.identity,
-      source: storeEntry.source,
-      tracking,
-    } satisfies PackageEntry
-
-    yield* upsertPackageEntry(projectPath, entry)
-
-    return {
-      entry,
-      manifestRange,
+      storeEntry,
       projectPath,
-      referencePath,
-      reusedStoreEntry: storeEntry.reused,
-      storePath: storeEntry.path,
-    } satisfies AddPackageResult
+      manifestRange,
+      tracking
+    )
+  }
+)
+
+const addDirectRepositoryReferenceToProject = Effect.fn("addDirectRepositoryReferenceToProject")(
+  function* (inputSpec: RepositoryPackageSpec, projectPath: string) {
+    const resolved = yield* resolveDirectRepositoryRef(inputSpec)
+    const storeEntry = yield* fetchRepositorySnapshot(resolved.identity, resolved.repository)
+
+    if (
+      storeEntry.source.type === "repository" &&
+      storeEntry.source.directory !== resolved.repository.source.directory
+    ) {
+      return yield* new StoreSourceMismatchError(resolved.identity)
+    }
+
+    return yield* addMaterializedReferenceToProject(
+      resolved.identity,
+      storeEntry,
+      projectPath,
+      undefined,
+      "manual"
+    )
   }
 )
 
 const addPackageReferenceToProject = Effect.fn("addPackageReferenceToProject")(function* (
-  inputSpec: ParsedPackageSpec,
+  inputSpec: RegistryPackageSpec,
   projectPath: string,
   manifestDependency: ManifestDependency | undefined
 ) {
@@ -198,6 +246,7 @@ export const resolvePackageCandidateReference = Effect.fn("resolvePackageCandida
       ? getRegistrySpecifier(dependency.specifier)
       : undefined
     const resolvedPackage = yield* resolvePackageReference({
+      _tag: "registry",
       name: dependency.name,
       registry: dependency.registry,
       specifier: dependency.exactVersion ?? manifestRange,
@@ -239,6 +288,10 @@ export const addPackageReference = Effect.fn("addPackageReference")(function* (
   options: AddPackageOptions = {}
 ) {
   const { projectPath } = yield* initializeAddProject(options)
+
+  if (inputSpec._tag === "repository") {
+    return yield* addDirectRepositoryReferenceToProject(inputSpec, projectPath)
+  }
 
   const manifestDependency = Predicate.isUndefined(inputSpec.specifier)
     ? (yield* readAvailableProjectDependencies(projectPath)).find((dependency) =>

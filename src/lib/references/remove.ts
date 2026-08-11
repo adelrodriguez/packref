@@ -17,7 +17,7 @@ import {
   removePackageEntries,
   type PackageEntry,
 } from "#lib/workspace/lockfile.ts"
-import { getDirectoryPath } from "#lib/workspace/paths.ts"
+import { PACKREF_DIRECTORY_NAME } from "#lib/workspace/paths.ts"
 import { requireInitializedProject } from "#lib/workspace/project.ts"
 
 const REMOVE_CONCURRENCY = 8
@@ -70,7 +70,7 @@ export const removePackageReferences = Effect.fn("removePackageReferences")(func
 ) {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
-  const projectDirectoryPath = getDirectoryPath(path, projectPath)
+  const projectDirectoryPath = path.join(projectPath, PACKREF_DIRECTORY_NAME)
   const attempts = yield* Effect.forEach(
     entries,
     (entry) =>

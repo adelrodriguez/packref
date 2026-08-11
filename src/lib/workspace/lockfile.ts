@@ -13,7 +13,7 @@ import {
 } from "#lib/core/packages.ts"
 import { PackageSourceSchema } from "#lib/core/source.ts"
 import { formatJson } from "#lib/shared/json.ts"
-import { getProjectLockfilePath } from "#lib/workspace/paths.ts"
+import { LOCKFILE_NAME, PACKREF_DIRECTORY_NAME } from "#lib/workspace/paths.ts"
 
 export const PackageEntrySchema = Schema.Struct({
   name: Schema.String,
@@ -97,7 +97,7 @@ export const writeLockfileAtPath = Effect.fn("writeLockfileAtPath")(function* (
 
 export const initializeLockfile = Effect.fn("initializeLockfile")(function* (projectPath: string) {
   const path = yield* Path.Path
-  const lockfilePath = getProjectLockfilePath(path, projectPath)
+  const lockfilePath = path.join(projectPath, PACKREF_DIRECTORY_NAME, LOCKFILE_NAME)
 
   return yield* readLockfileAtPath(lockfilePath).pipe(
     Effect.catchFilter(Filter.reason("PlatformError", "NotFound"), () =>
@@ -111,7 +111,7 @@ export const readProjectLockfile = Effect.fn("readProjectLockfile")(function* (
 ) {
   const path = yield* Path.Path
 
-  return yield* readLockfileAtPath(getProjectLockfilePath(path, projectPath))
+  return yield* readLockfileAtPath(path.join(projectPath, PACKREF_DIRECTORY_NAME, LOCKFILE_NAME))
 })
 
 export const listPackageEntries = (lockfile: Lockfile) =>
@@ -123,7 +123,9 @@ export const findPackageEntries = (lockfile: Lockfile, spec: ParsedPackageSpec) 
       (entry) =>
         entry.registry === spec.registry &&
         entry.name === spec.name &&
-        (spec.specifier === undefined || entry.version === spec.specifier)
+        (spec.specifier === undefined ||
+          entry.version === spec.specifier ||
+          (entry.source.type === "repository" && entry.source.requestedRef === spec.specifier))
     )
     .toSorted((left, right) => packageIdentityOrder(left, right))
 
@@ -132,7 +134,7 @@ export const upsertPackageEntry = Effect.fn("upsertPackageEntry")(function* (
   entry: PackageEntry
 ) {
   const path = yield* Path.Path
-  const lockfilePath = getProjectLockfilePath(path, projectPath)
+  const lockfilePath = path.join(projectPath, PACKREF_DIRECTORY_NAME, LOCKFILE_NAME)
   const lockfile = yield* initializeLockfile(projectPath)
   const existingIndex = lockfile.packages.findIndex((candidate) =>
     packageIdentityEquivalence(candidate, entry)
@@ -155,7 +157,7 @@ export const removePackageEntries = Effect.fn("removePackageEntries")(function* 
   identities: readonly PackageIdentity[]
 ) {
   const path = yield* Path.Path
-  const lockfilePath = getProjectLockfilePath(path, projectPath)
+  const lockfilePath = path.join(projectPath, PACKREF_DIRECTORY_NAME, LOCKFILE_NAME)
   const lockfile = yield* readLockfileAtPath(lockfilePath)
   const packages = lockfile.packages.filter(
     (entry) => !Array.containsWith(packageIdentityEquivalence)(identities, entry)

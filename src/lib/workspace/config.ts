@@ -6,7 +6,7 @@ import * as Schema from "effect/Schema"
 import { ConfigParseError } from "#lib/core/errors.ts"
 import { formatJson } from "#lib/shared/json.ts"
 import { PackrefHome } from "#lib/workspace/home.ts"
-import { getGlobalConfigPath, getGlobalDirectoryPath } from "#lib/workspace/paths.ts"
+import { GLOBAL_CONFIG_NAME, GLOBAL_DIRECTORY_SEGMENTS } from "#lib/workspace/paths.ts"
 
 export const GlobalConfigSchema = Schema.Struct({
   projects: Schema.Array(Schema.String),
@@ -52,15 +52,18 @@ export const writeGlobalConfig = Effect.fn("writeGlobalConfig")(function* (confi
   const path = yield* Path.Path
   const home = yield* PackrefHome
 
-  yield* writeGlobalConfigAtPath(getGlobalConfigPath(path, home.path), config)
+  yield* writeGlobalConfigAtPath(
+    path.join(home.path, ...GLOBAL_DIRECTORY_SEGMENTS, GLOBAL_CONFIG_NAME),
+    config
+  )
 })
 
 export const initializeGlobalConfig = Effect.fn("initializeGlobalConfig")(function* () {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const home = yield* PackrefHome
-  const globalDirectoryPath = getGlobalDirectoryPath(path, home.path)
-  const configPath = getGlobalConfigPath(path, home.path)
+  const globalDirectoryPath = path.join(home.path, ...GLOBAL_DIRECTORY_SEGMENTS)
+  const configPath = path.join(globalDirectoryPath, GLOBAL_CONFIG_NAME)
 
   yield* fs.makeDirectory(globalDirectoryPath, { recursive: true })
 

@@ -71,13 +71,24 @@ npx packref init --non-interactive --ignore --agents
 Omitted setup flags are disabled. The `--ignore` and `--agents` flags require
 `--non-interactive`; without setup flags, `packref init` keeps the interactive setup flow.
 
-Add the exact installed version of a dependency, or request a package and version explicitly:
+Add the exact installed version of a dependency, request a package and version explicitly, or add source straight from a supported repository host:
 
 ```sh
 npx packref add react
 npx packref add hono@4.2.0
 npx packref add @effect/cli
+npx packref add metaideas/packref
 ```
+
+Direct repository package specs support these forms:
+
+- GitHub shorthand: `owner/repository[/directory][@ref]`
+- Provider shorthand: `github:owner/repository[/directory][@ref]`, `gitlab:...`, `bitbucket:...`, or `sourcehut:...`
+- Standard Git URL: `https://github.com/owner/repository.git[@ref]` or `git+https://...`
+- SCP-style SSH URL: `git@github.com:owner/repository.git[@ref]`
+
+The optional `ref` can be a tag, branch, or commit SHA. If you omit it, Packref uses the default
+branch and pins its current commit. Direct repository references are manual references.
 
 Running `packref add` without a package opens a multiselect of dependencies not yet referenced.
 When a dependency has no installed version in a package-manager lockfile or `node_modules`, Packref
@@ -95,16 +106,16 @@ new dependencies, or change lockfile contents.
 
 ## Commands
 
-| Command                                              | Description                                                                                                                                                                                                                                                                                                                      |
-| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packref init`                                       | Initialize the current project, create or preserve its lockfile, register it globally, and offer to write ignore rules and agent guidance. Use `--non-interactive` with `--ignore` and/or `--agents` for unattended setup. If a committed lockfile already has entries, run `npx packref install` afterward to materialize them. |
-| `packref add [package]`                              | Add a package source reference. A versionless dependency uses the project's exact installed version when available. Explicit versions such as `hono@4.2.0` are tracked manually. Omit the package to select one or more unresolved project dependencies interactively.                                                           |
-| `packref install`                                    | Materialize missing source trees from `.packref/packref-lock.json`. Packref reuses matching global snapshots and fetches missing snapshots from the source metadata in the lockfile.                                                                                                                                             |
-| `packref list`<br>`packref ls`                       | List the current project's references in deterministic order, including the version, source host or tarball type, and a marker for manually tracked entries.                                                                                                                                                                     |
-| `packref remove [package]`<br>`packref rm [package]` | Remove matching project-local source trees and lockfile entries. Omit the package to select from all references. If a name matches multiple versions, Packref asks which versions to remove. For example: `npx packref remove react` or `npx packref remove react@18.3.1`.                                                       |
-| `packref sync`                                       | Update existing dependency-tracked references to the exact versions resolved for the project. Remove dependency-tracked references that are no longer in the manifest. Manual references are preserved, and unreferenced manifest dependencies are not automatically adopted.                                                    |
-| `packref prune`                                      | Remove global store entries that no registered project uses. Missing or unreadable registered projects are reported and prevent unsafe pruning. Stale registrations can be removed interactively.                                                                                                                                |
-| `packref clean`<br>`packref clean --global`          | Clear all references from the current project and reset its lockfile after confirmation. The `--global` flag wipes only the global source store; registered projects and project-local state are preserved.                                                                                                                      |
+| Command                                              | Description                                                                                                                                                                                                                                                                                                                        |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packref init`                                       | Initialize the current project, create or preserve its lockfile, register it globally, and offer to write ignore rules and agent guidance. Use `--non-interactive` with `--ignore` and/or `--agents` for unattended setup. If a committed lockfile already has entries, run `npx packref install` afterward to materialize them.   |
+| `packref add [package]`                              | Add a package source reference from a registry package spec or direct repository package spec. A versionless dependency uses the project's exact installed version when available. Explicit versions and direct repository sources are tracked manually. Omit the package to select unresolved project dependencies interactively. |
+| `packref install`                                    | Materialize missing source trees from `.packref/packref-lock.json`. Packref reuses matching global snapshots and fetches missing snapshots from the source metadata in the lockfile.                                                                                                                                               |
+| `packref list`<br>`packref ls`                       | List the current project's references in deterministic order, including the version, source host or tarball type, and a marker for manually tracked entries.                                                                                                                                                                       |
+| `packref remove [package]`<br>`packref rm [package]` | Remove matching project-local source trees and lockfile entries. Omit the package to select from all references. If a name matches multiple versions, Packref asks which versions to remove. For example: `npx packref remove react` or `npx packref remove react@18.3.1`.                                                         |
+| `packref sync`                                       | Update existing dependency-tracked references to the exact versions resolved for the project. Remove dependency-tracked references that are no longer in the manifest. Manual references are preserved, and unreferenced manifest dependencies are not automatically adopted.                                                      |
+| `packref prune`                                      | Remove global store entries that no registered project uses. Missing or unreadable registered projects are reported and prevent unsafe pruning. Stale registrations can be removed interactively.                                                                                                                                  |
+| `packref clean`<br>`packref clean --global`          | Clear all references from the current project and reset its lockfile after confirmation. The `--global` flag wipes only the global source store; registered projects and project-local state are preserved.                                                                                                                        |
 
 ## Files and storage
 

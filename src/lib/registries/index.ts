@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect"
-import type { ParsedPackageSpec } from "#lib/core/packages.ts"
+import type { RegistryPackageSpec } from "#lib/core/packages.ts"
 import type { RegistryAdapter } from "#lib/registries/registry.ts"
 import { UnsupportedRegistryError } from "#lib/core/errors.ts"
 import { checkIsRegistry, type Registry } from "#lib/core/registry.ts"
@@ -18,9 +18,5 @@ export const getRegistryAdapter = (registry: string) =>
     return registryAdapters[registry]
   })
 
-export const resolvePackageReference = (spec: ParsedPackageSpec) =>
-  Effect.gen(function* () {
-    const adapter = yield* getRegistryAdapter(spec.registry)
-
-    return yield* adapter.resolve(spec)
-  })
+export const resolvePackageReference = (spec: RegistryPackageSpec) =>
+  getRegistryAdapter(spec.registry).pipe(Effect.flatMap((adapter) => adapter.resolve(spec)))

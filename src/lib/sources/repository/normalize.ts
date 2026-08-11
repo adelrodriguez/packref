@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect"
+import * as Match from "effect/Match"
 import * as Option from "effect/Option"
-import type { PackageIdentity } from "#lib/core/packages.ts"
 import type {
   NormalizedRepositorySource,
   RepositorySourceCandidate,
@@ -11,31 +11,29 @@ import {
   TagNotFoundError,
   UnsupportedRepositoryHostError,
 } from "#lib/core/errors.ts"
+import {
+  REPOSITORY_PROVIDER_HOSTS,
+  SUPPORTED_REPOSITORY_PROVIDERS,
+  type PackageIdentity,
+  type RepositoryPackageSpec,
+  type RepositoryProvider,
+} from "#lib/core/packages.ts"
 import { matchRepositoryTag, RemoteTagReader } from "#lib/sources/repository/tags.ts"
 
-const KNOWN_PROVIDERS = ["bitbucket", "github", "gitlab", "sourcehut"] as const
+const COMMIT_SHA_PATTERN = /^[0-9a-f]{7,40}$/iu
 
-type KnownProvider = (typeof KNOWN_PROVIDERS)[number]
-
-const PROVIDER_HOSTS: Record<KnownProvider, string> = {
-  bitbucket: "bitbucket.org",
-  github: "github.com",
-  gitlab: "gitlab.com",
-  sourcehut: "git.sr.ht",
-}
-
-const HOST_PROVIDERS = new Map<string, KnownProvider>(
-  KNOWN_PROVIDERS.map((provider) => [PROVIDER_HOSTS[provider], provider])
+const HOST_PROVIDERS = new Map<string, RepositoryProvider>(
+  SUPPORTED_REPOSITORY_PROVIDERS.map((provider) => [REPOSITORY_PROVIDER_HOSTS[provider], provider])
 )
 
-const DEFAULT_SHORTHAND_PROVIDER = "github" satisfies KnownProvider
+const DEFAULT_SHORTHAND_PROVIDER = "github" satisfies RepositoryProvider
 const SHORTHAND_PATTERN = new RegExp(
-  `^(?<provider>${KNOWN_PROVIDERS.join("|")}):(?<repositoryPath>.+)$`,
+  `^(?<provider>${SUPPORTED_REPOSITORY_PROVIDERS.join("|")}):(?<repositoryPath>.+)$`,
   "u"
 )
 
-const checkIsKnownProvider = (value: string): value is KnownProvider =>
-  KNOWN_PROVIDERS.some((provider) => provider === value)
+const checkIsKnownProvider = (value: string): value is RepositoryProvider =>
+  SUPPORTED_REPOSITORY_PROVIDERS.some((provider) => provider === value)
 
 const cleanRepositoryPath = (repositoryPath: string) =>
   repositoryPath
@@ -50,7 +48,7 @@ const makeNormalizedSource = (
   candidate: RepositorySourceCandidate,
   host: string,
   rawRepositoryPath: string
-): Effect.Effect<NormalizedRepositorySource, InvalidRepositoryUrlError> => {
+) => {
   const repositoryPath = cleanRepositoryPath(rawRepositoryPath)
 
   if (repositoryPath.length === 0) {
@@ -64,6 +62,7 @@ const makeNormalizedSource = (
   return Effect.succeed({
     ...(candidate.directory === undefined ? {} : { directory: candidate.directory }),
     fetchSource: provider === undefined ? undefined : `${provider}:${fetchRepositoryPath}`,
+    ...(candidate.requestedRef === undefined ? {} : { requestedRef: candidate.requestedRef }),
     host,
     type: "repository",
     url: `https://${host}/${repositoryPath}`,
@@ -72,7 +71,7 @@ const makeNormalizedSource = (
 
 const normalizeFromShorthandUrl = (
   candidate: RepositorySourceCandidate,
-  provider: KnownProvider,
+  provider: RepositoryProvider,
   repositoryPath: string
 ) => {
   const barePath = cleanRepositoryPath(repositoryPath).replace(/^~/u, "")
@@ -83,7 +82,7 @@ const normalizeFromShorthandUrl = (
 
   return makeNormalizedSource(
     candidate,
-    PROVIDER_HOSTS[provider],
+    REPOSITORY_PROVIDER_HOSTS[provider],
     provider === "sourcehut" ? `~${barePath}` : barePath
   )
 }
@@ -135,6 +134,59 @@ export const normalizeRepositorySource = Effect.fn("normalizeRepositorySource")(
   }
 
   return normalizeFromScpLikeUrl(candidate, url)
+})
+
+export interface ResolvedDirectRepositoryRef {
+  readonly identity: PackageIdentity
+  readonly repository: ResolvedRepositoryRef
+}
+
+export const resolveDirectRepositoryRef = Effect.fn("resolveDirectRepositoryRef")(function* (
+  spec: RepositoryPackageSpec
+) {
+  const source = yield* normalizeRepositorySource(spec.repository)
+
+  if (source.fetchSource === undefined) {
+    return yield* new UnsupportedRepositoryHostError({ host: source.host, url: source.url })
+  }
+
+  const remoteTagReader = yield* RemoteTagReader
+  const refs = yield* remoteTagReader.listRefs(source)
+  const requestedRef = spec.specifier
+  const tagSha = requestedRef === undefined ? undefined : refs.tags.get(requestedRef)
+  const branchSha = requestedRef === undefined ? undefined : refs.heads.get(requestedRef)
+  const resolved = yield* Match.value({ branchSha, head: refs.head, requestedRef, tagSha }).pipe(
+    Match.when(
+      ({ head, requestedRef }) => requestedRef === undefined && head !== undefined,
+      ({ head }) => Effect.succeed({ ref: head ?? "", version: head ?? "" })
+    ),
+    Match.when(
+      ({ requestedRef, tagSha }) => requestedRef !== undefined && tagSha !== undefined,
+      ({ tagSha }) => Effect.succeed({ ref: tagSha ?? "", version: tagSha ?? "" })
+    ),
+    Match.when(
+      ({ branchSha, requestedRef }) => requestedRef !== undefined && branchSha !== undefined,
+      ({ branchSha }) => Effect.succeed({ ref: branchSha ?? "", version: branchSha ?? "" })
+    ),
+    Match.when(
+      ({ requestedRef }) => requestedRef !== undefined && COMMIT_SHA_PATTERN.test(requestedRef),
+      ({ requestedRef }) => Effect.succeed({ ref: requestedRef ?? "", version: requestedRef ?? "" })
+    ),
+    Match.orElse(({ requestedRef }) =>
+      Effect.fail(new TagNotFoundError({ repository: source.url, version: requestedRef ?? "HEAD" }))
+    )
+  )
+
+  return {
+    identity: { name: spec.name, registry: spec.registry, version: resolved.version },
+    repository: {
+      ref: resolved.ref,
+      source: {
+        ...source,
+        ...(requestedRef === undefined ? {} : { requestedRef }),
+      },
+    },
+  } satisfies ResolvedDirectRepositoryRef
 })
 
 export const resolveRepositoryRef = Effect.fn("resolveRepositoryRef")(function* (

@@ -1,13 +1,13 @@
 import * as Effect from "effect/Effect"
 import * as Path from "effect/Path"
 import { getPackageIdentitySegments, type PackageIdentity } from "#lib/core/packages.ts"
-import { getGlobalDirectoryPath } from "#lib/workspace/paths.ts"
+import { GLOBAL_DIRECTORY_SEGMENTS } from "#lib/workspace/paths.ts"
 
 export const STORE_DIRECTORY_NAME = "store"
 export const STORE_METADATA_DIRECTORY_NAME = ".metadata"
 
 export const getGlobalStorePath = (path: Path.Path, home: string) =>
-  path.join(getGlobalDirectoryPath(path, home), STORE_DIRECTORY_NAME)
+  path.join(home, ...GLOBAL_DIRECTORY_SEGMENTS, STORE_DIRECTORY_NAME)
 
 export const getStorePackagePath = Effect.fn("getStorePackagePath")(function* (
   storeRoot: string,
