@@ -6,6 +6,7 @@ import { listPackageEntries, readProjectLockfile } from "#lib/workspace/lockfile
 import { requireInitializedProject } from "#lib/workspace/project.ts"
 
 export default Command.make("list").pipe(
+  Command.withAlias("ls"),
   Command.withDescription("List package source references recorded for the current project"),
   Command.withHandler(() =>
     Effect.gen(function* () {

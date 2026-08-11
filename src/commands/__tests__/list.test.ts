@@ -23,12 +23,12 @@ const initializeProject = async (projectPath: string, packages: readonly Package
   )
 }
 
-const runList = async (projectPath: string, homePath: string) => {
+const runList = async (projectPath: string, homePath: string, command: "list" | "ls" = "list") => {
   let output = ""
   const environment = { ...Bun.env }
   delete environment.NO_COLOR
   const process = Bun.spawn({
-    cmd: [execPath, cliPath, "list"],
+    cmd: [execPath, cliPath, command],
     cwd: projectPath,
     env: {
       ...environment,
@@ -99,6 +99,17 @@ describe("list", () => {
     await initializeProject(projectPath, [])
 
     const result = await runList(projectPath, homePath)
+
+    expect(result.exitCode).toBe(0)
+    expect(result.output).toContain("No packages are currently installed.")
+  })
+
+  it("supports ls as an alias", async () => {
+    const projectPath = await makeTempDirectory()
+    const homePath = await makeTempDirectory()
+    await initializeProject(projectPath, [])
+
+    const result = await runList(projectPath, homePath, "ls")
 
     expect(result.exitCode).toBe(0)
     expect(result.output).toContain("No packages are currently installed.")
