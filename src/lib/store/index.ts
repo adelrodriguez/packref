@@ -11,6 +11,7 @@ import { GlobalStoreFilesystemError, StoreCorruptedError } from "#lib/core/error
 import {
   packageIdentityOrder,
   PACKAGE_DIRECTORY_NAME,
+  SUPPORTED_REPOSITORY_PROVIDERS,
   type PackageIdentity,
 } from "#lib/core/packages.ts"
 import { PackageSourceSchema } from "#lib/core/source.ts"
@@ -119,7 +120,11 @@ export const listStoreEntries = Effect.fn("listStoreEntries")(function* () {
         Effect.fn(function* (packageSegment) {
           const packageSegmentPath = path.join(registryPath, packageSegment)
 
-          if (packageSegment.startsWith("@")) {
+          const hasNestedPackageName =
+            packageSegment.startsWith("@") ||
+            SUPPORTED_REPOSITORY_PROVIDERS.some((provider) => provider === registry)
+
+          if (hasNestedPackageName) {
             const scopedPackages = yield* listDirectoryOrEmpty(packageSegmentPath, semaphore)
 
             return yield* Effect.forEach(

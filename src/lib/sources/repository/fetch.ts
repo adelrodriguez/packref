@@ -42,16 +42,21 @@ export class RepositoryDownloader extends Context.Service<
   })
 }
 
+export interface FetchRepositorySnapshotOptions {
+  readonly includeDirectory?: boolean
+}
+
 export const fetchRepositorySnapshot = Effect.fn("fetchRepositorySnapshot")(function* (
   identity: PackageIdentity,
-  resolvedRepository: ResolvedRepositoryRef
+  resolvedRepository: ResolvedRepositoryRef,
+  options: FetchRepositorySnapshotOptions = {}
 ) {
   const downloader = yield* RepositoryDownloader
   const fetchSource = resolvedRepository.source.fetchSource
   const source = {
-    ...(resolvedRepository.source.directory === undefined
-      ? {}
-      : { directory: resolvedRepository.source.directory }),
+    ...(options.includeDirectory !== false && resolvedRepository.source.directory !== undefined
+      ? { directory: resolvedRepository.source.directory }
+      : {}),
     host: resolvedRepository.source.host,
     type: "repository",
     url: resolvedRepository.source.url,

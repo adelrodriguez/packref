@@ -15,10 +15,14 @@ import {
   TagNotFoundError,
   UnsupportedRepositoryHostError,
 } from "#lib/core/errors.ts"
-import { resolveRepositoryRef } from "#lib/sources/repository/normalize.ts"
+import {
+  resolveDirectRepositoryRef,
+  resolveRepositoryRef,
+} from "#lib/sources/repository/normalize.ts"
 import {
   getTagCandidates,
   matchRepositoryTag,
+  parseGitRemoteRefsOutput,
   parseGitRemoteTagsOutput,
   RemoteTagReader,
 } from "#lib/sources/repository/tags.ts"
@@ -72,6 +76,23 @@ describe("parseGitRemoteTagsOutput", () => {
 `)
 
     expect(tags).toEqual(["v19.0.0", "19.0.0"])
+  })
+})
+
+describe("parseGitRemoteRefsOutput", () => {
+  it("reads HEAD, branches, lightweight tags, and peeled annotated tags", () => {
+    const refs = parseGitRemoteRefsOutput(`
+1111111111111111111111111111111111111111\tHEAD
+2222222222222222222222222222222222222222\trefs/heads/main
+3333333333333333333333333333333333333333\trefs/tags/1.0
+4444444444444444444444444444444444444444\trefs/tags/release/next
+5555555555555555555555555555555555555555\trefs/tags/release/next^{}
+`)
+
+    expect(refs.head).toBe("1111111111111111111111111111111111111111")
+    expect(refs.heads.get("main")).toBe("2222222222222222222222222222222222222222")
+    expect(refs.tags.get("1.0")).toBe("3333333333333333333333333333333333333333")
+    expect(refs.tags.get("release/next")).toBe("5555555555555555555555555555555555555555")
   })
 })
 
@@ -245,6 +266,71 @@ done
     expect(error).toBeInstanceOf(GitExecutableNotFoundError)
     expect(error).toHaveProperty("message", expect.stringMatching(/Install Git.*PATH/su))
     expect(commandCount).toBe(1)
+  })
+})
+
+const resolveDirect = (specifier?: string) =>
+  resolveDirectRepositoryRef({
+    _tag: "repository",
+    name: "owner/repo",
+    registry: "github",
+    repository: { url: "github:owner/repo" },
+    ...(specifier === undefined ? {} : { specifier }),
+  })
+
+describe("resolveDirectRepositoryRef", () => {
+  const output = `
+1111111111111111111111111111111111111111\tHEAD
+2222222222222222222222222222222222222222\trefs/heads/main
+3333333333333333333333333333333333333333\trefs/tags/1.0
+4444444444444444444444444444444444444444\trefs/tags/v1.0
+5555555555555555555555555555555555555555\trefs/tags/release/next
+6666666666666666666666666666666666666666\trefs/tags/release/next^{}
+`
+  const command = () => Effect.succeed({ exitCode: 0, stderr: "", stdout: output })
+
+  it.each([
+    {
+      expectedRef: "1111111111111111111111111111111111111111",
+      expectedVersion: "1111111111111111111111111111111111111111",
+      specifier: undefined,
+    },
+    {
+      expectedRef: "3333333333333333333333333333333333333333",
+      expectedVersion: "3333333333333333333333333333333333333333",
+      specifier: "1.0",
+    },
+    {
+      expectedRef: "4444444444444444444444444444444444444444",
+      expectedVersion: "4444444444444444444444444444444444444444",
+      specifier: "v1.0",
+    },
+    {
+      expectedRef: "2222222222222222222222222222222222222222",
+      expectedVersion: "2222222222222222222222222222222222222222",
+      specifier: "main",
+    },
+    {
+      expectedRef: "6666666666666666666666666666666666666666",
+      expectedVersion: "6666666666666666666666666666666666666666",
+      specifier: "release/next",
+    },
+    {
+      expectedRef: "abcdef1234567890abcdef1234567890abcdef12",
+      expectedVersion: "abcdef1234567890abcdef1234567890abcdef12",
+      specifier: "ABCDEF1234567890ABCDEF1234567890ABCDEF12",
+    },
+  ])("pins $specifier as $expectedVersion", async ({ expectedRef, expectedVersion, specifier }) => {
+    const resolved = await runWithRemoteTagCommand(resolveDirect(specifier), command)
+
+    expect(resolved.identity.version).toBe(expectedVersion)
+    expect(resolved.repository.ref).toBe(expectedRef)
+  })
+
+  it("rejects an abbreviated commit that does not name a remote tag or branch", () => {
+    expect(runWithRemoteTagCommand(resolveDirect("abcdef1"), command)).rejects.toBeInstanceOf(
+      TagNotFoundError
+    )
   })
 })
 

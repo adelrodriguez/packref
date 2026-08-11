@@ -3,7 +3,11 @@ import { join } from "node:path"
 import * as Array from "effect/Array"
 import * as Effect from "effect/Effect"
 import * as Path from "effect/Path"
-import { InvalidPackageIdentity, UnsupportedRegistryError } from "#lib/core/errors.ts"
+import {
+  InvalidPackageIdentity,
+  UnsupportedRegistryError,
+  UnsupportedRepositoryHostError,
+} from "#lib/core/errors.ts"
 import {
   getPackageIdentityPath,
   getPackageIdentitySegments,
@@ -106,7 +110,7 @@ describe("packages", () => {
         label: "traversal name segment",
       },
       {
-        expected: { field: "name", reason: "must not contain path separators", value: "../react" },
+        expected: { field: "name", reason: "must not be a reserved path segment", value: ".." },
         identity: { name: "../react", registry: "npm", version: "19.0.0" },
         label: "name containing a slash",
       },
@@ -278,47 +282,52 @@ describe("packages", () => {
   describe("parsePackageSpec", () => {
     it.each([
       {
-        expected: { name: "react", registry: "npm" },
+        expected: { _tag: "registry", name: "react", registry: "npm" },
         input: "react",
         label: "defaults unscoped packages to npm",
       },
       {
-        expected: { name: "react", registry: "npm", specifier: "19.0.0" },
+        expected: { _tag: "registry", name: "react", registry: "npm", specifier: "19.0.0" },
         input: "react@19.0.0",
         label: "preserves exact versions",
       },
       {
-        expected: { name: "react", registry: "npm", specifier: "^19.0.0" },
+        expected: { _tag: "registry", name: "react", registry: "npm", specifier: "^19.0.0" },
         input: "react@^19.0.0",
         label: "preserves ranges",
       },
       {
-        expected: { name: "@effect/cli", registry: "npm" },
+        expected: { _tag: "registry", name: "@effect/cli", registry: "npm" },
         input: "@effect/cli",
         label: "parses scoped packages without versions",
       },
       {
-        expected: { name: "react", registry: "npm" },
+        expected: { _tag: "registry", name: "react", registry: "npm" },
         input: "npm:react",
         label: "accepts explicit npm prefix",
       },
       {
-        expected: { name: "react", registry: "npm" },
+        expected: { _tag: "registry", name: "react", registry: "npm" },
         input: "npm: react",
         label: "trims package names after explicit prefixes",
       },
       {
-        expected: { name: "@effect/cli", registry: "npm", specifier: "0.29.0" },
+        expected: {
+          _tag: "registry",
+          name: "@effect/cli",
+          registry: "npm",
+          specifier: "0.29.0",
+        },
         input: "npm:@effect/cli@0.29.0",
         label: "accepts scoped packages with explicit npm prefix and versions",
       },
       {
-        expected: { name: "react", registry: "npm" },
+        expected: { _tag: "registry", name: "react", registry: "npm" },
         input: "react@",
         label: "omits empty unscoped package specifiers",
       },
       {
-        expected: { name: "@effect/cli", registry: "npm" },
+        expected: { _tag: "registry", name: "@effect/cli", registry: "npm" },
         input: "npm:@effect/cli@",
         label: "omits empty scoped package specifiers",
       },
@@ -326,7 +335,219 @@ describe("packages", () => {
       expect(await runEffect(parsePackageSpec(input))).toEqual(expected)
     })
 
-    it.each(["jsr:effect", "github:facebook/react", "pypi:requests"])(
+    it("builds direct repository identity segments", async () => {
+      expect(
+        await runEffect(
+          getPackageIdentitySegments({
+            name: "effect-ts/effect",
+            registry: "github",
+            version: "abc123def456",
+          })
+        )
+      ).toEqual(["packages", "github", "effect-ts", "effect", "abc123def456"])
+    })
+
+    it.each([
+      {
+        expected: {
+          _tag: "repository",
+          name: "effect-ts/effect",
+          registry: "github",
+          repository: { url: "github:effect-ts/effect" },
+        },
+        input: "github:effect-ts/effect",
+      },
+      {
+        expected: {
+          _tag: "repository",
+          name: "effect-ts/effect",
+          registry: "github",
+          repository: { url: "effect-ts/effect" },
+          specifier: "v3.0.0",
+        },
+        input: "effect-ts/effect@v3.0.0",
+      },
+      {
+        expected: {
+          _tag: "repository",
+          name: "effect-ts/effect",
+          registry: "github",
+          repository: { url: "effect-ts/effect" },
+        },
+        input: "effect-ts/effect@",
+      },
+      {
+        expected: {
+          _tag: "repository",
+          name: "owner/repo",
+          registry: "github",
+          repository: { url: "https://github.com/owner/repo" },
+        },
+        input: "github.com/owner/repo",
+      },
+      {
+        expected: {
+          _tag: "repository",
+          name: "owner/repo",
+          registry: "gitlab",
+          repository: { url: "https://gitlab.com/owner/repo" },
+        },
+        input: "gitlab.com/owner/repo",
+      },
+      {
+        expected: {
+          _tag: "repository",
+          name: "owner/repo",
+          registry: "bitbucket",
+          repository: { url: "https://bitbucket.org/owner/repo" },
+        },
+        input: "bitbucket.org/owner/repo",
+      },
+      {
+        expected: {
+          _tag: "repository",
+          name: "owner/repo",
+          registry: "sourcehut",
+          repository: { url: "https://git.sr.ht/~owner/repo" },
+        },
+        input: "git.sr.ht/~owner/repo",
+      },
+      {
+        expected: {
+          _tag: "repository",
+          name: "owner/repo",
+          registry: "sourcehut",
+          repository: { url: "sourcehut:~owner/repo" },
+        },
+        input: "~owner/repo",
+      },
+      {
+        expected: {
+          _tag: "repository",
+          name: "owner/repo",
+          registry: "sourcehut",
+          repository: { url: "sourcehut:~owner/repo" },
+        },
+        input: "sourcehut:~owner/repo",
+      },
+      {
+        expected: {
+          _tag: "repository",
+          name: "owner/repo",
+          registry: "sourcehut",
+          repository: { directory: "packages/core", url: "sourcehut:~owner/repo" },
+        },
+        input: "~owner/repo/packages/core",
+      },
+      {
+        expected: {
+          _tag: "repository",
+          name: "owner/repo",
+          registry: "gitlab",
+          repository: { directory: "packages/core", url: "gitlab:owner/repo" },
+          specifier: "release/next",
+        },
+        input: "gitlab:owner/repo/packages/core@release/next",
+      },
+      {
+        expected: {
+          _tag: "repository",
+          name: "owner/repo",
+          registry: "gitlab",
+          repository: {
+            directory: "packages/core",
+            url: "https://gitlab.com/owner/repo",
+          },
+        },
+        input: "https://gitlab.com/owner/repo/packages/core",
+      },
+      {
+        expected: {
+          _tag: "repository",
+          name: "owner/repo",
+          registry: "gitlab",
+          repository: {
+            directory: "packages/core",
+            url: "https://gitlab.com/owner/repo",
+          },
+        },
+        input: "gitlab.com/owner/repo/packages/core",
+      },
+      {
+        expected: {
+          _tag: "repository",
+          name: "owner/repo",
+          registry: "gitlab",
+          repository: {
+            directory: "packages/core",
+            url: "git@gitlab.com:owner/repo",
+          },
+        },
+        input: "git@gitlab.com:owner/repo/packages/core",
+      },
+      {
+        expected: {
+          _tag: "repository",
+          name: "owner/repo",
+          registry: "github",
+          repository: { url: "git@github.com:owner/repo.git" },
+        },
+        input: "git@github.com:owner/repo.git",
+      },
+      {
+        expected: {
+          _tag: "repository",
+          name: "owner/repo",
+          registry: "github",
+          repository: { url: "ssh://git@github.com/owner/repo" },
+          specifier: "main",
+        },
+        input: "ssh://git@github.com/owner/repo@main",
+      },
+    ])("parses direct repository spec $input", async ({ expected, input }) => {
+      expect(await runEffect(parsePackageSpec(input))).toEqual(expected)
+    })
+
+    it.each(["https://git.example.com/owner/repo", "git@git.example.com:owner/repo.git"])(
+      "rejects unsupported repository hosts: %s",
+      async (input) => {
+        try {
+          await runEffect(parsePackageSpec(input))
+          throw new Error("Expected package spec parsing to fail.")
+        } catch (error) {
+          expect(error).toBeInstanceOf(UnsupportedRepositoryHostError)
+          expect(error).toMatchObject({ host: "git.example.com", url: input })
+        }
+      }
+    )
+
+    it.each(["git.mycompany.com/owner/repo", "bitbucket.org.evil.com/owner/repo"])(
+      "rejects host-shaped shorthands on unsupported hosts: %s",
+      async (input) => {
+        try {
+          await runEffect(parsePackageSpec(input))
+          throw new Error("Expected package spec parsing to fail.")
+        } catch (error) {
+          expect(error).toBeInstanceOf(UnsupportedRepositoryHostError)
+          expect(error).toMatchObject({ host: input.split("/")[0], url: input })
+        }
+      }
+    )
+
+    it.each(["https://github.com/owner", "github.com/owner", "github:owner", "sourcehut:~owner"])(
+      "rejects repository locators without a repository name: %s",
+      async (input) => {
+        try {
+          await runEffect(parsePackageSpec(input))
+          throw new Error("Expected package spec parsing to fail.")
+        } catch (error) {
+          expect(error).toBeInstanceOf(InvalidPackageIdentity)
+          expect(error).toMatchObject({ field: "name", value: input })
+        }
+      }
+    )
+
+    it.each(["jsr:effect", "pypi:requests"])(
       "rejects unsupported registry prefixes: %s",
       async (input) => {
         try {
@@ -337,6 +558,12 @@ describe("packages", () => {
         }
       }
     )
+
+    it("keeps npm aliases on the registry parser path", () => {
+      expect(runEffect(parsePackageSpec("myalias@npm:lodash@4.17.21"))).rejects.toBeInstanceOf(
+        UnsupportedRegistryError
+      )
+    })
 
     it.each(["", "   ", "npm:", "npm:   "])("rejects empty package specs: %j", async (input) => {
       await expectInvalidPackageIdentity(runEffect(parsePackageSpec(input)), {

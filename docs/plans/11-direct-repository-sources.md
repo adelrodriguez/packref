@@ -59,7 +59,8 @@ The gaps:
   - Ref is an existing tag that contains `/` or `\\` → resolve the tag to its full commit SHA and
     pin the SHA. Do not pass a slash-containing version to `getPackageIdentitySegments`.
   - Ref is a branch → resolve to its commit SHA and pin the SHA (not the branch name).
-  - Ref looks like a commit SHA (7–40 hex chars, no matching tag/branch) → pin verbatim.
+  - Ref is a full 40-hex commit SHA (no matching tag/branch) → normalize to lowercase and pin it.
+    Require the full SHA so one commit cannot produce multiple store identities.
 - **Subdirectory support.** `github:owner/repo/sub/dir[@ref]` maps the extra path to
   `RepositorySource.directory`; the store keeps the full repo snapshot and the project reference
   points into the subdirectory (existing behavior for npm monorepo packages).

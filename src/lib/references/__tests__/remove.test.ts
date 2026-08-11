@@ -86,7 +86,10 @@ describe("remove package references", () => {
     const react19Path = await materializeReference(projectPath, react19)
 
     const match = await run(
-      findPackageReferenceMatches({ name: "react", registry: "npm" }, { projectPath })
+      findPackageReferenceMatches(
+        { _tag: "registry", name: "react", registry: "npm" },
+        { projectPath }
+      )
     )
     const selectedEntries = match.entries.filter((entry) => entry.version === "19.0.0")
     const result = await run(removePackageReferences(match.projectPath, selectedEntries))
@@ -99,13 +102,45 @@ describe("remove package references", () => {
     expect(lockfile.packages).toEqual([react18])
   })
 
+  it("finds a SHA-pinned repository entry by its requested tag", async () => {
+    const projectPath = await makeTempDirectory()
+    const entry = {
+      name: "owner/repo",
+      registry: "github",
+      source: {
+        host: "github.com",
+        requestedRef: "v1.0.0",
+        type: "repository",
+        url: "https://github.com/owner/repo",
+      },
+      tracking: "manual",
+      version: "abcdef1234567890abcdef1234567890abcdef12",
+    } satisfies PackageEntry
+    await initializeProject(projectPath, [entry])
+
+    const match = await run(
+      findPackageReferenceMatches(
+        {
+          _tag: "repository",
+          name: "owner/repo",
+          registry: "github",
+          repository: { url: "owner/repo" },
+          specifier: "v1.0.0",
+        },
+        { projectPath }
+      )
+    )
+
+    expect(match.entries).toEqual([entry])
+  })
+
   it("reports a missing directory while still removing its lockfile entry", async () => {
     const projectPath = await makeTempDirectory()
     const entry = makeEntry("19.0.0")
     await initializeProject(projectPath, [entry])
     const match = await run(
       findPackageReferenceMatches(
-        { name: "react", registry: "npm", specifier: "19.0.0" },
+        { _tag: "registry", name: "react", registry: "npm", specifier: "19.0.0" },
         { projectPath }
       )
     )
@@ -162,7 +197,12 @@ describe("remove package references", () => {
     await initializeProject(projectPath, [])
 
     try {
-      await run(findPackageReferenceMatches({ name: "react", registry: "npm" }, { projectPath }))
+      await run(
+        findPackageReferenceMatches(
+          { _tag: "registry", name: "react", registry: "npm" },
+          { projectPath }
+        )
+      )
       throw new Error("Expected reference lookup to fail.")
     } catch (error) {
       expect(error).toBeInstanceOf(PackageNotReferencedError)

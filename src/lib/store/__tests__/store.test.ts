@@ -52,21 +52,28 @@ describe("store", () => {
       registry: "npm",
       version: "0.70.0",
     }
+    const repository = {
+      name: "owner/repo",
+      registry: "github",
+      version: "abcdef1234567890abcdef1234567890abcdef12",
+    }
     const reactPath = await run(getStoreEntryPath(react), home)
     const effectCliPath = await run(getStoreEntryPath(effectCli), home)
+    const repositoryPath = await run(getStoreEntryPath(repository), home)
 
     await mkdir(reactPath, { recursive: true })
     await mkdir(effectCliPath, { recursive: true })
+    await mkdir(repositoryPath, { recursive: true })
 
     expect(await run(hasStoreEntry(react), home)).toBe(true)
     const initialEntries = await run(listStoreEntries(), home)
-    expect(initialEntries.map((entry) => entry.identity)).toEqual([effectCli, react])
+    expect(initialEntries.map((entry) => entry.identity)).toEqual([repository, effectCli, react])
 
     await run(removeStoreEntry(react), home)
 
     expect(await run(hasStoreEntry(react), home)).toBe(false)
     const remainingEntries = await run(listStoreEntries(), home)
-    expect(remainingEntries.map((entry) => entry.identity)).toEqual([effectCli])
+    expect(remainingEntries.map((entry) => entry.identity)).toEqual([repository, effectCli])
   })
 
   it("returns an empty list when the global store does not exist", async () => {
