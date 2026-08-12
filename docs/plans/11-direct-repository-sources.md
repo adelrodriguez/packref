@@ -9,14 +9,12 @@ plus full HTTPS/SSH repository URLs.
 
 ## Status
 
-Not started. Independent of the multi-registry groundwork (Plan 10) and the registry adapters
-(Plans 12–14) — this adds a source path, not a registry, and must not touch
-`SUPPORTED_REGISTRIES` or the `registryAdapters` record.
+Complete.
 
 ## Context
 
 Most of the machinery already exists but is only reachable through npm registry metadata (the
-repository-first flow in `materializePackageReferenceToProject`, `src/lib/references/add.ts`):
+repository-first flow in `fetchAndRecordResolvedPackage`, `src/lib/references/add.ts`):
 
 - `normalizeRepositorySource` (`src/lib/sources/repository/normalize.ts`) already parses
   `github:owner/repo`, bare `owner/repo` (defaulting to GitHub), `gitlab:`/`bitbucket:`/
@@ -97,7 +95,7 @@ The gaps:
    repository-specific reader like `RemoteTagReader` in `tags.ts`, extended to list heads + HEAD,
    and
    apply the pinning rules above to produce a `ResolvedRepositoryRef` plus the pinned version.
-4. Wire a repository branch into `addPackageReference`/`addPackageReferenceToProject`
+4. Wire a repository branch into `addPackageReference`
    (`src/lib/references/add.ts`): skip manifest-dependency lookup and registry resolution,
    build the `PackageIdentity` from provider/name/pinned version, then reuse
    `fetchRepositorySnapshot` → `createProjectReference` → `upsertPackageEntry` with
