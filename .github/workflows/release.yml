@@ -58,3 +58,4 @@ jobs:
           publish-script: bun run release
           version-script: bun run version
           pr-title: "chore: release"
+          push-with-git-cli: true
