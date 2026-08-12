@@ -17,9 +17,10 @@ import { parsePackageSpec } from "#lib/core/packages.ts"
 import { ProjectDependencyReader } from "#lib/manifests/index.ts"
 import { PackageManagerResolver } from "#lib/manifests/javascript.ts"
 import {
-  addPackageCandidateReference,
   addPackageReference,
   findPackageCandidates,
+  materializePackageCandidateReference,
+  resolvePackageCandidateReference,
 } from "#lib/references/add.ts"
 import { NpmRegistryClient } from "#lib/registries/npm/client.ts"
 import { RepositoryDownloader } from "#lib/sources/repository/fetch.ts"
@@ -163,7 +164,9 @@ const runCandidateAdd = (projectPath: string, home: string, services: TestServic
         return yield* Effect.die("Expected an add candidate")
       }
 
-      return yield* addPackageCandidateReference(dependency, candidates.projectPath)
+      const resolution = yield* resolvePackageCandidateReference(dependency)
+
+      return yield* materializePackageCandidateReference(resolution, candidates.projectPath)
     }).pipe(Effect.provide(makeTestLayer(services, home)))
   )
 

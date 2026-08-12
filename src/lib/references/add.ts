@@ -18,7 +18,6 @@ import {
   packageIdentityEquivalence,
   type PackageIdentity,
   type ParsedPackageSpec,
-  type RegistryPackageSpec,
   type RepositoryPackageSpec,
 } from "#lib/core/packages.ts"
 import { ProjectDependencyReader } from "#lib/manifests/index.ts"
@@ -130,7 +129,7 @@ export const findPackageCandidates = Effect.fn("findPackageCandidates")(function
   } satisfies PackageCandidates
 })
 
-const addMaterializedReferenceToProject = Effect.fn("addMaterializedReferenceToProject")(function* (
+const recordStoreEntryReference = Effect.fn("recordStoreEntryReference")(function* (
   identity: PackageIdentity,
   storeEntry: MaterializedStoreEntry,
   projectPath: string,
@@ -162,123 +161,93 @@ const addMaterializedReferenceToProject = Effect.fn("addMaterializedReferenceToP
   } satisfies AddPackageResult
 })
 
-const materializePackageReferenceToProject = Effect.fn("materializePackageReferenceToProject")(
-  function* (
-    resolvedPackage: ResolvedPackageReference,
-    projectPath: string,
-    manifestRange: string | undefined,
-    tracking: PackageEntry["tracking"]
-  ) {
-    const resolvedRepository = yield* Option.match(
-      Option.fromNullishOr(resolvedPackage.repository),
-      {
-        onNone: useTarball,
-        onSome: (repository) =>
-          resolveRepositoryRef(resolvedPackage.identity, repository).pipe(
-            Effect.map(Option.some),
-            Effect.catchTags({
-              InvalidRepositoryUrlError: useTarball,
-              TagNotFoundError: useTarball,
-              UnsupportedRepositoryHostError: useTarball,
-            })
-          ),
-      }
-    )
-
-    const storeEntry = yield* Option.match(resolvedRepository, {
-      onNone: () => fetchTarballSnapshot(resolvedPackage.identity, resolvedPackage.tarballUrl),
-      onSome: (repository) => fetchRepositorySnapshot(resolvedPackage.identity, repository),
-    })
-
-    return yield* addMaterializedReferenceToProject(
-      resolvedPackage.identity,
-      storeEntry,
-      projectPath,
-      manifestRange,
-      tracking
-    )
-  }
-)
-
-const addDirectRepositoryReferenceToProject = Effect.fn("addDirectRepositoryReferenceToProject")(
-  function* (inputSpec: RepositoryPackageSpec, projectPath: string) {
-    const resolved = yield* resolveDirectRepositoryRef(inputSpec)
-    const lockfile = yield* readProjectLockfile(projectPath)
-    const existingEntry = lockfile.packages.find((entry) =>
-      packageIdentityEquivalence(entry, resolved.identity)
-    )
-
-    if (
-      existingEntry?.source.type === "repository" &&
-      existingEntry.source.directory !== resolved.repository.source.directory
-    ) {
-      return yield* new RepositoryDirectoryConflictError({
-        ...(existingEntry.source.directory === undefined
-          ? {}
-          : { existingDirectory: existingEntry.source.directory }),
-        ...resolved.identity,
-        ...(resolved.repository.source.directory === undefined
-          ? {}
-          : { requestedDirectory: resolved.repository.source.directory }),
-      })
-    }
-
-    const storeEntry = yield* fetchRepositorySnapshot(resolved.identity, resolved.repository, {
-      includeDirectory: false,
-    })
-
-    if (
-      storeEntry.source.type !== "repository" ||
-      storeEntry.source.host !== resolved.repository.source.host ||
-      storeEntry.source.url !== resolved.repository.source.url
-    ) {
-      return yield* new StoreSourceMismatchError(resolved.identity)
-    }
-
-    const projectSource = {
-      ...(resolved.repository.source.directory === undefined
-        ? {}
-        : { directory: resolved.repository.source.directory }),
-      host: storeEntry.source.host,
-      ...(inputSpec.specifier === undefined ? {} : { requestedRef: inputSpec.specifier }),
-      type: "repository",
-      url: storeEntry.source.url,
-    } satisfies RepositorySource
-
-    return yield* addMaterializedReferenceToProject(
-      resolved.identity,
-      storeEntry,
-      projectPath,
-      undefined,
-      "manual",
-      projectSource
-    )
-  }
-)
-
-const addPackageReferenceToProject = Effect.fn("addPackageReferenceToProject")(function* (
-  inputSpec: RegistryPackageSpec,
+const fetchAndRecordResolvedPackage = Effect.fn("fetchAndRecordResolvedPackage")(function* (
+  resolvedPackage: ResolvedPackageReference,
   projectPath: string,
-  manifestDependency: ManifestDependency | undefined
+  manifestRange: string | undefined,
+  tracking: PackageEntry["tracking"]
 ) {
-  const manifestRange =
-    Predicate.isNotUndefined(manifestDependency) &&
-    Predicate.isUndefined(manifestDependency.exactVersion)
-      ? getRegistrySpecifier(manifestDependency.specifier)
-      : undefined
-  const resolutionSpec = Predicate.isUndefined(manifestDependency)
-    ? inputSpec
-    : {
-        ...inputSpec,
-        specifier: manifestDependency.exactVersion ?? manifestRange,
-      }
-  const resolvedPackage = yield* resolvePackageReference(resolutionSpec)
+  const resolvedRepository = yield* Option.match(Option.fromNullishOr(resolvedPackage.repository), {
+    onNone: useTarball,
+    onSome: (repository) =>
+      resolveRepositoryRef(resolvedPackage.identity, repository).pipe(
+        Effect.map(Option.some),
+        Effect.catchTags({
+          InvalidRepositoryUrlError: useTarball,
+          TagNotFoundError: useTarball,
+          UnsupportedRepositoryHostError: useTarball,
+        })
+      ),
+  })
 
-  return yield* materializePackageReferenceToProject(
-    resolvedPackage,
+  const storeEntry = yield* Option.match(resolvedRepository, {
+    onNone: () => fetchTarballSnapshot(resolvedPackage.identity, resolvedPackage.tarballUrl),
+    onSome: (repository) => fetchRepositorySnapshot(resolvedPackage.identity, repository),
+  })
+
+  return yield* recordStoreEntryReference(
+    resolvedPackage.identity,
+    storeEntry,
     projectPath,
     manifestRange,
-    Predicate.isUndefined(manifestDependency) ? "manual" : "dependency"
+    tracking
+  )
+})
+
+const addRepositoryReference = Effect.fn("addRepositoryReference")(function* (
+  inputSpec: RepositoryPackageSpec,
+  projectPath: string
+) {
+  const resolved = yield* resolveDirectRepositoryRef(inputSpec)
+  const lockfile = yield* readProjectLockfile(projectPath)
+  const existingEntry = lockfile.packages.find((entry) =>
+    packageIdentityEquivalence(entry, resolved.identity)
+  )
+
+  if (
+    existingEntry?.source.type === "repository" &&
+    existingEntry.source.directory !== resolved.repository.source.directory
+  ) {
+    return yield* new RepositoryDirectoryConflictError({
+      ...(existingEntry.source.directory === undefined
+        ? {}
+        : { existingDirectory: existingEntry.source.directory }),
+      ...resolved.identity,
+      ...(resolved.repository.source.directory === undefined
+        ? {}
+        : { requestedDirectory: resolved.repository.source.directory }),
+    })
+  }
+
+  const storeEntry = yield* fetchRepositorySnapshot(resolved.identity, resolved.repository, {
+    includeDirectory: false,
+  })
+
+  if (
+    storeEntry.source.type !== "repository" ||
+    storeEntry.source.host !== resolved.repository.source.host ||
+    storeEntry.source.url !== resolved.repository.source.url
+  ) {
+    return yield* new StoreSourceMismatchError(resolved.identity)
+  }
+
+  const projectSource = {
+    ...(resolved.repository.source.directory === undefined
+      ? {}
+      : { directory: resolved.repository.source.directory }),
+    host: storeEntry.source.host,
+    ...(inputSpec.specifier === undefined ? {} : { requestedRef: inputSpec.specifier }),
+    type: "repository",
+    url: storeEntry.source.url,
+  } satisfies RepositorySource
+
+  return yield* recordStoreEntryReference(
+    resolved.identity,
+    storeEntry,
+    projectPath,
+    undefined,
+    "manual",
+    projectSource
   )
 })
 
@@ -308,21 +277,12 @@ export const materializePackageCandidateReference = Effect.fn(
   projectPath: string,
   tracking: PackageEntry["tracking"] = "dependency"
 ) {
-  return yield* materializePackageReferenceToProject(
+  return yield* fetchAndRecordResolvedPackage(
     resolution.resolvedPackage,
     projectPath,
     resolution.manifestRange,
     tracking
   )
-})
-
-export const addPackageCandidateReference = Effect.fn("addPackageCandidateReference")(function* (
-  dependency: ManifestDependency,
-  projectPath: string
-) {
-  const resolution = yield* resolvePackageCandidateReference(dependency)
-
-  return yield* materializePackageCandidateReference(resolution, projectPath)
 })
 
 export const addPackageReference = Effect.fn("addPackageReference")(function* (
@@ -332,7 +292,7 @@ export const addPackageReference = Effect.fn("addPackageReference")(function* (
   const { projectPath } = yield* initializeAddProject(options)
 
   if (inputSpec._tag === "repository") {
-    return yield* addDirectRepositoryReferenceToProject(inputSpec, projectPath)
+    return yield* addRepositoryReference(inputSpec, projectPath)
   }
 
   const manifestDependency = Predicate.isUndefined(inputSpec.specifier)
@@ -341,5 +301,13 @@ export const addPackageReference = Effect.fn("addPackageReference")(function* (
       )
     : undefined
 
-  return yield* addPackageReferenceToProject(inputSpec, projectPath, manifestDependency)
+  if (Predicate.isNotUndefined(manifestDependency)) {
+    const resolution = yield* resolvePackageCandidateReference(manifestDependency)
+
+    return yield* materializePackageCandidateReference(resolution, projectPath)
+  }
+
+  const resolvedPackage = yield* resolvePackageReference(inputSpec)
+
+  return yield* fetchAndRecordResolvedPackage(resolvedPackage, projectPath, undefined, "manual")
 })
