@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
-import type { ParsedPackageSpec } from "#lib/core/packages.ts"
+import type { RegistryPackageSpec } from "#lib/core/packages.ts"
 import type { NpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
 import { PackageNotFoundError, PackageVersionNotFoundError } from "#lib/core/errors.ts"
 import { NpmRegistryClient } from "#lib/registries/npm/client.ts"
@@ -44,7 +44,8 @@ const baseMetadata = {
   },
 } satisfies NpmPackageMetadata
 
-const spec = (specifier?: string): ParsedPackageSpec => ({
+const spec = (specifier?: string): RegistryPackageSpec => ({
+  _tag: "registry",
   name: "react",
   registry: "npm",
   specifier,

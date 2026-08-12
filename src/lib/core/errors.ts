@@ -143,7 +143,7 @@ export class UnsupportedRepositoryHostError extends Data.TaggedError(
   url: string
 }> {
   override get message() {
-    return `Repository host \`${this.host}\` is not supported for source snapshots.`
+    return `Repository host \`${this.host}\` is not supported for source snapshots. Supported providers: GitHub, GitLab, Bitbucket, SourceHut.`
   }
 }
 
@@ -260,6 +260,23 @@ export class StoreSourceMismatchError extends Data.TaggedError("StoreSourceMisma
 }> {
   override get message() {
     return `Global store entry for \`${this.registry}:${this.name}@${this.version}\` does not match the source recorded in packref-lock.json. Run \`packref clean --global\` and retry.`
+  }
+}
+
+export class RepositoryDirectoryConflictError extends Data.TaggedError(
+  "RepositoryDirectoryConflictError"
+)<{
+  existingDirectory?: string
+  name: string
+  registry: string
+  requestedDirectory?: string
+  version: string
+}> {
+  override get message() {
+    const existingDirectory = this.existingDirectory ?? "the repository root"
+    const requestedDirectory = this.requestedDirectory ?? "the repository root"
+
+    return `Project already references \`${this.registry}:${this.name}@${this.version}\` from \`${existingDirectory}\` and cannot also reference \`${requestedDirectory}\` because both use the same package identity. Remove the existing package source reference before adding the requested repository directory.`
   }
 }
 

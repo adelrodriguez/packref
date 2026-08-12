@@ -1,10 +1,18 @@
 import * as Array from "effect/Array"
 import * as Effect from "effect/Effect"
 import * as Result from "effect/Result"
-import { InstallPackageReferencesError, StoreSourceMismatchError } from "#lib/core/errors.ts"
+import {
+  InstallPackageReferencesError,
+  StoreSourceMismatchError,
+  UnsupportedRepositoryHostError,
+} from "#lib/core/errors.ts"
+import { SUPPORTED_REPOSITORY_PROVIDERS } from "#lib/core/packages.ts"
 import { packageSourceEquivalence } from "#lib/core/source.ts"
 import { fetchRepositorySnapshot } from "#lib/sources/repository/fetch.ts"
-import { resolveRepositoryRef } from "#lib/sources/repository/normalize.ts"
+import {
+  normalizeRepositorySource,
+  resolveRepositoryRef,
+} from "#lib/sources/repository/normalize.ts"
 import { fetchTarballSnapshot } from "#lib/sources/tarball/fetch.ts"
 import { hasStoreEntry, readStoreEntry, type StoredEntry } from "#lib/store/index.ts"
 import { registerProject } from "#lib/workspace/config.ts"
@@ -32,11 +40,19 @@ export interface InstallPackageReferencesResult {
   readonly reused: readonly PackageEntry[]
 }
 
+const packageSnapshotSourceEquivalence = (
+  projectSource: PackageEntry["source"],
+  storeSource: StoredEntry["source"]
+) =>
+  projectSource.type === "repository" && storeSource.type === "repository"
+    ? projectSource.host === storeSource.host && projectSource.url === storeSource.url
+    : packageSourceEquivalence(projectSource, storeSource)
+
 const ensureMatchingSource = Effect.fn("ensureMatchingSource")(function* (
   entry: PackageEntry,
   storedEntry: StoredEntry
 ) {
-  if (!packageSourceEquivalence(entry.source, storedEntry.source)) {
+  if (!packageSnapshotSourceEquivalence(entry.source, storedEntry.source)) {
     return yield* new StoreSourceMismatchError({
       name: entry.name,
       registry: entry.registry,
@@ -53,8 +69,23 @@ const fetchLockedStoreEntry = Effect.fn("fetchLockedStoreEntry")(function* (entr
     return yield* ensureMatchingSource(entry, materialized)
   }
 
-  const resolvedRepository = yield* resolveRepositoryRef(entry, entry.source)
-  const materialized = yield* fetchRepositorySnapshot(entry, resolvedRepository)
+  const isDirectRepository = SUPPORTED_REPOSITORY_PROVIDERS.some(
+    (provider) => provider === entry.registry
+  )
+  const resolvedRepository = isDirectRepository
+    ? yield* Effect.gen(function* () {
+        const source = yield* normalizeRepositorySource(entry.source)
+
+        if (source.fetchSource === undefined) {
+          return yield* new UnsupportedRepositoryHostError({ host: source.host, url: source.url })
+        }
+
+        return { ref: entry.version, source }
+      })
+    : yield* resolveRepositoryRef(entry, entry.source)
+  const materialized = yield* fetchRepositorySnapshot(entry, resolvedRepository, {
+    includeDirectory: !isDirectRepository,
+  })
   return yield* ensureMatchingSource(entry, materialized)
 })
 

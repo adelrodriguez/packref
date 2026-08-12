@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test"
-import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { access, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -11,6 +11,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient"
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse"
 import { createTarGzip } from "nanotar"
 import type { NpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
+import type { PackageEntry } from "#lib/workspace/lockfile.ts"
 import { NetworkError, ReflinkError, SnapshotFetchError } from "#lib/core/errors.ts"
 import { parsePackageSpec } from "#lib/core/packages.ts"
 import { ProjectDependencyReader } from "#lib/manifests/index.ts"
@@ -178,6 +179,163 @@ afterEach(async () => {
 })
 
 describe("addPackageReference", () => {
+  it("adds and materializes a direct repository reference with an exact identity", async () => {
+    const projectPath = await makeTempDirectory()
+    const home = await makeTempDirectory()
+    await writeFile(join(projectPath, "package.json"), JSON.stringify({}))
+    const commitSha = "abcdef1234567890abcdef1234567890abcdef12"
+
+    const result = await runAdd("github:owner/repo", projectPath, home, {
+      commandResult: {
+        exitCode: 0,
+        stderr: "",
+        stdout: `${commitSha}\tHEAD\n${commitSha}\trefs/heads/main\n`,
+      },
+      metadata: makeMetadata("example", ["1.0.0"]),
+    })
+    const lockfile = JSON.parse(
+      await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
+    )
+    const expectedEntry = {
+      name: "owner/repo",
+      registry: "github",
+      source: {
+        host: "github.com",
+        type: "repository",
+        url: "https://github.com/owner/repo",
+      },
+      tracking: "manual",
+      version: commitSha,
+    } satisfies PackageEntry
+    const expectedReferencePath = join(
+      await realpath(projectPath),
+      ".packref",
+      "packages",
+      "github",
+      "owner",
+      "repo",
+      commitSha
+    )
+
+    expect(result.entry).toEqual(expectedEntry)
+    expect(lockfile).toEqual({ packages: [expectedEntry] })
+    expect(result.referencePath).toBe(expectedReferencePath)
+    expect(await readFile(join(expectedReferencePath, "SOURCE.md"), "utf8")).toBe(
+      "repository source"
+    )
+  })
+
+  it("rejects a second project directory with a resolving conflict error", async () => {
+    const projectPath = await makeTempDirectory()
+    const home = await makeTempDirectory()
+    await writeFile(join(projectPath, "package.json"), JSON.stringify({}))
+    const commitSha = "abcdef1234567890abcdef1234567890abcdef12"
+    const services = {
+      commandResult: {
+        exitCode: 0,
+        stderr: "",
+        stdout: `${commitSha}\tHEAD\n`,
+      },
+      metadata: makeMetadata("example", ["1.0.0"]),
+    }
+
+    await runAdd("github:owner/repo", projectPath, home, services)
+    const failure = await runAdd("github:owner/repo/packages/a", projectPath, home, services).catch(
+      (error: unknown) => error
+    )
+
+    expect(failure).toHaveProperty("_tag", "RepositoryDirectoryConflictError")
+    expect(failure).not.toHaveProperty("existingDirectory")
+    expect(failure).toHaveProperty("requestedDirectory", "packages/a")
+    expect(failure).toHaveProperty(
+      "message",
+      expect.stringContaining("Remove the existing package source reference")
+    )
+  })
+
+  it("reuses one snapshot for different directories in different projects", async () => {
+    const firstProjectPath = await makeTempDirectory()
+    const secondProjectPath = await makeTempDirectory()
+    const home = await makeTempDirectory()
+    await writeFile(join(firstProjectPath, "package.json"), JSON.stringify({}))
+    await writeFile(join(secondProjectPath, "package.json"), JSON.stringify({}))
+    const commitSha = "abcdef1234567890abcdef1234567890abcdef12"
+    const services = {
+      commandResult: {
+        exitCode: 0,
+        stderr: "",
+        stdout: `${commitSha}\tHEAD\n`,
+      },
+      metadata: makeMetadata("example", ["1.0.0"]),
+      repositoryDownload: (_source: string, _ref: string, destination: string) =>
+        Effect.promise(async () => {
+          await mkdir(join(destination, "packages", "a"), { recursive: true })
+          await mkdir(join(destination, "packages", "b"), { recursive: true })
+          await writeFile(join(destination, "packages", "a", "SOURCE.md"), "package a")
+          await writeFile(join(destination, "packages", "b", "SOURCE.md"), "package b")
+        }),
+    }
+
+    const first = await runAdd("github:owner/repo/packages/a", firstProjectPath, home, services)
+    const second = await runAdd("github:owner/repo/packages/b", secondProjectPath, home, services)
+
+    expect(first.entry.source).toMatchObject({ directory: "packages/a" })
+    expect(second.entry.source).toMatchObject({ directory: "packages/b" })
+    expect(first.reusedStoreEntry).toBe(false)
+    expect(second.reusedStoreEntry).toBe(true)
+    expect(await readFile(join(first.referencePath, "SOURCE.md"), "utf8")).toBe("package a")
+    expect(await readFile(join(second.referencePath, "SOURCE.md"), "utf8")).toBe("package b")
+  })
+
+  it("keeps requested refs in each project when projects reuse one store entry", async () => {
+    const firstProjectPath = await makeTempDirectory()
+    const secondProjectPath = await makeTempDirectory()
+    const home = await makeTempDirectory()
+    await writeFile(join(firstProjectPath, "package.json"), JSON.stringify({}))
+    await writeFile(join(secondProjectPath, "package.json"), JSON.stringify({}))
+    const commitSha = "abcdef1234567890abcdef1234567890abcdef12"
+    const services = {
+      commandResult: {
+        exitCode: 0,
+        stderr: "",
+        stdout: `${commitSha}\trefs/heads/main\n${commitSha}\trefs/tags/v1.0.0\n`,
+      },
+      metadata: makeMetadata("example", ["1.0.0"]),
+    }
+
+    const first = await runAdd("github:owner/repo@v1.0.0", firstProjectPath, home, services)
+    const second = await runAdd("github:owner/repo@main", secondProjectPath, home, services)
+
+    expect(first.entry.source).toMatchObject({ requestedRef: "v1.0.0" })
+    expect(second.entry.source).toMatchObject({ requestedRef: "main" })
+    expect(second.reusedStoreEntry).toBe(true)
+    expect(
+      JSON.parse(
+        await readFile(
+          join(
+            home,
+            ".agents",
+            "packref",
+            "store",
+            ".metadata",
+            "packages",
+            "github",
+            "owner",
+            "repo",
+            `${commitSha}.json`
+          ),
+          "utf8"
+        )
+      )
+    ).toEqual({
+      source: {
+        host: "github.com",
+        type: "repository",
+        url: "https://github.com/owner/repo",
+      },
+    })
+  })
+
   it("adds a selected candidate through the prepared project context", async () => {
     const projectPath = await makeTempDirectory()
     const home = await makeTempDirectory()

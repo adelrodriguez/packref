@@ -93,6 +93,7 @@ const materializeStoredEntry = async (home: string, entry: PackageEntry) => {
 
 interface TestControls {
   readonly failedTarballUrls?: readonly string[]
+  readonly repositoryRefs?: string[]
   repositoryDownloads: number
   tarballDownloads: number
 }
@@ -110,7 +111,8 @@ const makeTestLayer = (home: string, controls: TestControls) =>
       })
     ),
     Layer.succeed(RepositoryDownloader)({
-      download: (_source, _ref, destination) => {
+      download: (_source, ref, destination) => {
+        controls.repositoryRefs?.push(ref)
         const nextDownloadCount = controls.repositoryDownloads + 1
         Object.assign(controls, { repositoryDownloads: nextDownloadCount })
         return Effect.promise(async () => {
@@ -209,6 +211,37 @@ describe("installPackageReferences", () => {
     expect(await exists(join(referencePath, "README.md"))).toBe(false)
     expect(await readFile(lockfilePath, "utf8")).toBe(before)
   })
+
+  it.each([
+    { requestedRef: undefined, version: "1.0.0" },
+    {
+      requestedRef: "v1.0.0",
+      version: "abcdef1234567890abcdef1234567890abcdef12",
+    },
+  ])(
+    "reinstalls a direct repository entry with exact pinned ref $version",
+    async ({ requestedRef, version }) => {
+      const projectPath = await makeTempDirectory()
+      const home = await makeTempDirectory()
+      const entry = {
+        ...repositoryEntry("owner/repo", version),
+        registry: "github",
+        source: {
+          host: "github.com",
+          ...(requestedRef === undefined ? {} : { requestedRef }),
+          type: "repository",
+          url: "https://github.com/owner/repo",
+        },
+      } satisfies PackageEntry
+      const repositoryRefs: string[] = []
+      const controls = { repositoryDownloads: 0, repositoryRefs, tarballDownloads: 0 }
+      await initializeProject(projectPath, [entry])
+
+      await runInstall(projectPath, home, controls)
+
+      expect(repositoryRefs).toEqual([version])
+    }
+  )
 
   it("fetches and materializes a locked repository package at the repository root", async () => {
     const projectPath = await makeTempDirectory()

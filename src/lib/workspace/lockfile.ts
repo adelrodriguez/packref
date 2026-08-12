@@ -123,7 +123,9 @@ export const findPackageEntries = (lockfile: Lockfile, spec: ParsedPackageSpec) 
       (entry) =>
         entry.registry === spec.registry &&
         entry.name === spec.name &&
-        (spec.specifier === undefined || entry.version === spec.specifier)
+        (spec.specifier === undefined ||
+          entry.version === spec.specifier ||
+          (entry.source.type === "repository" && entry.source.requestedRef === spec.specifier))
     )
     .toSorted((left, right) => packageIdentityOrder(left, right))
 
