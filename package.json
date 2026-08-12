@@ -49,8 +49,8 @@
   },
   "dependencies": {
     "@clack/prompts": "1.7.0",
-    "@effect/platform-node": "4.0.0-beta.107",
-    "effect": "4.0.0-beta.107",
+    "@effect/platform-node": "4.0.0-rc.108",
+    "effect": "4.0.0-rc.108",
     "giget": "^3.3.1",
     "jsonc-parser": "3.3.1",
     "nanotar": "^0.3.0",

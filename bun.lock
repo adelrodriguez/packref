@@ -6,8 +6,8 @@
       "name": "pastry",
       "dependencies": {
         "@clack/prompts": "1.7.0",
-        "@effect/platform-node": "4.0.0-beta.107",
-        "effect": "4.0.0-beta.107",
+        "@effect/platform-node": "4.0.0-rc.108",
+        "effect": "4.0.0-rc.108",
         "giget": "^3.3.1",
         "jsonc-parser": "3.3.1",
         "nanotar": "^0.3.0",
@@ -77,7 +77,7 @@
 
     "@clack/prompts": ["@clack/prompts@1.7.0", "", { "dependencies": { "@clack/core": "1.4.3", "fast-string-width": "^3.0.2", "fast-wrap-ansi": "^0.2.0", "sisteransi": "^1.0.5" } }, "sha512-y7/yvZ2TPAnR9+jnc00klvNNLkJiXFFrQA/hlLCcxA9a2A4zQIOimyFQ9XfwYKiGD1fb5GY8vbKIIgO8d5Tb2A=="],
 
-    "@effect/platform-node": ["@effect/platform-node@4.0.0-beta.107", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.0-beta.107", "mime": "^4.1.0", "undici": "^8.7.0" }, "peerDependencies": { "effect": "^4.0.0-beta.107", "ioredis": ">=5.7.0 <6.0.0" } }, "sha512-k+6YNbV4Ck0L6YXtlgkvEnuP5tlxWD8EeWOrpn46PDqbGEwt4ONpRltTwm3tn2cyBXD0i+2P11cUH/6sdFagTA=="],
+    "@effect/platform-node": ["@effect/platform-node@4.0.0-rc.108", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.0-rc.108", "mime": "^4.1.0", "undici": "^8.7.0" }, "peerDependencies": { "effect": "^4.0.0-rc.108", "ioredis": ">=5.7.0 <6.0.0" } }, "sha512-Nof78154BaHGdSYr4TPQFZ5+Dg+HkpmbI3SQUdwsby5QNs6yahGJPu2AgdIVqdx7pKZ2w7j/bvdnqoMmkG0PbA=="],
 
     "@effect/platform-node-shared": ["@effect/platform-node-shared@4.0.0-rc.108", "", { "dependencies": { "@types/ws": "^8.18.1", "ws": "^8.21.0" }, "peerDependencies": { "effect": "^4.0.0-rc.108" } }, "sha512-g5dSRR+tHzFcWav5A6zbug78oV8WPJL5BJqgKlKtow0cQ2IpULcLZaP2xCYR3RJDvz5SETREmPCJ+BNONIsalw=="],
 
@@ -419,7 +419,7 @@
 
     "detect-libc": ["detect-libc@2.1.2", "", {}, "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ=="],
 
-    "effect": ["effect@4.0.0-beta.107", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "fast-check": "^4.9.0", "kubernetes-types": "^1.30.0", "msgpackr": "^2.0.4", "uuid": "^14.0.1" } }, "sha512-OoBAv8eF+yanc+C6xhgEUnWeXUSHA6ynnscYqpkAY9GSnzZWystsIjBowVqCkLpHGlnRtdIqYT3wHwpOY6JDnQ=="],
+    "effect": ["effect@4.0.0-rc.108", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "fast-check": "^4.9.0", "kubernetes-types": "^1.30.0", "msgpackr": "^2.0.4", "uuid": "^14.0.1" } }, "sha512-KmI3DlKZWPvCL4QQ2FMaPOuxMt/7DrKMENCY/gQ+MkDR5QYw25wgU5Zmh/wVLboNjIci1gNOgNCFe4xqgxli3A=="],
 
     "esrap": ["esrap@2.3.2", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.4.15" }, "peerDependencies": { "@typescript-eslint/types": "^8.2.0" }, "optionalPeers": ["@typescript-eslint/types"] }, "sha512-40GyiEJevYKXzYTHtZkFqAgTjLOuFcaXMao8TPyOlnWTlkHDlvZ6mPMJaJyOqVwrVCgomEG1WhJd81w0X+IcCw=="],
 
@@ -586,10 +586,6 @@
     "@oxc-minify/binding-wasm32-wasi/@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.0.7", "", { "dependencies": { "@emnapi/core": "^1.5.0", "@emnapi/runtime": "^1.5.0", "@tybys/wasm-util": "^0.10.1" } }, "sha512-SeDnOO0Tk7Okiq6DbXmmBODgOAb9dp9gjlphokTUxmt8U3liIP1ZsozBahH69j/RJv+Rfs6IwUKHTgQYJ/HBAw=="],
 
     "@oxc-transform/binding-wasm32-wasi/@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.0.7", "", { "dependencies": { "@emnapi/core": "^1.5.0", "@emnapi/runtime": "^1.5.0", "@tybys/wasm-util": "^0.10.1" } }, "sha512-SeDnOO0Tk7Okiq6DbXmmBODgOAb9dp9gjlphokTUxmt8U3liIP1ZsozBahH69j/RJv+Rfs6IwUKHTgQYJ/HBAw=="],
-
-    "adamantite/@effect/platform-node": ["@effect/platform-node@4.0.0-rc.108", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.0-rc.108", "mime": "^4.1.0", "undici": "^8.7.0" }, "peerDependencies": { "effect": "^4.0.0-rc.108", "ioredis": ">=5.7.0 <6.0.0" } }, "sha512-Nof78154BaHGdSYr4TPQFZ5+Dg+HkpmbI3SQUdwsby5QNs6yahGJPu2AgdIVqdx7pKZ2w7j/bvdnqoMmkG0PbA=="],
-
-    "adamantite/effect": ["effect@4.0.0-rc.108", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "fast-check": "^4.9.0", "kubernetes-types": "^1.30.0", "msgpackr": "^2.0.4", "uuid": "^14.0.1" } }, "sha512-KmI3DlKZWPvCL4QQ2FMaPOuxMt/7DrKMENCY/gQ+MkDR5QYw25wgU5Zmh/wVLboNjIci1gNOgNCFe4xqgxli3A=="],
 
     "bunup/tinyexec": ["tinyexec@1.2.4", "", {}, "sha512-SHf/r48b7vOrjve9PxJo3MN5v5yuyjHvdUcrQffT3WXMUfnGmHDVbC4k3sHJaJTgZCwpUplIaAo5ANtMyp3YHg=="],
 
