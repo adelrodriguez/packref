@@ -1,6 +1,7 @@
 import * as Effect from "effect/Effect"
 import * as Command from "effect/unstable/cli/Command"
 import color from "picocolors"
+import { formatPackageIdentity } from "#lib/core/packages.ts"
 import { listPackageEntries, readProjectLockfile } from "#lib/workspace/lockfile.ts"
 import { requireInitializedProject } from "#lib/workspace/project.ts"
 import { Prompter } from "#terminal/prompter.ts"
@@ -22,7 +23,7 @@ export default Command.make("list").pipe(
 
       const rows = entries.map((entry) => ({
         entry,
-        identity: `${entry.registry}:${entry.name}@${entry.version}`,
+        identity: formatPackageIdentity(entry),
         source: entry.source.type === "repository" ? entry.source.host : entry.source.type,
       }))
       const identityWidth = Math.max(...rows.map((row) => row.identity.length))

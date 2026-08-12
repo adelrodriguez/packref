@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect"
 import * as Command from "effect/unstable/cli/Command"
-import type { PackageIdentity } from "#lib/core/packages.ts"
+import { formatPackageIdentity } from "#lib/core/packages.ts"
 import {
   preparePackageReferenceSync,
   syncPackageReferences,
@@ -9,9 +9,6 @@ import {
 } from "#lib/references/sync.ts"
 import { Prompter } from "#terminal/prompter.ts"
 import { printTitle } from "#terminal/title.ts"
-
-const formatIdentity = (identity: PackageIdentity) =>
-  `${identity.registry}:${identity.name}@${identity.version}`
 
 const reportSyncPlan = Effect.fn("reportSyncPlan")(function* (plan: SyncPlan) {
   const prompter = yield* Prompter
@@ -43,7 +40,7 @@ const reportSyncPlan = Effect.fn("reportSyncPlan")(function* (plan: SyncPlan) {
     yield* prompter.log.info("The following package references will be removed:")
     yield* Effect.forEach(
       plan.removals,
-      (entry) => prompter.log.info(`  ${formatIdentity(entry)}`),
+      (entry) => prompter.log.info(`  ${formatPackageIdentity(entry)}`),
       { discard: true }
     )
   }
@@ -71,7 +68,7 @@ const reportSyncResult = Effect.fn("reportSyncResult")(function* (result: SyncRe
     result.missingEntries,
     (entry) =>
       prompter.log.warning(
-        `Reference directory for ${formatIdentity(entry)} was already missing; removed its lockfile entry.`
+        `Reference directory for ${formatPackageIdentity(entry)} was already missing; removed its lockfile entry.`
       ),
     { discard: true }
   )
@@ -85,14 +82,14 @@ const reportSyncResult = Effect.fn("reportSyncResult")(function* (result: SyncRe
           change.manifestRange,
           change.current.version
         )
-        yield* prompter.log.success(`Updated ${formatIdentity(change.current)}`)
+        yield* prompter.log.success(`Updated ${formatPackageIdentity(change.current)}`)
       }),
     { discard: true }
   )
 
   yield* Effect.forEach(
     result.removed,
-    (entry) => prompter.log.success(`Removed ${formatIdentity(entry)}`),
+    (entry) => prompter.log.success(`Removed ${formatPackageIdentity(entry)}`),
     { discard: true }
   )
 

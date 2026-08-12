@@ -4,7 +4,7 @@ import * as Option from "effect/Option"
 import * as Argument from "effect/unstable/cli/Argument"
 import * as Command from "effect/unstable/cli/Command"
 import type { PackageEntry } from "#lib/workspace/lockfile.ts"
-import { parsePackageSpec, type PackageIdentity } from "#lib/core/packages.ts"
+import { formatPackageIdentity, parsePackageSpec } from "#lib/core/packages.ts"
 import {
   findPackageReferenceMatches,
   listPackageReferences,
@@ -17,9 +17,6 @@ const pkg = Argument.string("package").pipe(
   Argument.withDescription("Package name to remove (e.g. react, @effect/cli)"),
   Argument.optional
 )
-
-const formatIdentity = (identity: PackageIdentity) =>
-  `${identity.registry}:${identity.name}@${identity.version}`
 
 const formatHint = (entry: PackageEntry) => {
   const source = entry.source.type === "repository" ? entry.source.host : entry.source.type
@@ -71,7 +68,7 @@ const selectAllReferences = Effect.fn("selectAllReferences")(function* () {
           message: "Select packages to remove",
           options: entries.map((candidate) => ({
             hint: formatHint(candidate),
-            label: formatIdentity(candidate),
+            label: formatPackageIdentity(candidate),
             value: candidate,
           })),
           required: false,
@@ -99,12 +96,12 @@ const removeSelectedReferences = Effect.fn("removeSelectedReferences")(function*
 
   for (const entry of result.missingEntries) {
     yield* prompter.log.warning(
-      `Reference directory for ${formatIdentity(entry)} was already missing; removed its lockfile entry.`
+      `Reference directory for ${formatPackageIdentity(entry)} was already missing; removed its lockfile entry.`
     )
   }
 
   for (const entry of result.removedEntries) {
-    yield* prompter.log.success(`Removed ${formatIdentity(entry)}`)
+    yield* prompter.log.success(`Removed ${formatPackageIdentity(entry)}`)
   }
 
   return result.removedEntries.length

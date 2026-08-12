@@ -5,7 +5,7 @@ import * as Predicate from "effect/Predicate"
 import * as Argument from "effect/unstable/cli/Argument"
 import * as Command from "effect/unstable/cli/Command"
 import type { ManifestDependency } from "#lib/manifests/manifest.ts"
-import { parsePackageSpec } from "#lib/core/packages.ts"
+import { formatPackageIdentity, parsePackageSpec } from "#lib/core/packages.ts"
 import {
   addPackageReference,
   findPackageCandidates,
@@ -45,8 +45,7 @@ const addPackage = Effect.fn("addPackage")(function* (pkg: string) {
   const result = yield* prompter.withSpinner(() => addPackageReference(spec), {
     failure: `Failed to add ${pkg}`,
     start: `Resolving and fetching ${pkg}...`,
-    success: ({ entry }) =>
-      `Added ${entry.registry}:${entry.name}@${entry.version} from ${entry.source.type}`,
+    success: ({ entry }) => `Added ${formatPackageIdentity(entry)} from ${entry.source.type}`,
   })
 
   yield* reportAddDetails(result)
@@ -65,17 +64,14 @@ const addPackageCandidate = Effect.fn("addPackageCandidate")(function* (
         const resolution = yield* resolvePackageCandidateReference(dependency)
         const identity = resolution.resolvedPackage.identity
 
-        yield* spinner.message(
-          `Fetching and materializing ${identity.registry}:${identity.name}@${identity.version}...`
-        )
+        yield* spinner.message(`Fetching and materializing ${formatPackageIdentity(identity)}...`)
 
         return yield* materializePackageCandidateReference(resolution, projectPath)
       }),
     {
       failure: `Failed to add ${label}`,
       start: `Resolving ${label}...`,
-      success: ({ entry }) =>
-        `Added ${entry.registry}:${entry.name}@${entry.version} from ${entry.source.type}`,
+      success: ({ entry }) => `Added ${formatPackageIdentity(entry)} from ${entry.source.type}`,
     }
   )
 

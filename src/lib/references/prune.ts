@@ -20,6 +20,12 @@ export type ProjectLockfileWarning =
 
 export interface PrunePlan {
   readonly staleProjectPaths: readonly string[]
+  /**
+   * Store entries that are safe to remove. Empty when `warnings` or `staleProjectPaths` are
+   * non-empty, because pruning is skipped unless every registered project could be inspected.
+   * `applyPrunePlan` re-checks this condition before deleting, so an inconsistent plan cannot
+   * remove entries.
+   */
   readonly storeEntries: readonly StoreEntry[]
   readonly warnings: readonly ProjectLockfileWarning[]
 }
@@ -37,6 +43,9 @@ const projectLockfileWarningOrder = Order.mapInput(
 
 const identityKey = (identity: PackageIdentity) =>
   `${identity.registry}\u0000${identity.name}\u0000${identity.version}`
+
+const canPruneStore = (plan: Pick<PrunePlan, "staleProjectPaths" | "warnings">) =>
+  plan.warnings.length === 0 && plan.staleProjectPaths.length === 0
 
 const PRUNE_SCAN_CONCURRENCY = 8
 
@@ -115,12 +124,11 @@ export const discoverPrunePlan = Effect.fn("discoverPrunePlan")(function* () {
     return []
   })
 
-  const storeEntries =
-    warnings.length === 0 && staleProjectPaths.length === 0
-      ? (yield* listStoreEntries())
-          .filter((entry) => !referencedIdentities.has(identityKey(entry.identity)))
-          .toSorted(storeEntryOrder)
-      : []
+  const storeEntries = canPruneStore({ staleProjectPaths, warnings })
+    ? (yield* listStoreEntries())
+        .filter((entry) => !referencedIdentities.has(identityKey(entry.identity)))
+        .toSorted(storeEntryOrder)
+    : []
 
   return {
     staleProjectPaths: staleProjectPaths.toSorted(Order.String),
@@ -133,8 +141,7 @@ export const applyPrunePlan = Effect.fn("applyPrunePlan")(function* (
   plan: PrunePlan,
   removeStaleProjects: boolean
 ) {
-  const storeEntries =
-    plan.warnings.length === 0 && plan.staleProjectPaths.length === 0 ? plan.storeEntries : []
+  const storeEntries = canPruneStore(plan) ? plan.storeEntries : []
 
   yield* Effect.forEach(storeEntries, (entry) => removeStoreEntry(entry.identity), {
     discard: true,

@@ -1,12 +1,9 @@
 import * as Effect from "effect/Effect"
 import * as Command from "effect/unstable/cli/Command"
-import type { PackageIdentity } from "#lib/core/packages.ts"
+import { formatPackageIdentity } from "#lib/core/packages.ts"
 import { applyPrunePlan, discoverPrunePlan } from "#lib/references/prune.ts"
 import { Prompter } from "#terminal/prompter.ts"
 import { printTitle } from "#terminal/title.ts"
-
-const formatIdentity = (identity: PackageIdentity) =>
-  `${identity.registry}:${identity.name}@${identity.version}`
 
 export default Command.make("prune").pipe(
   Command.withDescription("Remove global store entries unused by registered projects"),
@@ -50,7 +47,7 @@ export default Command.make("prune").pipe(
       })
 
       for (const entry of result.removedEntries) {
-        yield* prompter.log.success(`Removed ${formatIdentity(entry.identity)}`)
+        yield* prompter.log.success(`Removed ${formatPackageIdentity(entry.identity)}`)
       }
 
       if (result.removedProjectPaths.length > 0) {

@@ -38,6 +38,9 @@ export const packageIdentityOrder = Order.combine(
   Order.mapInput(Order.String, (identity: PackageIdentity) => identity.version)
 )
 
+export const formatPackageIdentity = (identity: PackageIdentity) =>
+  `${identity.registry}:${identity.name}@${identity.version}`
+
 export interface RegistryPackageSpec {
   readonly _tag: "registry"
   readonly name: string
