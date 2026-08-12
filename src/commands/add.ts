@@ -5,7 +5,7 @@ import * as Predicate from "effect/Predicate"
 import * as Argument from "effect/unstable/cli/Argument"
 import * as Command from "effect/unstable/cli/Command"
 import type { ManifestDependency } from "#lib/manifests/manifest.ts"
-import { parsePackageSpec } from "#lib/core/packages.ts"
+import { parsePackageSpec } from "#lib/logic/packages.ts"
 import {
   addPackageReference,
   findPackageCandidates,

@@ -6,13 +6,14 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Effect from "effect/Effect"
+import type { Lockfile, PackageEntry } from "#lib/core/workspace.ts"
 import {
   PackageNotReferencedError,
   PackageReferenceFilesystemError,
   RemovePackageReferencesError,
 } from "#lib/core/errors.ts"
 import { findPackageReferenceMatches, removePackageReferences } from "#lib/references/remove.ts"
-import { type Lockfile, type PackageEntry, readProjectLockfile } from "#lib/workspace/lockfile.ts"
+import { readProjectLockfile } from "#lib/workspace/lockfile.ts"
 
 const temporaryPaths: string[] = []
 

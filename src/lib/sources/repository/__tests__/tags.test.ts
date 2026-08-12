@@ -16,16 +16,16 @@ import {
   UnsupportedRepositoryHostError,
 } from "#lib/core/errors.ts"
 import {
-  resolveDirectRepositoryRef,
-  resolveRepositoryRef,
-} from "#lib/sources/repository/normalize.ts"
-import {
   getTagCandidates,
   matchRepositoryTag,
   parseGitRemoteRefsOutput,
   parseGitRemoteTagsOutput,
-  RemoteTagReader,
-} from "#lib/sources/repository/tags.ts"
+} from "#lib/logic/repository-tags.ts"
+import {
+  resolveDirectRepositoryRef,
+  resolveRepositoryRef,
+} from "#lib/references/resolve-repository.ts"
+import { RemoteTagReader } from "#lib/sources/repository/tags.ts"
 
 const temporaryPaths: string[] = []
 

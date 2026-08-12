@@ -1,7 +1,7 @@
 # Architecture
 
-Packref is a single-process CLI with command modules at the edge and domain modules behind narrow
-interfaces. Product behavior is documented in the [README](../README.md),
+Packref is a single-process CLI with laminated modules behind narrow interfaces. Product behavior
+is documented in the [README](../README.md),
 domain terms live in [CONTEXT.md](../CONTEXT.md), and durable tradeoffs live in
 [decision records](./adr/README.md).
 
@@ -16,21 +16,22 @@ executable `bin/packref` imports that output.
 
 ## Module seams
 
-| Module       | Interface and responsibility                                                                                       |
-| ------------ | ------------------------------------------------------------------------------------------------------------------ |
-| `commands`   | Parse command input, invoke one domain operation, and decide which progress or results to report.                  |
-| `terminal`   | Render prompts, spinners, logs, titles, and command cancellation through terminal adapters.                        |
-| `references` | Own add, install, remove, sync, prune, and clean workflows across registries, sources, storage, and project state. |
-| `registries` | Resolve a package spec into an exact package identity and source candidates. npm is the v1 adapter.                |
-| `manifests`  | Detect project manifests and resolve declared dependencies to exact versions. JavaScript is the v1 adapter.        |
-| `sources`    | Normalize, select, and fetch repository or tarball source, including source-specific external adapters.            |
-| `store`      | Address and manage immutable global source snapshots by package identity.                                          |
-| `workspace`  | Own the Packref lockfile, user-level state, project paths, integrations, and reference materialization adapters.   |
-| `core`       | Define package identity, package specs, source types, registry contracts, and shared typed errors.                 |
+| Lamina and module | Interface and responsibility                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| `core`            | Define readonly identities, package specs, sources, persisted-state schemas, adapter interfaces, and errors. |
+| `logic`           | Make deterministic decisions from input values without requesting I/O services.                              |
+| I/O adapters      | `manifests`, `registries`, `sources`, `store`, `workspace`, and `terminal` perform external effects.         |
+| `references`      | Orchestrate logic and adapters into add, install, remove, sync, prune, clean, and resolution workflows.      |
+| `commands`        | Parse CLI input, invoke workflows, and render progress or results.                                           |
 
 Commands remain thin so the `references` interface is also the main behavior test seam. Registry and
 manifest adapters do not know filesystem layout, while source adapters do not know project manifests
 or lockfile mutation rules.
+
+Imports follow the lamination direction. Core models import no outer lamina. Logic imports core
+models but not adapters. Adapters import core and logic but not orchestrators. Orchestrators may
+compose all inner laminas but do not know CLI or terminal adapters. File-specific
+`no-restricted-imports` rules in `oxlint.config.ts` enforce this direction for production code.
 
 ### Adding a registry adapter
 
@@ -96,6 +97,7 @@ src/
   terminal/       prompts, logs, spinners, titles, and cancellation
   lib/
     core/         identities, sources, errors, registry contracts
+    logic/        deterministic parsing, selection, validation, and state transitions
     manifests/    project dependency adapters
     references/   command-aligned domain workflows
     registries/   package registry adapters

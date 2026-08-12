@@ -2,11 +2,12 @@ import { describe, expect, it } from "bun:test"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
+import type { NpmPackageMetadata } from "#lib/core/npm.ts"
 import type { RegistryPackageSpec } from "#lib/core/packages.ts"
-import type { NpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
 import { PackageNotFoundError, PackageVersionNotFoundError } from "#lib/core/errors.ts"
+import { resolveVersion } from "#lib/logic/npm.ts"
 import { NpmRegistryClient } from "#lib/registries/npm/client.ts"
-import npm, { resolveVersion } from "#lib/registries/npm/resolver.ts"
+import npm from "#lib/registries/npm/resolver.ts"
 
 const baseMetadata = {
   "dist-tags": {

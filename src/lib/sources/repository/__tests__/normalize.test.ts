@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test"
 import * as Effect from "effect/Effect"
 import type { RepositorySourceCandidate } from "#lib/core/source.ts"
 import { InvalidRepositoryUrlError } from "#lib/core/errors.ts"
-import { normalizeRepositorySource } from "#lib/sources/repository/normalize.ts"
+import { normalizeRepositorySource } from "#lib/logic/repository.ts"
 
 const run = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect)
 

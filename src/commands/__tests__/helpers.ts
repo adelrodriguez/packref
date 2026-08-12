@@ -4,7 +4,7 @@ import { join, resolve } from "node:path"
 import { execPath } from "node:process"
 import { stripVTControlCharacters } from "node:util"
 import * as Predicate from "effect/Predicate"
-import type { Lockfile, PackageEntry } from "#lib/workspace/lockfile.ts"
+import type { Lockfile, PackageEntry } from "#lib/core/workspace.ts"
 
 const cliPath = resolve(import.meta.dir, "../../index.ts")
 

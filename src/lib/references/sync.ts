@@ -4,6 +4,7 @@ import * as FileSystem from "effect/FileSystem"
 import * as Option from "effect/Option"
 import * as Path from "effect/Path"
 import * as Result from "effect/Result"
+import type { PackageEntry } from "#lib/core/workspace.ts"
 import type { ManifestDependency } from "#lib/manifests/manifest.ts"
 import { PackageReferenceFilesystemError, UnsupportedManifestError } from "#lib/core/errors.ts"
 import {
@@ -12,6 +13,7 @@ import {
   packageIdentityEquivalence,
   type PackageCoordinates,
 } from "#lib/core/packages.ts"
+import { listPackageEntries } from "#lib/logic/workspace.ts"
 import { ProjectDependencyReader } from "#lib/manifests/index.ts"
 import {
   materializePackageCandidateReference,
@@ -21,11 +23,7 @@ import {
 import { removePackageReferences } from "#lib/references/remove.ts"
 import { getStorePackagePath } from "#lib/store/paths.ts"
 import { registerProject } from "#lib/workspace/config.ts"
-import {
-  listPackageEntries,
-  readProjectLockfile,
-  type PackageEntry,
-} from "#lib/workspace/lockfile.ts"
+import { readProjectLockfile } from "#lib/workspace/lockfile.ts"
 import { PACKREF_DIRECTORY_NAME } from "#lib/workspace/paths.ts"
 import { requireInitializedProject } from "#lib/workspace/project.ts"
 

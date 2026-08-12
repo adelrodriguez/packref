@@ -5,7 +5,7 @@ import * as Schedule from "effect/Schedule"
 import * as HttpClient from "effect/unstable/http/HttpClient"
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse"
 import { NetworkError, PackageNotFoundError } from "#lib/core/errors.ts"
-import { NpmPackageMetadataSchema, type NpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
+import { NpmPackageMetadataSchema, type NpmPackageMetadata } from "#lib/core/npm.ts"
 
 const NPM_REGISTRY_URL = "https://registry.npmjs.org"
 const NPM_REQUEST_TIMEOUT = "30 seconds"

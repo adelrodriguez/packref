@@ -4,19 +4,15 @@ import * as FileSystem from "effect/FileSystem"
 import * as Path from "effect/Path"
 import * as Result from "effect/Result"
 import type { ParsedPackageSpec } from "#lib/core/packages.ts"
+import type { PackageEntry } from "#lib/core/workspace.ts"
 import {
   PackageNotReferencedError,
   PackageReferenceFilesystemError,
   RemovePackageReferencesError,
 } from "#lib/core/errors.ts"
+import { findPackageEntries, listPackageEntries } from "#lib/logic/workspace.ts"
 import { getStorePackagePath } from "#lib/store/paths.ts"
-import {
-  findPackageEntries,
-  listPackageEntries,
-  readProjectLockfile,
-  removePackageEntries,
-  type PackageEntry,
-} from "#lib/workspace/lockfile.ts"
+import { readProjectLockfile, removePackageEntries } from "#lib/workspace/lockfile.ts"
 import { PACKREF_DIRECTORY_NAME } from "#lib/workspace/paths.ts"
 import { requireInitializedProject } from "#lib/workspace/project.ts"
 

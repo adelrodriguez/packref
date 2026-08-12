@@ -11,12 +11,9 @@ export const NpmRepositoryObjectSchema = Schema.StructWithRest(
 
 export const NpmRepositorySchema = Schema.Union([Schema.String, NpmRepositoryObjectSchema])
 
-export const NpmDistSchema = Schema.StructWithRest(
-  Schema.Struct({
-    tarball: Schema.String,
-  }),
-  [Schema.Record(Schema.String, Schema.Unknown)]
-)
+export const NpmDistSchema = Schema.StructWithRest(Schema.Struct({ tarball: Schema.String }), [
+  Schema.Record(Schema.String, Schema.Unknown),
+])
 
 export const NpmPackageVersionMetadataSchema = Schema.StructWithRest(
   Schema.Struct({
@@ -29,12 +26,9 @@ export const NpmPackageVersionMetadataSchema = Schema.StructWithRest(
 
 export const NpmPackageMetadataSchema = Schema.StructWithRest(
   Schema.Struct({
-    "dist-tags": Schema.StructWithRest(
-      Schema.Struct({
-        latest: Schema.optional(Schema.String),
-      }),
-      [Schema.Record(Schema.String, Schema.Unknown)]
-    ),
+    "dist-tags": Schema.StructWithRest(Schema.Struct({ latest: Schema.optional(Schema.String) }), [
+      Schema.Record(Schema.String, Schema.Unknown),
+    ]),
     name: Schema.String,
     repository: Schema.optional(NpmRepositorySchema),
     versions: Schema.Record(Schema.String, NpmPackageVersionMetadataSchema),

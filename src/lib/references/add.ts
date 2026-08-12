@@ -4,8 +4,9 @@ import * as Option from "effect/Option"
 import * as Order from "effect/Order"
 import * as Path from "effect/Path"
 import * as Predicate from "effect/Predicate"
+import type { ResolvedPackageReference } from "#lib/core/registry-adapter.ts"
+import type { PackageEntry } from "#lib/core/workspace.ts"
 import type { ManifestDependency } from "#lib/manifests/manifest.ts"
-import type { ResolvedPackageReference } from "#lib/registries/registry.ts"
 import type { MaterializedStoreEntry } from "#lib/store/index.ts"
 import { ProjectFilesystemError, StoreSourceMismatchError } from "#lib/core/errors.ts"
 import {
@@ -15,21 +16,17 @@ import {
   type RegistryPackageSpec,
   type RepositoryPackageSpec,
 } from "#lib/core/packages.ts"
+import { listPackageEntries } from "#lib/logic/workspace.ts"
 import { ProjectDependencyReader } from "#lib/manifests/index.ts"
-import { resolvePackageReference } from "#lib/registries/index.ts"
-import { fetchRepositorySnapshot } from "#lib/sources/repository/fetch.ts"
 import {
   resolveDirectRepositoryRef,
   resolveRepositoryRef,
-} from "#lib/sources/repository/normalize.ts"
+} from "#lib/references/resolve-repository.ts"
+import { resolvePackageReference } from "#lib/registries/index.ts"
+import { fetchRepositorySnapshot } from "#lib/sources/repository/fetch.ts"
 import { fetchTarballSnapshot } from "#lib/sources/tarball/fetch.ts"
 import { registerProject } from "#lib/workspace/config.ts"
-import {
-  initializeLockfile,
-  listPackageEntries,
-  upsertPackageEntry,
-  type PackageEntry,
-} from "#lib/workspace/lockfile.ts"
+import { initializeLockfile, upsertPackageEntry } from "#lib/workspace/lockfile.ts"
 import { createProjectReference, ensureDirectory } from "#lib/workspace/project.ts"
 
 export interface AddPackageOptions {

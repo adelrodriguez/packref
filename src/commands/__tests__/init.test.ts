@@ -13,7 +13,7 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { execPath } from "node:process"
 import { parse } from "jsonc-parser"
-import type { Lockfile } from "#lib/workspace/lockfile.ts"
+import type { Lockfile } from "#lib/core/workspace.ts"
 
 const temporaryPaths: string[] = []
 const cliPath = resolve(import.meta.dir, "../../index.ts")

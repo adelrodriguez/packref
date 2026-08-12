@@ -1,24 +1,17 @@
 import { describe, expect, it } from "bun:test"
-import { join } from "node:path"
 import * as Array from "effect/Array"
 import * as Effect from "effect/Effect"
-import * as Path from "effect/Path"
 import {
   InvalidPackageIdentity,
   UnsupportedRegistryError,
   UnsupportedRepositoryHostError,
 } from "#lib/core/errors.ts"
 import {
-  getPackageIdentityPath,
-  getPackageIdentitySegments,
   packageCoordinatesEquivalence,
   packageCoordinatesOrder,
-  parsePackageSpec,
   type PackageIdentity,
 } from "#lib/core/packages.ts"
-
-const run = <A, E>(effect: Effect.Effect<A, E, Path.Path>) =>
-  Effect.runPromise(effect.pipe(Effect.provide(Path.layer)))
+import { getPackageIdentitySegments, parsePackageSpec } from "#lib/logic/packages.ts"
 
 const runEffect = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect)
 
@@ -255,27 +248,6 @@ describe("packages", () => {
       label: string
     }>)("rejects malformed scoped package names: $label", async ({ expected, identity }) => {
       await expectInvalidPackageIdentity(runEffect(getPackageIdentitySegments(identity)), expected)
-    })
-  })
-
-  describe("getPackageIdentityPath", () => {
-    it("builds package identity paths", async () => {
-      const unscoped = {
-        name: "react",
-        registry: "npm",
-        version: "19.0.0",
-      }
-      const scoped = {
-        name: "@effect/cli",
-        registry: "npm",
-        version: "0.29.0",
-      }
-
-      const unscopedPath = await run(getPackageIdentityPath(unscoped))
-      const scopedPath = await run(getPackageIdentityPath(scoped))
-
-      expect(unscopedPath).toBe(join("packages", "npm", "react", "19.0.0"))
-      expect(scopedPath).toBe(join("packages", "npm", "@effect", "cli", "0.29.0"))
     })
   })
 

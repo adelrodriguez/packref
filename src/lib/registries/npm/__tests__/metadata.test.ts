@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import * as Effect from "effect/Effect"
-import { decodeNpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
+import { decodeNpmPackageMetadata } from "#lib/core/npm.ts"
 
 const run = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect)
 

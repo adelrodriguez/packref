@@ -4,22 +4,15 @@ import * as Filter from "effect/Filter"
 import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
 import { ConfigParseError } from "#lib/core/errors.ts"
+import { emptyGlobalConfig, GlobalConfigSchema, type GlobalConfig } from "#lib/core/workspace.ts"
+import { addProject, removeProjects } from "#lib/logic/workspace.ts"
 import { formatJson } from "#lib/shared/json.ts"
 import { PackrefHome } from "#lib/workspace/home.ts"
 import { GLOBAL_CONFIG_NAME, GLOBAL_DIRECTORY_SEGMENTS } from "#lib/workspace/paths.ts"
 
-export const GlobalConfigSchema = Schema.Struct({
-  projects: Schema.Array(Schema.String),
-})
-export type GlobalConfig = typeof GlobalConfigSchema.Type
-
 const GlobalConfigJsonSchema = Schema.fromJsonString(GlobalConfigSchema)
 const decodeGlobalConfig = Schema.decodeUnknownEffect(GlobalConfigJsonSchema)
 const encodeGlobalConfig = Schema.encodeEffect(GlobalConfigJsonSchema)
-
-export const emptyGlobalConfig: GlobalConfig = {
-  projects: [],
-}
 
 export const readGlobalConfigAtPath = Effect.fn("readGlobalConfigAtPath")(function* (
   configPath: string
@@ -76,14 +69,11 @@ export const initializeGlobalConfig = Effect.fn("initializeGlobalConfig")(functi
 
 export const registerProject = Effect.fn("registerProject")(function* (projectPath: string) {
   const config = yield* initializeGlobalConfig()
+  const updatedConfig = addProject(config, projectPath)
 
-  if (config.projects.includes(projectPath)) {
+  if (updatedConfig === config) {
     return config
   }
-
-  const updatedConfig = {
-    projects: [...config.projects, projectPath],
-  } satisfies GlobalConfig
 
   yield* writeGlobalConfig(updatedConfig)
 
@@ -94,15 +84,11 @@ export const unregisterProjects = Effect.fn("unregisterProjects")(function* (
   projectPaths: readonly string[]
 ) {
   const config = yield* initializeGlobalConfig()
-  const projects = config.projects.filter((projectPath) => !projectPaths.includes(projectPath))
+  const updatedConfig = removeProjects(config, projectPaths)
 
-  if (projects.length === config.projects.length) {
+  if (updatedConfig === config) {
     return config
   }
-
-  const updatedConfig = {
-    projects,
-  } satisfies GlobalConfig
 
   yield* writeGlobalConfig(updatedConfig)
 

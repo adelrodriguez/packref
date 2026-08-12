@@ -4,6 +4,7 @@ import { join } from "node:path"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Effect from "effect/Effect"
 import * as Predicate from "effect/Predicate"
+import type { PackageEntry } from "#lib/core/workspace.ts"
 import {
   exists,
   initializeProject,
@@ -11,7 +12,7 @@ import {
   materializeReference,
   repositoryEntry,
 } from "#commands/__tests__/helpers.ts"
-import { type PackageEntry, readProjectLockfile } from "#lib/workspace/lockfile.ts"
+import { readProjectLockfile } from "#lib/workspace/lockfile.ts"
 
 const context = makeCommandTestContext("packref-remove-test-")
 

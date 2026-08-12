@@ -1,6 +1,7 @@
 import * as Effect from "effect/Effect"
 import * as Path from "effect/Path"
-import { getPackageIdentitySegments, type PackageIdentity } from "#lib/core/packages.ts"
+import type { PackageIdentity } from "#lib/core/packages.ts"
+import { getPackageIdentitySegments } from "#lib/logic/packages.ts"
 import { GLOBAL_DIRECTORY_SEGMENTS } from "#lib/workspace/paths.ts"
 
 export const STORE_DIRECTORY_NAME = "store"

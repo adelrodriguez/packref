@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { execPath } from "node:process"
-import type { Lockfile, PackageEntry } from "#lib/workspace/lockfile.ts"
+import type { Lockfile, PackageEntry } from "#lib/core/workspace.ts"
 
 const temporaryPaths: string[] = []
 const cliPath = resolve(import.meta.dir, "../../index.ts")

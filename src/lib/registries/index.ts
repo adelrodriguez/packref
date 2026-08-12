@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect"
 import type { RegistryPackageSpec } from "#lib/core/packages.ts"
-import type { RegistryAdapter } from "#lib/registries/registry.ts"
+import type { RegistryAdapter } from "#lib/core/registry-adapter.ts"
 import { UnsupportedRegistryError } from "#lib/core/errors.ts"
 import { checkIsRegistry, type Registry } from "#lib/core/registry.ts"
 import npm from "#lib/registries/npm/resolver.ts"

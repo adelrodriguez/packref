@@ -8,7 +8,7 @@ import * as Layer from "effect/Layer"
 import * as HttpClient from "effect/unstable/http/HttpClient"
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse"
 import { createTarGzip } from "nanotar"
-import type { PackageEntry } from "#lib/workspace/lockfile.ts"
+import type { PackageEntry } from "#lib/core/workspace.ts"
 import { exists, initializeProject } from "#commands/__tests__/helpers.ts"
 import {
   InstallPackageReferencesError,

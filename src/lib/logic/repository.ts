@@ -1,16 +1,13 @@
 import * as Effect from "effect/Effect"
 import * as Match from "effect/Match"
 import * as Option from "effect/Option"
+import type { RemoteRepositoryRefs, ResolvedDirectRepositoryRef } from "#lib/core/repository.ts"
 import type {
   NormalizedRepositorySource,
   RepositorySourceCandidate,
   ResolvedRepositoryRef,
 } from "#lib/core/source.ts"
-import {
-  InvalidRepositoryUrlError,
-  TagNotFoundError,
-  UnsupportedRepositoryHostError,
-} from "#lib/core/errors.ts"
+import { InvalidRepositoryUrlError, TagNotFoundError } from "#lib/core/errors.ts"
 import {
   REPOSITORY_PROVIDER_HOSTS,
   SUPPORTED_REPOSITORY_PROVIDERS,
@@ -18,14 +15,12 @@ import {
   type RepositoryPackageSpec,
   type RepositoryProvider,
 } from "#lib/core/packages.ts"
-import { matchRepositoryTag, RemoteTagReader } from "#lib/sources/repository/tags.ts"
+import { matchRepositoryTag } from "#lib/logic/repository-tags.ts"
 
 const COMMIT_SHA_PATTERN = /^[0-9a-f]{7,40}$/iu
-
 const HOST_PROVIDERS = new Map<string, RepositoryProvider>(
   SUPPORTED_REPOSITORY_PROVIDERS.map((provider) => [REPOSITORY_PROVIDER_HOSTS[provider], provider])
 )
-
 const DEFAULT_SHORTHAND_PROVIDER = "github" satisfies RepositoryProvider
 const SHORTHAND_PATTERN = new RegExp(
   `^(?<provider>${SUPPORTED_REPOSITORY_PROVIDERS.join("|")}):(?<repositoryPath>.+)$`,
@@ -129,29 +124,16 @@ export const normalizeRepositorySource = Effect.fn("normalizeRepositorySource")(
     return normalizeFromShorthandUrl(candidate, DEFAULT_SHORTHAND_PROVIDER, url)
   }
 
-  if (/^[a-z][a-z0-9+.-]*:\/\//iu.test(url)) {
-    return normalizeFromStandardUrl(candidate, url)
-  }
-
-  return normalizeFromScpLikeUrl(candidate, url)
+  return /^[a-z][a-z0-9+.-]*:\/\//iu.test(url)
+    ? normalizeFromStandardUrl(candidate, url)
+    : normalizeFromScpLikeUrl(candidate, url)
 })
 
-export interface ResolvedDirectRepositoryRef {
-  readonly identity: PackageIdentity
-  readonly repository: ResolvedRepositoryRef
-}
-
-export const resolveDirectRepositoryRef = Effect.fn("resolveDirectRepositoryRef")(function* (
-  spec: RepositoryPackageSpec
-) {
-  const source = yield* normalizeRepositorySource(spec.repository)
-
-  if (source.fetchSource === undefined) {
-    return yield* new UnsupportedRepositoryHostError({ host: source.host, url: source.url })
-  }
-
-  const remoteTagReader = yield* RemoteTagReader
-  const refs = yield* remoteTagReader.listRefs(source)
+export const selectDirectRepositoryRef = Effect.fn("selectDirectRepositoryRef")(function* (
+  spec: RepositoryPackageSpec,
+  source: NormalizedRepositorySource,
+  refs: RemoteRepositoryRefs
+): Effect.fn.Return<ResolvedDirectRepositoryRef, TagNotFoundError> {
   const requestedRef = spec.specifier
   const tagSha = requestedRef === undefined ? undefined : refs.tags.get(requestedRef)
   const branchSha = requestedRef === undefined ? undefined : refs.heads.get(requestedRef)
@@ -181,40 +163,21 @@ export const resolveDirectRepositoryRef = Effect.fn("resolveDirectRepositoryRef"
     identity: { name: spec.name, registry: spec.registry, version: resolved.version },
     repository: {
       ref: resolved.ref,
-      source: {
-        ...source,
-        ...(requestedRef === undefined ? {} : { requestedRef }),
-      },
+      source: { ...source, ...(requestedRef === undefined ? {} : { requestedRef }) },
     },
-  } satisfies ResolvedDirectRepositoryRef
+  }
 })
 
-export const resolveRepositoryRef = Effect.fn("resolveRepositoryRef")(function* (
+export const selectPackageRepositoryRef = Effect.fn("selectPackageRepositoryRef")(function* (
   identity: PackageIdentity,
-  candidate: RepositorySourceCandidate
-) {
-  const source = yield* normalizeRepositorySource(candidate)
-
-  if (source.fetchSource === undefined) {
-    return yield* new UnsupportedRepositoryHostError({
-      host: source.host,
-      url: source.url,
-    })
-  }
-
-  const remoteTagReader = yield* RemoteTagReader
-  const tags = yield* remoteTagReader.list(source)
+  source: NormalizedRepositorySource,
+  tags: readonly string[]
+): Effect.fn.Return<ResolvedRepositoryRef, TagNotFoundError> {
   const ref = matchRepositoryTag(identity, tags)
 
   if (Option.isNone(ref)) {
-    return yield* new TagNotFoundError({
-      repository: source.url,
-      version: identity.version,
-    })
+    return yield* new TagNotFoundError({ repository: source.url, version: identity.version })
   }
 
-  return {
-    ref: ref.value,
-    source,
-  } satisfies ResolvedRepositoryRef
+  return { ref: ref.value, source }
 })

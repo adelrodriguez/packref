@@ -10,15 +10,15 @@ import * as Predicate from "effect/Predicate"
 import * as HttpClient from "effect/unstable/http/HttpClient"
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse"
 import { createTarGzip } from "nanotar"
-import type { NpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
-import type { PackageEntry } from "#lib/workspace/lockfile.ts"
+import type { NpmPackageMetadata } from "#lib/core/npm.ts"
+import type { PackageEntry } from "#lib/core/workspace.ts"
 import {
   NetworkError,
   ReflinkError,
   SnapshotFetchError,
   StoreSourceMismatchError,
 } from "#lib/core/errors.ts"
-import { parsePackageSpec } from "#lib/core/packages.ts"
+import { parsePackageSpec } from "#lib/logic/packages.ts"
 import { ProjectDependencyReader } from "#lib/manifests/index.ts"
 import { PackageManagerResolver } from "#lib/manifests/javascript.ts"
 import {

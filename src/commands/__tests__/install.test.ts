@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test"
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { createTarGzip } from "nanotar"
-import type { PackageEntry } from "#lib/workspace/lockfile.ts"
+import type { PackageEntry } from "#lib/core/workspace.ts"
 import {
   initializeProject,
   makeCommandTestContext,

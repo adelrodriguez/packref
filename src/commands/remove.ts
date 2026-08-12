@@ -3,8 +3,9 @@ import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import * as Argument from "effect/unstable/cli/Argument"
 import * as Command from "effect/unstable/cli/Command"
-import type { PackageEntry } from "#lib/workspace/lockfile.ts"
-import { parsePackageSpec, type PackageIdentity } from "#lib/core/packages.ts"
+import type { PackageIdentity } from "#lib/core/packages.ts"
+import type { PackageEntry } from "#lib/core/workspace.ts"
+import { parsePackageSpec } from "#lib/logic/packages.ts"
 import {
   findPackageReferenceMatches,
   listPackageReferences,

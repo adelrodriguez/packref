@@ -1,7 +1,8 @@
 import * as Effect from "effect/Effect"
 import * as Command from "effect/unstable/cli/Command"
 import color from "picocolors"
-import { listPackageEntries, readProjectLockfile } from "#lib/workspace/lockfile.ts"
+import { listPackageEntries } from "#lib/logic/workspace.ts"
+import { readProjectLockfile } from "#lib/workspace/lockfile.ts"
 import { requireInitializedProject } from "#lib/workspace/project.ts"
 import { Prompter } from "#terminal/prompter.ts"
 

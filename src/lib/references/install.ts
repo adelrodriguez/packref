@@ -1,6 +1,7 @@
 import * as Array from "effect/Array"
 import * as Effect from "effect/Effect"
 import * as Result from "effect/Result"
+import type { PackageEntry } from "#lib/core/workspace.ts"
 import {
   InstallPackageReferencesError,
   StoreSourceMismatchError,
@@ -8,19 +9,14 @@ import {
 } from "#lib/core/errors.ts"
 import { SUPPORTED_REPOSITORY_PROVIDERS } from "#lib/core/packages.ts"
 import { packageSourceEquivalence } from "#lib/core/source.ts"
+import { normalizeRepositorySource } from "#lib/logic/repository.ts"
+import { listPackageEntries } from "#lib/logic/workspace.ts"
+import { resolveRepositoryRef } from "#lib/references/resolve-repository.ts"
 import { fetchRepositorySnapshot } from "#lib/sources/repository/fetch.ts"
-import {
-  normalizeRepositorySource,
-  resolveRepositoryRef,
-} from "#lib/sources/repository/normalize.ts"
 import { fetchTarballSnapshot } from "#lib/sources/tarball/fetch.ts"
 import { hasStoreEntry, readStoreEntry, type StoredEntry } from "#lib/store/index.ts"
 import { registerProject } from "#lib/workspace/config.ts"
-import {
-  listPackageEntries,
-  readProjectLockfile,
-  type PackageEntry,
-} from "#lib/workspace/lockfile.ts"
+import { readProjectLockfile } from "#lib/workspace/lockfile.ts"
 import {
   createProjectReference,
   hasProjectReference,
