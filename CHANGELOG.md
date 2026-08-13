@@ -1,5 +1,19 @@
 # packref
 
+## 0.3.0
+
+### Minor Changes
+
+- 564d46c: Add direct repository package specs for GitHub, GitLab, Bitbucket, and SourceHut sources.
+
+### Patch Changes
+
+- de6e0cb: Improve source reference reliability with domain-typed file errors, bounded network retries, and concurrent independent I/O.
+- de6e0cb: Report accurate filesystem operation errors, bound aggregate store traversal concurrency, and report all package source reference failures during install and remove operations.
+- d869fb2: Fix internal "Help requested" message leaking into output for empty or invalid CLI input, while keeping exit codes correct (0 for missing arguments, 1 for unknown subcommands)
+- de6e0cb: Prepare registry and manifest seams for projects that use multiple package ecosystems.
+- 2cf71d0: Add `ls` and `rm` aliases for the `list` and `remove` commands.
+
 ## 0.2.0
 
 ### Minor Changes
