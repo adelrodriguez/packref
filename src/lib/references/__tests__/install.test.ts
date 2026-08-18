@@ -8,6 +8,8 @@ import * as Layer from "effect/Layer"
 import * as HttpClient from "effect/unstable/http/HttpClient"
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse"
 import { createTarGzip } from "nanotar"
+import type { RepositorySource } from "#lib/core/source.ts"
+import type { Mutable } from "#lib/core/types.ts"
 import type { PackageEntry } from "#lib/workspace/lockfile.ts"
 import { exists, initializeProject } from "#commands/__tests__/helpers.ts"
 import {
@@ -20,6 +22,8 @@ import { RepositoryDownloader } from "#lib/sources/repository/fetch.ts"
 import { RemoteTagReader } from "#lib/sources/repository/tags.ts"
 import { PackrefHome } from "#lib/workspace/home.ts"
 import { Reflinker } from "#lib/workspace/reflinker.ts"
+
+type TestRepositorySource = Mutable<RepositorySource>
 
 const temporaryPaths: string[] = []
 
@@ -48,19 +52,25 @@ const repositoryEntry = (
   version: string,
   directory?: string,
   tracking: PackageEntry["tracking"] = "manual"
-) =>
-  ({
+) => {
+  const source: TestRepositorySource = {
+    host: "github.com",
+    type: "repository",
+    url: `https://github.com/example/${name.replace("@scope/", "")}`,
+  }
+
+  if (directory !== undefined) {
+    source.directory = directory
+  }
+
+  return {
     name,
     registry: "npm",
-    source: {
-      ...(directory === undefined ? {} : { directory }),
-      host: "github.com",
-      type: "repository",
-      url: `https://github.com/example/${name.replace("@scope/", "")}`,
-    },
+    source,
     tracking,
     version,
-  }) satisfies PackageEntry
+  } satisfies PackageEntry
+}
 
 const getIdentitySegments = (entry: PackageEntry) => [
   "packages",
@@ -223,15 +233,20 @@ describe("installPackageReferences", () => {
     async ({ requestedRef, version }) => {
       const projectPath = await makeTempDirectory()
       const home = await makeTempDirectory()
+      const source: TestRepositorySource = {
+        host: "github.com",
+        type: "repository",
+        url: "https://github.com/owner/repo",
+      }
+
+      if (requestedRef !== undefined) {
+        source.requestedRef = requestedRef
+      }
+
       const entry = {
         ...repositoryEntry("owner/repo", version),
         registry: "github",
-        source: {
-          host: "github.com",
-          ...(requestedRef === undefined ? {} : { requestedRef }),
-          type: "repository",
-          url: "https://github.com/owner/repo",
-        },
+        source,
       } satisfies PackageEntry
       const repositoryRefs: string[] = []
       const controls = { repositoryDownloads: 0, repositoryRefs, tarballDownloads: 0 }

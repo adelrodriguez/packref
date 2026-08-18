@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect"
 import * as Equivalence from "effect/Equivalence"
 import * as Order from "effect/Order"
 import * as Path from "effect/Path"
+import type { Mutable } from "#lib/core/types.ts"
 import {
   InvalidPackageIdentity,
   UnsupportedRegistryError,
@@ -69,6 +70,12 @@ export interface RepositoryPackageSpec {
 
 export type ParsedPackageSpec = RegistryPackageSpec | RepositoryPackageSpec
 
+type RegistryPackageSpecBuilder = Mutable<RegistryPackageSpec>
+type RepositoryBuilder = Mutable<RepositoryPackageSpec["repository"]>
+type RepositoryPackageSpecBuilder = Mutable<Omit<RepositoryPackageSpec, "repository">> & {
+  repository: RepositoryBuilder
+}
+
 export const PACKAGE_DIRECTORY_NAME = "packages"
 
 type PackageIdentityField = "name" | "registry" | "version"
@@ -102,12 +109,12 @@ const validatePathSegment = Effect.fn("validatePathSegment")(function* (
   }
 })
 
-export const REPOSITORY_PROVIDER_HOSTS: Record<RepositoryProvider, string> = {
+export const REPOSITORY_PROVIDER_HOSTS = {
   bitbucket: "bitbucket.org",
   github: "github.com",
   gitlab: "gitlab.com",
   sourcehut: "git.sr.ht",
-}
+} satisfies Record<RepositoryProvider, string>
 
 const HOST_REPOSITORY_PROVIDERS = new Map<string, RepositoryProvider>(
   SUPPORTED_REPOSITORY_PROVIDERS.map((provider) => [REPOSITORY_PROVIDER_HOSTS[provider], provider])
@@ -384,16 +391,24 @@ export const parsePackageSpec = Effect.fn("parsePackageSpec")(function* (input: 
       !identity.name.startsWith("/") &&
       !identity.name.endsWith("/")
     ) {
-      return {
+      const repository: RepositoryBuilder = { url: identity.url }
+
+      if (identity.directory.length > 0) {
+        repository.directory = identity.directory
+      }
+
+      const packageSpec: RepositoryPackageSpecBuilder = {
         _tag: "repository",
         name: identity.name,
         registry: identity.provider,
-        repository: {
-          ...(identity.directory.length === 0 ? {} : { directory: identity.directory }),
-          url: identity.url,
-        },
-        ...(specifier === undefined || specifier.length === 0 ? {} : { specifier }),
-      } satisfies RepositoryPackageSpec
+        repository,
+      }
+
+      if (specifier !== undefined && specifier.length > 0) {
+        packageSpec.specifier = specifier
+      }
+
+      return packageSpec satisfies RepositoryPackageSpec
     }
 
     if (identity.provider !== undefined) {
@@ -451,12 +466,17 @@ export const parsePackageSpec = Effect.fn("parsePackageSpec")(function* (input: 
 
     const specifier = spec.slice(versionSeparatorIndex + 1)
 
-    return {
+    const packageSpec: RegistryPackageSpecBuilder = {
       _tag: "registry",
       name: spec.slice(0, versionSeparatorIndex),
       registry,
-      ...(specifier.length === 0 ? {} : { specifier }),
-    } satisfies RegistryPackageSpec
+    }
+
+    if (specifier.length > 0) {
+      packageSpec.specifier = specifier
+    }
+
+    return packageSpec satisfies RegistryPackageSpec
   }
 
   const versionSeparatorIndex = spec.indexOf("@")
@@ -471,10 +491,15 @@ export const parsePackageSpec = Effect.fn("parsePackageSpec")(function* (input: 
 
   const specifier = spec.slice(versionSeparatorIndex + 1)
 
-  return {
+  const packageSpec: RegistryPackageSpecBuilder = {
     _tag: "registry",
     name: spec.slice(0, versionSeparatorIndex),
     registry,
-    ...(specifier.length === 0 ? {} : { specifier }),
-  } satisfies RegistryPackageSpec
+  }
+
+  if (specifier.length > 0) {
+    packageSpec.specifier = specifier
+  }
+
+  return packageSpec satisfies RegistryPackageSpec
 })

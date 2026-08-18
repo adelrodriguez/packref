@@ -10,6 +10,7 @@ import * as Predicate from "effect/Predicate"
 import * as HttpClient from "effect/unstable/http/HttpClient"
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse"
 import { createTarGzip } from "nanotar"
+import type { Mutable } from "#lib/core/types.ts"
 import type { NpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
 import type { PackageEntry } from "#lib/workspace/lockfile.ts"
 import { NetworkError, ReflinkError, SnapshotFetchError } from "#lib/core/errors.ts"
@@ -41,13 +42,22 @@ const exists = (path: string) =>
     .then(() => true)
     .catch(() => false)
 
-const makeVersionMetadata = (name: string, version: string, repository?: string) => ({
-  dist: {
-    tarball: `https://registry.npmjs.org/${name}/-/${name}-${version}.tgz`,
-  },
-  ...(repository === undefined ? {} : { repository }),
-  version,
-})
+type VersionMetadata = Mutable<NpmPackageMetadata["versions"][string]>
+
+const makeVersionMetadata = (name: string, version: string, repository?: string) => {
+  const metadata: VersionMetadata = {
+    dist: {
+      tarball: `https://registry.npmjs.org/${name}/-/${name}-${version}.tgz`,
+    },
+    version,
+  }
+
+  if (repository !== undefined) {
+    metadata.repository = repository
+  }
+
+  return metadata
+}
 
 const makeMetadata = (
   name: string,
@@ -243,9 +253,13 @@ describe("addPackageReference", () => {
     }
 
     await runAdd("github:owner/repo", projectPath, home, services)
-    const failure = await runAdd("github:owner/repo/packages/a", projectPath, home, services).catch(
-      (error: unknown) => error
-    )
+    let failure: unknown
+
+    try {
+      await runAdd("github:owner/repo/packages/a", projectPath, home, services)
+    } catch (error) {
+      failure = error
+    }
 
     expect(failure).toHaveProperty("_tag", "RepositoryDirectoryConflictError")
     expect(failure).not.toHaveProperty("existingDirectory")

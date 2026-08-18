@@ -4,6 +4,7 @@ import * as FileSystem from "effect/FileSystem"
 import * as Path from "effect/Path"
 import * as Result from "effect/Result"
 import type { ParsedPackageSpec } from "#lib/core/packages.ts"
+import type { Mutable } from "#lib/core/types.ts"
 import {
   PackageNotReferencedError,
   PackageReferenceFilesystemError,
@@ -26,6 +27,8 @@ export interface PackageReferenceOptions {
   readonly projectPath?: string
 }
 
+type PackageReferenceIdentity = Mutable<ConstructorParameters<typeof PackageNotReferencedError>[0]>
+
 export const listPackageReferences = Effect.fn("listPackageReferences")(function* (
   options: PackageReferenceOptions = {}
 ) {
@@ -47,11 +50,16 @@ export const findPackageReferenceMatches = Effect.fn("findPackageReferenceMatche
   const entries = findPackageEntries(lockfile, spec)
 
   if (entries.length === 0) {
-    return yield* new PackageNotReferencedError({
+    const identity: PackageReferenceIdentity = {
       name: spec.name,
       registry: spec.registry,
-      ...(spec.specifier === undefined ? {} : { version: spec.specifier }),
-    })
+    }
+
+    if (spec.specifier !== undefined) {
+      identity.version = spec.specifier
+    }
+
+    return yield* new PackageNotReferencedError(identity)
   }
 
   return {

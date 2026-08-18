@@ -5,6 +5,7 @@ import * as Order from "effect/Order"
 import * as Path from "effect/Path"
 import * as Predicate from "effect/Predicate"
 import type { RepositorySource } from "#lib/core/source.ts"
+import type { Mutable } from "#lib/core/types.ts"
 import type { ManifestDependency } from "#lib/manifests/manifest.ts"
 import type { ResolvedPackageReference } from "#lib/registries/registry.ts"
 import type { MaterializedStoreEntry } from "#lib/store/index.ts"
@@ -65,6 +66,11 @@ export interface ResolvedPackageCandidateReference {
   readonly manifestRange: string | undefined
   readonly resolvedPackage: ResolvedPackageReference
 }
+
+type RepositoryDirectoryConflict = Mutable<
+  ConstructorParameters<typeof RepositoryDirectoryConflictError>[0]
+>
+type ProjectRepositorySource = Mutable<RepositorySource>
 
 const noManifestDependencies: readonly ManifestDependency[] = []
 const useTarball = () => Effect.succeed(Option.none())
@@ -208,15 +214,16 @@ const addRepositoryReference = Effect.fn("addRepositoryReference")(function* (
     existingEntry?.source.type === "repository" &&
     existingEntry.source.directory !== resolved.repository.source.directory
   ) {
-    return yield* new RepositoryDirectoryConflictError({
-      ...(existingEntry.source.directory === undefined
-        ? {}
-        : { existingDirectory: existingEntry.source.directory }),
-      ...resolved.identity,
-      ...(resolved.repository.source.directory === undefined
-        ? {}
-        : { requestedDirectory: resolved.repository.source.directory }),
-    })
+    const conflict: RepositoryDirectoryConflict = { ...resolved.identity }
+
+    if (existingEntry.source.directory !== undefined) {
+      conflict.existingDirectory = existingEntry.source.directory
+    }
+    if (resolved.repository.source.directory !== undefined) {
+      conflict.requestedDirectory = resolved.repository.source.directory
+    }
+
+    return yield* new RepositoryDirectoryConflictError(conflict)
   }
 
   const storeEntry = yield* fetchRepositorySnapshot(resolved.identity, resolved.repository, {
@@ -231,15 +238,18 @@ const addRepositoryReference = Effect.fn("addRepositoryReference")(function* (
     return yield* new StoreSourceMismatchError(resolved.identity)
   }
 
-  const projectSource = {
-    ...(resolved.repository.source.directory === undefined
-      ? {}
-      : { directory: resolved.repository.source.directory }),
+  const projectSource: ProjectRepositorySource = {
     host: storeEntry.source.host,
-    ...(inputSpec.specifier === undefined ? {} : { requestedRef: inputSpec.specifier }),
     type: "repository",
     url: storeEntry.source.url,
-  } satisfies RepositorySource
+  }
+
+  if (resolved.repository.source.directory !== undefined) {
+    projectSource.directory = resolved.repository.source.directory
+  }
+  if (inputSpec.specifier !== undefined) {
+    projectSource.requestedRef = inputSpec.specifier
+  }
 
   return yield* recordStoreEntryReference(
     resolved.identity,
