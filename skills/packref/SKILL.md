@@ -27,9 +27,11 @@ package source references for inspection. It does not install runtime dependenci
    `npx packref install`. This command restores all locked references without changing the lockfile
    or installing runtime dependencies.
 5. If the lockfile does not contain the package identity, run `npx packref add <package-spec>` only
-   when the task includes obtaining that source. Add `@<version>` when the task requires an exact
-   version. Otherwise, Packref can follow the project's resolved manifest dependency. Read the
-   updated lockfile before inspection.
+   when the task includes obtaining that source. For a registry package, add `@<version>` when the
+   task requires an exact version; otherwise, Packref can follow the project's resolved manifest
+   dependency. For a repository source, use a repository spec such as `metaideas/packref` with an
+   optional `@ref` (tag, branch, or commit SHA); without a ref, Packref pins the default branch
+   commit. Read the updated lockfile before inspection.
 6. Search the package source reference with local tools such as `rg` and `rg --files`. Start at the
    named public API or package exports. Follow imports until you reach the implementation that
    answers the question.
@@ -41,11 +43,17 @@ subdirectory. Treat `source.directory` as repository provenance. Do not append i
 
 ## Command boundaries
 
-- `npx packref init` initializes a project. Run it only with user authorization. It is interactive
-  and can update `.gitignore`, `tsconfig.json`, `AGENTS.md`, the Packref lockfile, and Packref's
-  global project registration.
-- `npx packref add [package-spec]` resolves and materializes a missing reference. Without a package
-  spec, it opens an interactive dependency selector.
+- `npx packref init` initializes a project. Run it only with user authorization. It can update
+  `.gitignore`, `tsconfig.json`, `AGENTS.md`, the Packref lockfile, and Packref's global project
+  registration. Without flags it prompts interactively; agents should run
+  `npx packref init --non-interactive`, adding `--ignore` to update `.gitignore` and the TypeScript
+  exclude list and `--agents` to write the `AGENTS.md` guidance section. `--ignore` and `--agents`
+  fail without `--non-interactive`.
+- `npx packref add [package-spec]` resolves and materializes a missing reference. The spec is a
+  registry package with an optional exact version (`hono`, `hono@4.2.0`) or a direct repository
+  spec (`metaideas/packref`, `owner/repository[/directory][@ref]`, `github:`/`gitlab:`/`bitbucket:`/
+  `sourcehut:` shorthand, or a Git URL). Without a package spec, it opens an interactive dependency
+  selector.
 - `npx packref install` materializes every reference recorded in the committed Packref lockfile.
 - `npx packref sync` reconciles dependency-tracked references after changes to the manifest or
   package-manager lockfile. It can update or remove references.
