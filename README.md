@@ -12,8 +12,8 @@
   <a href="https://www.npmjs.com/package/packref">
     <img src="https://img.shields.io/npm/dm/packref.svg" alt="npm downloads">
   </a>
-  <a href="https://github.com/metaideas/packref/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/metaideas/packref.svg" alt="license">
+  <a href="https://github.com/adelrodriguez/packref/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/adelrodriguez/packref.svg" alt="license">
   </a>
 </p>
 
@@ -77,7 +77,7 @@ Add the exact installed version of a dependency, request a package and version e
 npx packref add react
 npx packref add hono@4.2.0
 npx packref add @effect/cli
-npx packref add metaideas/packref
+npx packref add adelrodriguez/packref
 ```
 
 Direct repository package specs support these forms:
@@ -172,10 +172,10 @@ Install the first-party Packref skill to teach coding agents when and how to ins
 dependency source:
 
 ```sh
-npx skills add metaideas/packref --list
-npx skills add metaideas/packref --skill packref
+npx skills add adelrodriguez/packref --list
+npx skills add adelrodriguez/packref --skill packref
 ```
 
-See the [`packref` skill on skills.sh](https://skills.sh/metaideas/packref/packref).
+See the [`packref` skill on skills.sh](https://skills.sh/adelrodriguez/packref/packref).
 
 Made with [🥐 `pastry`](https://github.com/adelrodriguez/pastry)

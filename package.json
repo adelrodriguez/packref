@@ -10,15 +10,15 @@
     "reference",
     "source"
   ],
-  "homepage": "https://github.com/metaideas/packref#readme",
+  "homepage": "https://github.com/adelrodriguez/packref#readme",
   "bugs": {
-    "url": "https://github.com/metaideas/packref/issues"
+    "url": "https://github.com/adelrodriguez/packref/issues"
   },
   "license": "MIT",
   "author": "Adel Rodríguez",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/metaideas/packref.git"
+    "url": "git+https://github.com/adelrodriguez/packref.git"
   },
   "bin": {
     "packref": "bin/packref"

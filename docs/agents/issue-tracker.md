@@ -4,7 +4,7 @@ Issues and PRDs for this repository live in GitHub Issues. Use the `gh` CLI for 
 
 ## Repository
 
-`metaideas/packref`
+`adelrodriguez/packref`
 
 ## Conventions
 
