@@ -18,7 +18,7 @@ import { printTitle } from "#terminal/title.ts"
 
 const pkg = Argument.string("package").pipe(
   Argument.withDescription(
-    "Registry package with an optional version, or a direct repository spec (e.g. react, hono@4.2.0, metaideas/packref)"
+    "Registry package with an optional version, or a direct repository spec (e.g. react, hono@4.2.0, adelrodriguez/packref)"
   ),
   Argument.optional
 )
