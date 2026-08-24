@@ -1,9 +1,9 @@
-import { describe, expect, it } from "bun:test"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
+import { describe, expect, it } from "vitest"
 import { ProjectDependencyReader } from "#lib/manifests/index.ts"
 import { PackageManagerResolver } from "#lib/manifests/javascript.ts"
 import { defineManifest, type ManifestAdapter } from "#lib/manifests/manifest.ts"
@@ -138,7 +138,7 @@ describe("ProjectDependencyReader", () => {
     const failingLayer = ProjectDependencyReader.layerWithAdapters([cargo]).pipe(
       Layer.provide(Layer.succeed(CargoManifestEnvironment)({ dependencyName: "" }))
     )
-    expect(
+    await expect(
       Effect.runPromise(readProjectDependencies().pipe(Effect.provide(failingLayer)))
     ).rejects.toMatchObject({
       _tag: "ManifestResolutionError",

@@ -30,22 +30,23 @@ jobs:
       # authentication, eliminating the need for NPM_TOKEN secrets. When
       # changeset publish runs npm publish, it will automatically use OIDC
       # and generate provenance attestations.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: "12.0.0-rc.6"
+
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version-file: ".node-version"
           registry-url: "https://registry.npmjs.org"
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: "package.json"
+          cache: pnpm
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Build project
-        run: bun run build
+        run: pnpm run build
 
       - name: Configure npm authentication
         run: echo '//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}' >> .npmrc
@@ -55,7 +56,7 @@ jobs:
         uses: changesets/action@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          publish-script: bun run release
-          version-script: bun run version
+          publish-script: pnpm run release
+          version-script: pnpm run version
           pr-title: "chore: release"
           push-with-git-cli: true

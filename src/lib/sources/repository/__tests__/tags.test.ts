@@ -1,4 +1,3 @@
-import { afterEach, describe, expect, it } from "bun:test"
 import type * as Types from "effect/Types"
 import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
@@ -8,6 +7,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as PlatformError from "effect/PlatformError"
+import { afterEach, describe, expect, it } from "vitest"
 import type { PackageIdentity, RepositoryPackageSpec } from "#lib/core/packages.ts"
 import type { NormalizedRepositorySource } from "#lib/core/source.ts"
 import {
@@ -326,8 +326,8 @@ describe("resolveDirectRepositoryRef", () => {
     expect(resolved.repository.ref).toBe(expectedRef)
   })
 
-  it("rejects an abbreviated commit that does not name a remote tag or branch", () => {
-    expect(runWithRemoteTagCommand(resolveDirect("abcdef1"), command)).rejects.toBeInstanceOf(
+  it("rejects an abbreviated commit that does not name a remote tag or branch", async () => {
+    await expect(runWithRemoteTagCommand(resolveDirect("abcdef1"), command)).rejects.toBeInstanceOf(
       TagNotFoundError
     )
   })
@@ -353,7 +353,7 @@ describe("resolveRepositoryRef", () => {
     })
   })
 
-  it("fails with TagNotFoundError when no matching tag exists", () => {
+  it("fails with TagNotFoundError when no matching tag exists", async () => {
     const resolution = runWithRemoteTagCommand(
       resolveRepositoryRef(reactIdentity, {
         url: "github:facebook/react",
@@ -366,10 +366,10 @@ describe("resolveRepositoryRef", () => {
         })
     )
 
-    expect(resolution).rejects.toBeInstanceOf(TagNotFoundError)
+    await expect(resolution).rejects.toBeInstanceOf(TagNotFoundError)
   })
 
-  it("skips tag discovery for unsupported repository hosts", () => {
+  it("skips tag discovery for unsupported repository hosts", async () => {
     let commandWasRun = false
     const resolution = runWithRemoteTagCommand(
       resolveRepositoryRef(reactIdentity, {
@@ -386,7 +386,7 @@ describe("resolveRepositoryRef", () => {
       }
     )
 
-    expect(resolution).rejects.toBeInstanceOf(UnsupportedRepositoryHostError)
+    await expect(resolution).rejects.toBeInstanceOf(UnsupportedRepositoryHostError)
     expect(commandWasRun).toBe(false)
   })
 })

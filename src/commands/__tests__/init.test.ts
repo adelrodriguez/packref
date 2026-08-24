@@ -1,4 +1,3 @@
-import { afterEach, describe, expect, it } from "bun:test"
 import {
   access,
   mkdtemp,
@@ -12,11 +11,13 @@ import {
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { execPath } from "node:process"
+import { spawn } from "@lydell/node-pty"
 import { parse } from "jsonc-parser"
+import { afterEach, describe, expect, it } from "vitest"
 import type { Lockfile } from "#lib/workspace/lockfile.ts"
 
 const temporaryPaths: string[] = []
-const cliPath = resolve(import.meta.dir, "../../index.ts")
+const cliPath = resolve(import.meta.dirname, "../../index.ts")
 const packrefAgentsStartMarker = "<!-- PACKREF:START -->"
 const packrefAgentsEndMarker = "<!-- PACKREF:END -->"
 
@@ -58,34 +59,35 @@ const runInitCommand = async (
   let answeredAgentsPrompt = false
   const ignoreInput = inputs.ignore ?? "\r"
   const agentsInput = inputs.agents ?? "\r"
-  const process = Bun.spawn({
-    cmd: [execPath, cliPath, "init", ...(inputs.args ?? [])],
+  const child = spawn(execPath, [cliPath, "init", ...(inputs.args ?? [])], {
+    cols: 80,
     cwd: projectPath,
     env: {
-      ...Bun.env,
+      ...process.env,
       HOME: homePath,
     },
-    terminal: {
-      cols: 80,
-      data: (_terminal, data) => {
-        const text = Buffer.from(data).toString("utf8")
-        stdout += text
-
-        if (!answeredIgnorePrompt && stdout.includes("Ignore generated Packref references")) {
-          answeredIgnorePrompt = true
-          process.terminal?.write(ignoreInput)
-        }
-
-        if (!answeredAgentsPrompt && stdout.includes("AGENTS.md")) {
-          answeredAgentsPrompt = true
-          process.terminal?.write(agentsInput)
-        }
-      },
-      rows: 24,
-    },
+    rows: 24,
   })
 
-  const exitCode = await process.exited
+  child.onData((data) => {
+    stdout += data
+
+    if (!answeredIgnorePrompt && stdout.includes("Ignore generated Packref references")) {
+      answeredIgnorePrompt = true
+      child.write(ignoreInput)
+    }
+
+    if (!answeredAgentsPrompt && stdout.includes("AGENTS.md")) {
+      answeredAgentsPrompt = true
+      child.write(agentsInput)
+    }
+  })
+
+  const exitCode = await new Promise<number>((resolve) => {
+    child.onExit(({ exitCode: code }) => {
+      resolve(code)
+    })
+  })
 
   return {
     exitCode,

@@ -1,8 +1,8 @@
-import { describe, expect, it } from "bun:test"
 import { join } from "node:path"
 import * as Array from "effect/Array"
 import * as Effect from "effect/Effect"
 import * as Path from "effect/Path"
+import { describe, expect, it } from "vitest"
 import {
   InvalidPackageIdentity,
   UnsupportedRegistryError,
@@ -559,10 +559,10 @@ describe("packages", () => {
       }
     )
 
-    it("keeps npm aliases on the registry parser path", () => {
-      expect(runEffect(parsePackageSpec("myalias@npm:lodash@4.17.21"))).rejects.toBeInstanceOf(
-        UnsupportedRegistryError
-      )
+    it("keeps npm aliases on the registry parser path", async () => {
+      await expect(
+        runEffect(parsePackageSpec("myalias@npm:lodash@4.17.21"))
+      ).rejects.toBeInstanceOf(UnsupportedRegistryError)
     })
 
     it.each(["", "   ", "npm:", "npm:   "])("rejects empty package specs: %j", async (input) => {

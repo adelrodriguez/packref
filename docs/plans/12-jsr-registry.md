@@ -46,14 +46,14 @@ Not started. Depends on Plan 10.
 - Repository-first with tarball fallback behaves per the existing fallback rules.
 - `packref list`, `remove`, `install`, `sync`, `prune`, and `clean` handle JSR entries without
   special-casing.
-- `bun run check` and `bun run test` pass.
+- `pnpm run check` and `pnpm run test` pass.
 
 ## Validation
 
 ```sh
-bun run format
-bun run check
-bun run test
+pnpm run format
+pnpm run check
+pnpm run test
 ```
 
 ## Out Of Scope

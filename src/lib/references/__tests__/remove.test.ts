@@ -1,4 +1,3 @@
-import { afterEach, describe, expect, it } from "bun:test"
 import type * as FileSystem from "effect/FileSystem"
 import type * as Path from "effect/Path"
 import { access, chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
@@ -6,6 +5,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Effect from "effect/Effect"
+import { afterEach, describe, expect, it } from "vitest"
 import {
   PackageNotReferencedError,
   PackageReferenceFilesystemError,

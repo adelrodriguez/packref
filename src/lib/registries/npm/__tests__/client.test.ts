@@ -1,4 +1,3 @@
-import { describe, expect, it } from "bun:test"
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
 import * as Layer from "effect/Layer"
@@ -6,6 +5,7 @@ import * as TestClock from "effect/testing/TestClock"
 import * as HttpClient from "effect/unstable/http/HttpClient"
 import * as HttpClientError from "effect/unstable/http/HttpClientError"
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse"
+import { describe, expect, it } from "vitest"
 import { NpmRegistryClient } from "#lib/registries/npm/client.ts"
 
 describe("NpmRegistryClient", () => {

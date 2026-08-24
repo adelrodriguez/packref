@@ -1,12 +1,14 @@
-import { afterEach, describe, expect, it } from "bun:test"
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { execPath } from "node:process"
+import { stripVTControlCharacters } from "node:util"
+import { spawn } from "@lydell/node-pty"
+import { afterEach, describe, expect, it } from "vitest"
 import type { Lockfile, PackageEntry } from "#lib/workspace/lockfile.ts"
 
 const temporaryPaths: string[] = []
-const cliPath = resolve(import.meta.dir, "../../index.ts")
+const cliPath = resolve(import.meta.dirname, "../../index.ts")
 
 const makeTempDirectory = async () => {
   const directoryPath = await mkdtemp(join(tmpdir(), "packref-list-test-"))
@@ -25,10 +27,10 @@ const initializeProject = async (projectPath: string, packages: readonly Package
 
 const runList = async (projectPath: string, homePath: string, command: "list" | "ls" = "list") => {
   let output = ""
-  const environment = { ...Bun.env }
+  const environment = { ...process.env }
   delete environment.NO_COLOR
-  const process = Bun.spawn({
-    cmd: [execPath, cliPath, command],
+  const child = spawn(execPath, [cliPath, command], {
+    cols: 100,
     cwd: projectPath,
     env: {
       ...environment,
@@ -36,17 +38,20 @@ const runList = async (projectPath: string, homePath: string, command: "list" | 
       HOME: homePath,
       TERM: "xterm-256color",
     },
-    terminal: {
-      cols: 100,
-      data: (_terminal, data) => {
-        output += Buffer.from(data).toString("utf8")
-      },
-      rows: 24,
-    },
+    rows: 24,
+  })
+
+  child.onData((data) => {
+    output += data
+  })
+  const exitCode = await new Promise<number>((resolve) => {
+    child.onExit(({ exitCode: code }) => {
+      resolve(code)
+    })
   })
 
   return {
-    exitCode: await process.exited,
+    exitCode,
     output,
   }
 }
@@ -125,7 +130,7 @@ describe("list", () => {
     ])
 
     const result = await runList(projectPath, homePath)
-    const output = Bun.stripANSI(result.output)
+    const output = stripVTControlCharacters(result.output)
     const packageLines = output.split("\n").filter((line) => line.includes("npm:"))
 
     expect(result.exitCode).toBe(0)

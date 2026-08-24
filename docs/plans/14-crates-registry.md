@@ -51,14 +51,14 @@ Not started. Depends on Plan 10.
   tag heuristics, extended if needed.
 - Rust projects get manifest multiselect in bare `packref add`, and `sync` reconciles
   dependency-tracked crate entries.
-- `bun run check` and `bun run test` pass.
+- `pnpm run check` and `pnpm run test` pass.
 
 ## Validation
 
 ```sh
-bun run format
-bun run check
-bun run test
+pnpm run format
+pnpm run check
+pnpm run test
 ```
 
 ## Out Of Scope

@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, it } from "bun:test"
 import { access, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { afterEach, describe, expect, it } from "vitest"
 
 import type * as Types from "effect/Types"
 import * as NodeServices from "@effect/platform-node/NodeServices"
@@ -627,7 +627,7 @@ describe("addPackageReference", () => {
     await writeFile(join(projectPath, "package.json"), JSON.stringify({}))
     let tarballDownloadCount = 0
 
-    expect(
+    await expect(
       runAdd("example@1.0.0", projectPath, home, {
         commandResult: {
           exitCode: 128,
@@ -654,7 +654,7 @@ describe("addPackageReference", () => {
     const home = await makeTempDirectory()
     await writeFile(join(projectPath, "package.json"), JSON.stringify({}))
 
-    expect(
+    await expect(
       runAdd("example@1.0.0", projectPath, home, {
         metadata: makeMetadata("example", ["1.0.0"]),
         repositoryDownload: () =>
@@ -695,7 +695,7 @@ describe("addPackageReference", () => {
       },
     } satisfies NpmPackageMetadata
 
-    expect(
+    await expect(
       runAdd("example@1.0.0", projectPath, home, {
         metadata,
       })

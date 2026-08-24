@@ -3,10 +3,11 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { execPath } from "node:process"
 import { stripVTControlCharacters } from "node:util"
+import { spawn } from "@lydell/node-pty"
 import * as Predicate from "effect/Predicate"
 import type { Lockfile, PackageEntry } from "#lib/workspace/lockfile.ts"
 
-const cliPath = resolve(import.meta.dir, "../../index.ts")
+const cliPath = resolve(import.meta.dirname, "../../index.ts")
 
 interface RunCliOptions {
   readonly args: readonly string[]
@@ -35,34 +36,37 @@ export const makeCommandTestContext = (prefix: string) => {
     runCli: async ({ args, homePath, input, projectPath, prompt }: RunCliOptions) => {
       let output = ""
       let answeredPrompt = false
-      const process = Bun.spawn({
-        cmd: [execPath, cliPath, ...args],
+      const child = spawn(execPath, [cliPath, ...args], {
+        cols: 100,
         cwd: projectPath,
         env: {
-          ...Bun.env,
+          ...process.env,
           HOME: homePath,
         },
-        terminal: {
-          cols: 100,
-          data: (_terminal, data) => {
-            output += Buffer.from(data).toString("utf8")
+        rows: 24,
+      })
 
-            if (
-              !answeredPrompt &&
-              Predicate.isNotUndefined(input) &&
-              Predicate.isNotUndefined(prompt) &&
-              output.includes(prompt)
-            ) {
-              answeredPrompt = true
-              process.terminal?.write(input)
-            }
-          },
-          rows: 24,
-        },
+      child.onData((data) => {
+        output += data
+
+        if (
+          !answeredPrompt &&
+          Predicate.isNotUndefined(input) &&
+          Predicate.isNotUndefined(prompt) &&
+          output.includes(prompt)
+        ) {
+          answeredPrompt = true
+          child.write(input)
+        }
+      })
+      const exitCode = await new Promise<number>((resolve) => {
+        child.onExit(({ exitCode: code }) => {
+          resolve(code)
+        })
       })
 
       return {
-        exitCode: await process.exited,
+        exitCode,
         output: stripVTControlCharacters(output),
       }
     },

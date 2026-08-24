@@ -1,10 +1,17 @@
 import type { SpinnerResult } from "@clack/prompts"
-import { afterEach, describe, expect, mock, spyOn, test } from "bun:test"
 import * as prompts from "@clack/prompts"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Function from "effect/Function"
+import { afterEach, describe, expect, test, vi } from "vitest"
 import { Prompter } from "#terminal/prompter.ts"
+
+type PromptsModule = typeof prompts
+
+vi.mock("@clack/prompts", async (importOriginal) => ({
+  ...(await importOriginal<PromptsModule>()),
+  spinner: vi.fn(),
+}))
 
 function createSpinner() {
   const messages: string[] = []
@@ -38,13 +45,13 @@ function runWithPrompter<A, E>(effect: Effect.Effect<A, E, Prompter>) {
 }
 
 afterEach(() => {
-  mock.restore()
+  vi.clearAllMocks()
 })
 
 describe("Prompter.withSpinner", () => {
   test("manages the spinner around a successful effect", async () => {
     const { messages, spinner, starts, stops } = createSpinner()
-    spyOn(prompts, "spinner").mockReturnValue(spinner)
+    vi.mocked(prompts.spinner).mockReturnValue(spinner)
 
     const exit = await runWithPrompter(
       Effect.gen(function* () {
@@ -72,7 +79,7 @@ describe("Prompter.withSpinner", () => {
 
   test("stops the spinner when the effect fails", async () => {
     const { spinner, stops } = createSpinner()
-    spyOn(prompts, "spinner").mockReturnValue(spinner)
+    vi.mocked(prompts.spinner).mockReturnValue(spinner)
 
     const exit = await runWithPrompter(
       Effect.gen(function* () {
@@ -91,7 +98,7 @@ describe("Prompter.withSpinner", () => {
 
   test("stops the spinner when the effect is interrupted", async () => {
     const { spinner, stops } = createSpinner()
-    spyOn(prompts, "spinner").mockReturnValue(spinner)
+    vi.mocked(prompts.spinner).mockReturnValue(spinner)
 
     const exit = await runWithPrompter(
       Effect.gen(function* () {
@@ -110,7 +117,7 @@ describe("Prompter.withSpinner", () => {
 
   test("allows the failure message to be omitted", async () => {
     const { spinner, stops } = createSpinner()
-    spyOn(prompts, "spinner").mockReturnValue(spinner)
+    vi.mocked(prompts.spinner).mockReturnValue(spinner)
 
     const exit = await runWithPrompter(
       Effect.gen(function* () {

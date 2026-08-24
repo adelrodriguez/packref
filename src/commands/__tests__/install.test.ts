@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, it } from "bun:test"
 import { mkdir, writeFile } from "node:fs/promises"
+import { createServer } from "node:http"
 import { join } from "node:path"
 import { createTarGzip } from "nanotar"
+import { afterEach, describe, expect, it } from "vitest"
 import type { PackageEntry } from "#lib/workspace/lockfile.ts"
 import {
   initializeProject,
@@ -80,13 +81,19 @@ describe("install command", () => {
     const projectPath = await context.makeTempDirectory()
     const homePath = await context.makeTempDirectory()
     const archive = await createTarGzip([{ data: "source", name: "package/SOURCE.md" }])
-    const server = Bun.serve({
-      fetch: () => new Response(archive),
-      port: 0,
+    const server = createServer((_request, response) => {
+      response.end(archive)
+    })
+    await new Promise<void>((resolve) => {
+      server.listen(0, "127.0.0.1", resolve)
     })
 
     try {
-      const entry = tarballEntry("example", "1.0.0", new URL("example.tgz", server.url).href)
+      const address = server.address()
+      if (address === null || typeof address === "string") {
+        throw new Error("Expected the test server to listen on a TCP port")
+      }
+      const entry = tarballEntry("example", "1.0.0", `http://127.0.0.1:${address.port}/example.tgz`)
       await initializeProject(projectPath, [entry])
 
       const result = await context.runCli({
@@ -98,7 +105,15 @@ describe("install command", () => {
       expect(result.exitCode).toBe(0)
       expect(result.output).toContain("Fetched 1 reference")
     } finally {
-      await server.stop(true)
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error)
+          } else {
+            resolve()
+          }
+        })
+      })
     }
   })
 
