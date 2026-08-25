@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises"
 import { createServer } from "node:http"
 import { join } from "node:path"
+import * as Match from "effect/Match"
 import { createTarGzip } from "nanotar"
 import { afterEach, describe, expect, it } from "vitest"
 import type { PackageEntry } from "#lib/workspace/lockfile.ts"
@@ -89,11 +90,13 @@ describe("install command", () => {
     })
 
     try {
-      const address = server.address()
-      if (address === null || typeof address === "string") {
-        throw new Error("Expected the test server to listen on a TCP port")
-      }
-      const entry = tarballEntry("example", "1.0.0", `http://127.0.0.1:${address.port}/example.tgz`)
+      const port = Match.value(server.address()).pipe(
+        Match.when({ port: Match.number }, (address) => address.port),
+        Match.orElse(() => {
+          throw new Error("Expected the test server to listen on a TCP port")
+        })
+      )
+      const entry = tarballEntry("example", "1.0.0", `http://127.0.0.1:${port}/example.tgz`)
       await initializeProject(projectPath, [entry])
 
       const result = await context.runCli({

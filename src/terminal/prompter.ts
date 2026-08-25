@@ -37,82 +37,85 @@ interface PrompterService {
 }
 
 export class Prompter extends Context.Service<Prompter, PrompterService>()("Prompter") {
-  static readonly layer = Layer.succeed(this)({
-    cancel: (message) =>
-      Effect.sync(() => {
-        p.cancel(message)
-      }),
-    confirm: (options) =>
-      Effect.promise(() => p.confirm(options)).pipe(
-        Effect.filterOrFail(
-          (value): value is boolean => !p.isCancel(value),
-          () => new OperationCancelled({})
-        )
-      ),
-    intro: (message) =>
-      Effect.sync(() => {
-        p.intro(message)
-      }),
-    log: {
-      error: (message) =>
+  static readonly layerWithSpinner = (makeSpinner: () => p.SpinnerResult) =>
+    Layer.succeed(this)({
+      cancel: (message) =>
         Effect.sync(() => {
-          p.log.error(message)
+          p.cancel(message)
         }),
-      info: (message) =>
+      confirm: (options) =>
+        Effect.promise(() => p.confirm(options)).pipe(
+          Effect.filterOrFail(
+            (value): value is boolean => !p.isCancel(value),
+            () => new OperationCancelled({})
+          )
+        ),
+      intro: (message) =>
         Effect.sync(() => {
-          p.log.info(message)
+          p.intro(message)
         }),
-      message: (message, options) =>
-        Effect.sync(() => {
-          p.log.message(message, options)
-        }),
-      success: (message) =>
-        Effect.sync(() => {
-          p.log.success(message)
-        }),
-      warning: (message) =>
-        Effect.sync(() => {
-          p.log.warning(message)
-        }),
-    },
-    multiselect: <T>(options: p.MultiSelectOptions<T>) =>
-      Effect.promise(() => p.multiselect(options)).pipe(
-        Effect.filterOrFail(
-          (value): value is T[] => !p.isCancel(value),
-          () => new OperationCancelled({})
-        )
-      ),
-    outro: (message) =>
-      Effect.sync(() => {
-        p.outro(message)
-      }),
-    withSpinner: (run, options) =>
-      Effect.acquireUseRelease(
-        Effect.sync(() => {
-          const spinner = p.spinner()
-          spinner.start(options.start)
-          return spinner
-        }),
-        (spinner) =>
-          run({
-            message: (message) =>
-              Effect.sync(() => {
-                spinner.message(message)
-              }),
-          }),
-        (spinner, exit) =>
+      log: {
+        error: (message) =>
           Effect.sync(() => {
-            spinner.stop(
-              Exit.match(exit, {
-                onFailure: () => options.failure,
-                onSuccess: (value) =>
-                  Match.value(options.success).pipe(
-                    Match.when(Match.string, (message) => message),
-                    Match.orElse((getMessage) => getMessage(value))
-                  ),
-              })
-            )
-          })
-      ),
-  })
+            p.log.error(message)
+          }),
+        info: (message) =>
+          Effect.sync(() => {
+            p.log.info(message)
+          }),
+        message: (message, options) =>
+          Effect.sync(() => {
+            p.log.message(message, options)
+          }),
+        success: (message) =>
+          Effect.sync(() => {
+            p.log.success(message)
+          }),
+        warning: (message) =>
+          Effect.sync(() => {
+            p.log.warning(message)
+          }),
+      },
+      multiselect: <T>(options: p.MultiSelectOptions<T>) =>
+        Effect.promise(() => p.multiselect(options)).pipe(
+          Effect.filterOrFail(
+            (value): value is T[] => !p.isCancel(value),
+            () => new OperationCancelled({})
+          )
+        ),
+      outro: (message) =>
+        Effect.sync(() => {
+          p.outro(message)
+        }),
+      withSpinner: (run, options) =>
+        Effect.acquireUseRelease(
+          Effect.sync(() => {
+            const spinner = makeSpinner()
+            spinner.start(options.start)
+            return spinner
+          }),
+          (spinner) =>
+            run({
+              message: (message) =>
+                Effect.sync(() => {
+                  spinner.message(message)
+                }),
+            }),
+          (spinner, exit) =>
+            Effect.sync(() => {
+              spinner.stop(
+                Exit.match(exit, {
+                  onFailure: () => options.failure,
+                  onSuccess: (value) =>
+                    Match.value(options.success).pipe(
+                      Match.when(Match.string, (message) => message),
+                      Match.orElse((getMessage) => getMessage(value))
+                    ),
+                })
+              )
+            })
+        ),
+    })
+
+  static readonly layer = this.layerWithSpinner(() => p.spinner())
 }

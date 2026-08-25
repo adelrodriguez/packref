@@ -7,6 +7,7 @@ import { Prompter } from "#terminal/prompter.ts"
 import { printTitle } from "#terminal/title.ts"
 
 const global = Flag.boolean("global").pipe(
+  Flag.withDefault(false),
   Flag.withAlias("g"),
   Flag.withDescription("Remove all entries from the global Packref store")
 )

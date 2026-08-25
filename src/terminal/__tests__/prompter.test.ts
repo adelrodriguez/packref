@@ -1,17 +1,9 @@
 import type { SpinnerResult } from "@clack/prompts"
-import * as prompts from "@clack/prompts"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Function from "effect/Function"
-import { afterEach, describe, expect, test, vi } from "vitest"
+import { describe, expect, test } from "vitest"
 import { Prompter } from "#terminal/prompter.ts"
-
-type PromptsModule = typeof prompts
-
-vi.mock("@clack/prompts", async (importOriginal) => ({
-  ...(await importOriginal<PromptsModule>()),
-  spinner: vi.fn(),
-}))
 
 function createSpinner() {
   const messages: string[] = []
@@ -40,18 +32,15 @@ function createSpinner() {
   return { messages, spinner, starts, stops }
 }
 
-function runWithPrompter<A, E>(effect: Effect.Effect<A, E, Prompter>) {
-  return Effect.runPromiseExit(effect.pipe(Effect.provide(Prompter.layer)))
+function runWithPrompter<A, E>(effect: Effect.Effect<A, E, Prompter>, spinner: SpinnerResult) {
+  return Effect.runPromiseExit(
+    effect.pipe(Effect.provide(Prompter.layerWithSpinner(() => spinner)))
+  )
 }
-
-afterEach(() => {
-  vi.clearAllMocks()
-})
 
 describe("Prompter.withSpinner", () => {
   test("manages the spinner around a successful effect", async () => {
     const { messages, spinner, starts, stops } = createSpinner()
-    vi.mocked(prompts.spinner).mockReturnValue(spinner)
 
     const exit = await runWithPrompter(
       Effect.gen(function* () {
@@ -68,7 +57,8 @@ describe("Prompter.withSpinner", () => {
             success: (result) => `Operation returned ${result}.`,
           }
         )
-      })
+      }),
+      spinner
     )
 
     expect(exit).toEqual(Exit.succeed(42))
@@ -79,7 +69,6 @@ describe("Prompter.withSpinner", () => {
 
   test("stops the spinner when the effect fails", async () => {
     const { spinner, stops } = createSpinner()
-    vi.mocked(prompts.spinner).mockReturnValue(spinner)
 
     const exit = await runWithPrompter(
       Effect.gen(function* () {
@@ -89,7 +78,8 @@ describe("Prompter.withSpinner", () => {
           start: "Starting operation...",
           success: "Operation succeeded.",
         })
-      })
+      }),
+      spinner
     )
 
     expect(Exit.isFailure(exit)).toBe(true)
@@ -98,7 +88,6 @@ describe("Prompter.withSpinner", () => {
 
   test("stops the spinner when the effect is interrupted", async () => {
     const { spinner, stops } = createSpinner()
-    vi.mocked(prompts.spinner).mockReturnValue(spinner)
 
     const exit = await runWithPrompter(
       Effect.gen(function* () {
@@ -108,7 +97,8 @@ describe("Prompter.withSpinner", () => {
           start: "Starting operation...",
           success: "Operation succeeded.",
         })
-      })
+      }),
+      spinner
     )
 
     expect(Exit.isFailure(exit)).toBe(true)
@@ -117,7 +107,6 @@ describe("Prompter.withSpinner", () => {
 
   test("allows the failure message to be omitted", async () => {
     const { spinner, stops } = createSpinner()
-    vi.mocked(prompts.spinner).mockReturnValue(spinner)
 
     const exit = await runWithPrompter(
       Effect.gen(function* () {
@@ -126,7 +115,8 @@ describe("Prompter.withSpinner", () => {
           start: "Starting operation...",
           success: "Operation succeeded.",
         })
-      })
+      }),
+      spinner
     )
 
     expect(Exit.isFailure(exit)).toBe(true)

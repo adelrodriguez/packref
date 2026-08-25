@@ -1,6 +1,2 @@
 allowBuilds:
   msgpackr-extract: false
-# `@effect/platform-node` asks for `@effect/platform-node-shared` by caret, which
-# resolves to a prerelease that wants a newer `effect` than the pinned one.
-overrides:
-  "@effect/platform-node-shared": 4.0.0-rc.109
