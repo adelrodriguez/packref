@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test"
+import type * as Types from "effect/Types"
 import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -262,7 +263,7 @@ done
 })
 
 const resolveDirect = (specifier?: string) => {
-  const spec: RepositoryPackageSpec = {
+  const spec: Types.Mutable<RepositoryPackageSpec> = {
     _tag: "repository",
     name: "owner/repo",
     registry: "github",
@@ -270,7 +271,7 @@ const resolveDirect = (specifier?: string) => {
   }
 
   if (specifier !== undefined) {
-    Object.assign(spec, { specifier })
+    spec.specifier = specifier
   }
 
   return resolveDirectRepositoryRef(spec)

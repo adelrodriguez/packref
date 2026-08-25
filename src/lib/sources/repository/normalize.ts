@@ -1,3 +1,4 @@
+import type * as Types from "effect/Types"
 import * as Effect from "effect/Effect"
 import * as Match from "effect/Match"
 import * as Option from "effect/Option"
@@ -59,7 +60,7 @@ const makeNormalizedSource = (
   const fetchRepositoryPath =
     provider === "sourcehut" ? repositoryPath.replace(/^~/u, "") : repositoryPath
 
-  const source: NormalizedRepositorySource = {
+  const source: Types.Mutable<NormalizedRepositorySource> = {
     fetchSource: provider === undefined ? undefined : `${provider}:${fetchRepositoryPath}`,
     host,
     type: "repository",
@@ -67,11 +68,11 @@ const makeNormalizedSource = (
   }
 
   if (candidate.directory !== undefined) {
-    Object.assign(source, { directory: candidate.directory })
+    source.directory = candidate.directory
   }
 
   if (candidate.requestedRef !== undefined) {
-    Object.assign(source, { requestedRef: candidate.requestedRef })
+    source.requestedRef = candidate.requestedRef
   }
 
   return Effect.succeed(source)
@@ -189,10 +190,10 @@ export const resolveDirectRepositoryRef = Effect.fn("resolveDirectRepositoryRef"
     )
   )
 
-  const resolvedSource: NormalizedRepositorySource = { ...source }
+  const resolvedSource: Types.Mutable<NormalizedRepositorySource> = { ...source }
 
   if (requestedRef !== undefined) {
-    Object.assign(resolvedSource, { requestedRef })
+    resolvedSource.requestedRef = requestedRef
   }
 
   return {

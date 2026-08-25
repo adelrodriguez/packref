@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test"
+import type * as Types from "effect/Types"
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -9,7 +10,6 @@ import * as HttpClient from "effect/unstable/http/HttpClient"
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse"
 import { createTarGzip } from "nanotar"
 import type { RepositorySource } from "#lib/core/source.ts"
-import type { Mutable } from "#lib/core/types.ts"
 import type { PackageEntry } from "#lib/workspace/lockfile.ts"
 import { exists, initializeProject } from "#commands/__tests__/helpers.ts"
 import {
@@ -23,7 +23,7 @@ import { RemoteTagReader } from "#lib/sources/repository/tags.ts"
 import { PackrefHome } from "#lib/workspace/home.ts"
 import { Reflinker } from "#lib/workspace/reflinker.ts"
 
-type TestRepositorySource = Mutable<RepositorySource>
+type TestRepositorySource = Types.Mutable<RepositorySource>
 
 const temporaryPaths: string[] = []
 
@@ -108,8 +108,10 @@ interface TestControls {
   tarballDownloads: number
 }
 
-const makeTestLayer = (home: string, controls: TestControls) =>
-  Layer.mergeAll(
+const makeTestLayer = (home: string, inputControls: TestControls) => {
+  const controls = inputControls
+
+  return Layer.mergeAll(
     NodeServices.layer,
     PackrefHome.at(home),
     Reflinker.layer,
@@ -124,7 +126,7 @@ const makeTestLayer = (home: string, controls: TestControls) =>
       download: (_source, ref, destination) => {
         controls.repositoryRefs?.push(ref)
         const nextDownloadCount = controls.repositoryDownloads + 1
-        Object.assign(controls, { repositoryDownloads: nextDownloadCount })
+        controls.repositoryDownloads = nextDownloadCount
         return Effect.promise(async () => {
           await mkdir(join(destination, "packages", "example"), { recursive: true })
           await writeFile(join(destination, "README.md"), "repository root")
@@ -136,7 +138,7 @@ const makeTestLayer = (home: string, controls: TestControls) =>
       HttpClient.HttpClient,
       HttpClient.make((request, url) => {
         const nextDownloadCount = controls.tarballDownloads + 1
-        Object.assign(controls, { tarballDownloads: nextDownloadCount })
+        controls.tarballDownloads = nextDownloadCount
 
         if (controls.failedTarballUrls?.includes(url.href) === true) {
           return Effect.succeed(
@@ -159,6 +161,7 @@ const makeTestLayer = (home: string, controls: TestControls) =>
       })
     )
   )
+}
 
 const runInstall = (projectPath: string, home: string, controls?: TestControls) => {
   const resolvedControls = controls ?? {

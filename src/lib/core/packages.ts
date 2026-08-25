@@ -1,8 +1,8 @@
+import type * as Types from "effect/Types"
 import * as Effect from "effect/Effect"
 import * as Equivalence from "effect/Equivalence"
 import * as Order from "effect/Order"
 import * as Path from "effect/Path"
-import type { Mutable } from "#lib/core/types.ts"
 import {
   InvalidPackageIdentity,
   UnsupportedRegistryError,
@@ -70,9 +70,9 @@ export interface RepositoryPackageSpec {
 
 export type ParsedPackageSpec = RegistryPackageSpec | RepositoryPackageSpec
 
-type RegistryPackageSpecBuilder = Mutable<RegistryPackageSpec>
-type RepositoryBuilder = Mutable<RepositoryPackageSpec["repository"]>
-type RepositoryPackageSpecBuilder = Mutable<Omit<RepositoryPackageSpec, "repository">> & {
+type RegistryPackageSpecBuilder = Types.Mutable<RegistryPackageSpec>
+type RepositoryBuilder = Types.Mutable<RepositoryPackageSpec["repository"]>
+type RepositoryPackageSpecBuilder = Types.Mutable<Omit<RepositoryPackageSpec, "repository">> & {
   repository: RepositoryBuilder
 }
 

@@ -267,48 +267,52 @@ export const resolveNpmLockVersion = (
     Option.map((entry) => entry.version)
   )
 
-const packageManagerLockfileStrategies = {
-  bun: {
-    lockfiles: [
-      { name: "bun.lock" },
-      // bun.lockb is binary, so fall through to node_modules instead of parsing it.
-      { isText: false, name: "bun.lockb" },
-    ],
-    resolve: (rawLockfile, request) => resolveBunLockVersion(rawLockfile, request.name),
-  },
-  npm: {
-    lockfiles: [{ name: "package-lock.json" }, { name: "npm-shrinkwrap.json" }],
-    resolve: (rawLockfile, request) =>
-      resolveNpmLockVersion(rawLockfile, request.name, request.projectRelativePath),
-  },
-  pnpm: {
-    lockfiles: [{ name: "pnpm-lock.yaml" }],
-    resolve: (rawLockfile, request) =>
-      resolvePnpmLockVersion(rawLockfile, request.name, request.projectRelativePath),
-  },
-  yarn: {
-    lockfiles: [{ name: "yarn.lock" }],
-    resolve: (rawLockfile, request) =>
-      resolveYarnLockVersion(rawLockfile, request.name, request.specifier),
-  },
-} satisfies Partial<Record<PackageManagerName, PackageManagerLockfileStrategy>>
-
-const getPackageManagerLockfileStrategy = (
-  managerName: PackageManagerName
-): PackageManagerLockfileStrategy | undefined =>
-  Match.value(managerName).pipe(
-    Match.when("bun", () => packageManagerLockfileStrategies.bun),
-    Match.when("npm", () => packageManagerLockfileStrategies.npm),
-    Match.when("pnpm", () => packageManagerLockfileStrategies.pnpm),
-    Match.when("yarn", () => packageManagerLockfileStrategies.yarn),
-    Match.orElse(() => void 0)
-  )
+const packageManagerLockfileStrategies = new Map<
+  PackageManagerName,
+  PackageManagerLockfileStrategy
+>([
+  [
+    "bun",
+    {
+      lockfiles: [
+        { name: "bun.lock" },
+        // bun.lockb is binary, so fall through to node_modules instead of parsing it.
+        { isText: false, name: "bun.lockb" },
+      ],
+      resolve: (rawLockfile, request) => resolveBunLockVersion(rawLockfile, request.name),
+    },
+  ],
+  [
+    "npm",
+    {
+      lockfiles: [{ name: "package-lock.json" }, { name: "npm-shrinkwrap.json" }],
+      resolve: (rawLockfile, request) =>
+        resolveNpmLockVersion(rawLockfile, request.name, request.projectRelativePath),
+    },
+  ],
+  [
+    "pnpm",
+    {
+      lockfiles: [{ name: "pnpm-lock.yaml" }],
+      resolve: (rawLockfile, request) =>
+        resolvePnpmLockVersion(rawLockfile, request.name, request.projectRelativePath),
+    },
+  ],
+  [
+    "yarn",
+    {
+      lockfiles: [{ name: "yarn.lock" }],
+      resolve: (rawLockfile, request) =>
+        resolveYarnLockVersion(rawLockfile, request.name, request.specifier),
+    },
+  ],
+])
 
 const getLockfiles = (
   managerName: PackageManagerName,
   detectedLockfile: string | readonly string[] | undefined
 ) => {
-  const strategy = getPackageManagerLockfileStrategy(managerName)
+  const strategy = packageManagerLockfileStrategies.get(managerName)
   const lockfileNames = Match.value(detectedLockfile).pipe(
     Match.when(Predicate.isUndefined, () =>
       strategy === undefined ? [] : strategy.lockfiles.map((lockfile) => lockfile.name)
@@ -407,7 +411,7 @@ export class PackageManagerResolver extends Context.Service<
             return new Map<string, string>()
           }
 
-          const strategy = getPackageManagerLockfileStrategy(manager.name)
+          const strategy = packageManagerLockfileStrategies.get(manager.name)
           const locatedLockfiles = yield* findNearestLockfiles(
             projectPath,
             getLockfiles(manager.name, manager.lockFile)

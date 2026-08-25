@@ -3,6 +3,7 @@ import { access, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
+import type * as Types from "effect/Types"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -10,7 +11,6 @@ import * as Predicate from "effect/Predicate"
 import * as HttpClient from "effect/unstable/http/HttpClient"
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse"
 import { createTarGzip } from "nanotar"
-import type { Mutable } from "#lib/core/types.ts"
 import type { NpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
 import type { PackageEntry } from "#lib/workspace/lockfile.ts"
 import { NetworkError, ReflinkError, SnapshotFetchError } from "#lib/core/errors.ts"
@@ -42,7 +42,7 @@ const exists = (path: string) =>
     .then(() => true)
     .catch(() => false)
 
-type VersionMetadata = Mutable<NpmPackageMetadata["versions"][string]>
+type VersionMetadata = Types.Mutable<NpmPackageMetadata["versions"][string]>
 
 const makeVersionMetadata = (name: string, version: string, repository?: string) => {
   const metadata: VersionMetadata = {

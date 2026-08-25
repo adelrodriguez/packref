@@ -1,3 +1,4 @@
+import type * as Types from "effect/Types"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Option from "effect/Option"
@@ -5,7 +6,6 @@ import * as Order from "effect/Order"
 import * as Path from "effect/Path"
 import * as Predicate from "effect/Predicate"
 import type { RepositorySource } from "#lib/core/source.ts"
-import type { Mutable } from "#lib/core/types.ts"
 import type { ManifestDependency } from "#lib/manifests/manifest.ts"
 import type { ResolvedPackageReference } from "#lib/registries/registry.ts"
 import type { MaterializedStoreEntry } from "#lib/store/index.ts"
@@ -67,10 +67,10 @@ export interface ResolvedPackageCandidateReference {
   readonly resolvedPackage: ResolvedPackageReference
 }
 
-type RepositoryDirectoryConflict = Mutable<
+type RepositoryDirectoryConflict = Types.Mutable<
   ConstructorParameters<typeof RepositoryDirectoryConflictError>[0]
 >
-type ProjectRepositorySource = Mutable<RepositorySource>
+type ProjectRepositorySource = Types.Mutable<RepositorySource>
 
 const noManifestDependencies: readonly ManifestDependency[] = []
 const useTarball = () => Effect.succeed(Option.none())
