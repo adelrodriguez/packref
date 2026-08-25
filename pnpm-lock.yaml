@@ -118,29 +118,26 @@ importers:
       '@effect/platform-node':
         specifier: 4.0.0-rc.109
         version: 4.0.0-rc.109(effect@4.0.0-rc.109)(redis@6.2.1)
-      '@effect/platform-node-shared':
-        specifier: 4.0.0-rc.109
-        version: 4.0.0-rc.109(effect@4.0.0-rc.109)
       effect:
         specifier: 4.0.0-rc.109
         version: 4.0.0-rc.109
       giget:
-        specifier: ^3.3.1
+        specifier: 3.3.1
         version: 3.3.1
       jsonc-parser:
         specifier: 3.3.1
         version: 3.3.1
       nanotar:
-        specifier: ^0.3.0
+        specifier: 0.3.0
         version: 0.3.0
       nypm:
-        specifier: ^0.6.9
+        specifier: 0.6.9
         version: 0.6.9
       picocolors:
         specifier: 1.1.1
         version: 1.1.1
       semver:
-        specifier: ^7.7.4
+        specifier: 7.8.5
         version: 7.8.5
     devDependencies:
       '@changesets/cli':
