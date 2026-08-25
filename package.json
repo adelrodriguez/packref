@@ -72,6 +72,7 @@
     "oxlint-tsgolint": "7.0.2001",
     "tsdown": "0.22.14",
     "typescript": "7.0.2",
+    "unplugin-macros": "0.23.2",
     "vitest": "4.1.11"
   },
   "engines": {
