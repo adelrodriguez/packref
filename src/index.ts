@@ -16,10 +16,12 @@ import remove from "#commands/remove.ts"
 import sync from "#commands/sync.ts"
 import { ProjectDependencyReader } from "#lib/manifests/index.ts"
 import { PackageManagerResolver } from "#lib/manifests/javascript.ts"
+import { PackageManagerDetector } from "#lib/manifests/package-manager-detector.ts"
 import { NpmRegistryClient } from "#lib/registries/npm/client.ts"
 import { RepositoryDownloader } from "#lib/sources/repository/fetch.ts"
 import { RemoteTagReader } from "#lib/sources/repository/tags.ts"
 import { Reflinker } from "#lib/workspace/reflinker.ts"
+import { PromptAdapter } from "#terminal/prompt-adapter.ts"
 import { Prompter } from "#terminal/prompter.ts"
 import { getPackageVersion } from "#version.macro.ts" with { type: "macro" }
 
@@ -31,14 +33,18 @@ const main = Command.make("packref").pipe(
 const version = await getPackageVersion()
 
 const NodePlatform = Layer.mergeAll(NodeHttpClient.layerFetch, NodeServices.layer)
+const PackageManagerServices = PackageManagerResolver.layer.pipe(
+  Layer.provide(PackageManagerDetector.layer)
+)
 const ManifestServices = Layer.provideMerge(
   ProjectDependencyReader.layer,
-  Layer.provideMerge(PackageManagerResolver.layer, NodePlatform)
+  Layer.provideMerge(PackageManagerServices, NodePlatform)
 )
+const TerminalServices = Prompter.layer.pipe(Layer.provide(PromptAdapter.layer))
 const PackrefServices = Layer.mergeAll(
   NpmRegistryClient.layer,
   ManifestServices,
-  Prompter.layer,
+  TerminalServices,
   Reflinker.layer,
   RemoteTagReader.layer,
   RepositoryDownloader.layer

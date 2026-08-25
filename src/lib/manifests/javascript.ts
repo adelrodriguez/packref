@@ -9,10 +9,13 @@ import * as Path from "effect/Path"
 import * as Predicate from "effect/Predicate"
 import * as Result from "effect/Result"
 import * as Schema from "effect/Schema"
-import { detectPackageManager, type PackageManagerName } from "nypm"
 import { valid } from "semver"
 import { ManifestParseError, ManifestResolutionError } from "#lib/core/errors.ts"
 import { defineManifest, type ManifestDependency } from "#lib/manifests/manifest.ts"
+import {
+  PackageManagerDetector,
+  type PackageManagerName,
+} from "#lib/manifests/package-manager-detector.ts"
 
 const DEPENDENCY_GROUPS = ["dependencies", "devDependencies", "peerDependencies"] as const
 
@@ -353,6 +356,7 @@ export class PackageManagerResolver extends Context.Service<
     this,
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem
+      const packageManagerDetector = yield* PackageManagerDetector
       const path = yield* Path.Path
 
       const findNearestLockfiles = Effect.fn("findNearestLockfiles")(function* (
@@ -394,18 +398,7 @@ export class PackageManagerResolver extends Context.Service<
           projectPath: string,
           dependencies: readonly LockedVersionDependency[]
         ) {
-          const manager = yield* Effect.tryPromise({
-            catch: (cause) =>
-              new ManifestResolutionError({
-                cause,
-                path: projectPath,
-              }),
-            try: () =>
-              detectPackageManager(projectPath, {
-                ignoreArgv: true,
-                includeParentDirs: true,
-              }),
-          })
+          const manager = yield* packageManagerDetector.detect(projectPath)
 
           if (manager === undefined) {
             return new Map<string, string>()

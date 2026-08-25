@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest"
 import { ProjectDependencyReader } from "#lib/manifests/index.ts"
 import { PackageManagerResolver } from "#lib/manifests/javascript.ts"
 import { defineManifest, type ManifestAdapter } from "#lib/manifests/manifest.ts"
+import { PackageManagerDetector } from "#lib/manifests/package-manager-detector.ts"
 
 const first = defineManifest({
   detect: () => Effect.succeed(true),
@@ -65,10 +66,13 @@ const readProjectDependencies = Effect.fn("test.readProjectDependencies")(functi
   return yield* reader.readProjectDependencies("/project")
 })
 
+const packageManagerLayer = PackageManagerResolver.layer.pipe(
+  Layer.provide(PackageManagerDetector.layer),
+  Layer.provideMerge(NodeServices.layer)
+)
+
 const readerLayer = <E, R>(adapters: ReadonlyArray<ManifestAdapter<E, R>>) =>
-  ProjectDependencyReader.layerWithAdapters(adapters).pipe(
-    Layer.provide(Layer.provideMerge(PackageManagerResolver.layer, NodeServices.layer))
-  )
+  ProjectDependencyReader.layerWithAdapters(adapters).pipe(Layer.provide(packageManagerLayer))
 
 describe("ProjectDependencyReader", () => {
   it("reads every matching manifest adapter in registration order", async () => {
