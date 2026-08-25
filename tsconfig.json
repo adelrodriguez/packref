@@ -13,6 +13,6 @@
     "verbatimModuleSyntax": true,
     "types": ["node"]
   },
-  "include": ["src", "*.config.ts"],
+  "include": ["src", "scripts", "*.config.ts"],
   "exclude": ["node_modules", "dist", ".packref"]
 }
