@@ -1,3 +1,5 @@
+// Import from `-shared` instead of the `@effect/platform-node` re-export. npm consumers need
+// `@effect/platform-node-shared` pinned to the same `effect` prerelease.
 import * as NodeRuntime from "@effect/platform-node-shared/NodeRuntime"
 import * as NodeHttpClient from "@effect/platform-node/NodeHttpClient"
 import * as NodeServices from "@effect/platform-node/NodeServices"
