@@ -2,13 +2,7 @@ import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Layer from "effect/Layer"
 import { describe, expect, test } from "vitest"
-import { OperationCancelled } from "#lib/core/errors.ts"
-import {
-  PromptAdapter,
-  type PromptAdapterService,
-  type PromptSpinner,
-} from "#terminal/prompt-adapter.ts"
-import { Prompter } from "#terminal/prompter.ts"
+import { Prompter, type PrompterPrimitives, type PromptSpinner } from "#terminal/prompter.ts"
 
 const succeedVoid = () => Effect.succeed(void 0)
 
@@ -33,18 +27,11 @@ function createSpinner() {
   return { messages, spinner, starts, stops }
 }
 
-const cancelledPrompt = Symbol("cancelledPrompt")
-
-const makePromptAdapterLayer = (
-  spinner: PromptSpinner,
-  options?: { readonly cancelPrompts?: boolean }
-) => {
-  const cancelPrompts = options?.cancelPrompts ?? false
-  const service: PromptAdapterService = {
+const makePrompterLayer = (spinner: PromptSpinner) => {
+  const primitives: PrompterPrimitives = {
     cancel: succeedVoid,
-    confirm: () => Effect.succeed(cancelPrompts ? cancelledPrompt : true),
+    confirm: () => Effect.succeed(true),
     intro: succeedVoid,
-    isCancel: (value) => value === cancelledPrompt,
     log: {
       error: succeedVoid,
       info: succeedVoid,
@@ -52,75 +39,17 @@ const makePromptAdapterLayer = (
       success: succeedVoid,
       warning: succeedVoid,
     },
-    multiselect: <T extends object>() =>
-      Effect.succeed(cancelPrompts ? cancelledPrompt : new Array<T>()),
+    multiselect: <T extends object>() => Effect.succeed(new Array<T>()),
     outro: succeedVoid,
     spinner: () => Effect.succeed(spinner),
   }
 
-  return Layer.succeed(PromptAdapter)(service)
+  return Layer.succeed(Prompter)(Prompter.make(primitives))
 }
 
-function runWithPrompter<A, E>(
-  effect: Effect.Effect<A, E, Prompter>,
-  spinner: PromptSpinner,
-  options?: { readonly cancelPrompts?: boolean }
-) {
-  const layer = Prompter.layer.pipe(Layer.provide(makePromptAdapterLayer(spinner, options)))
-
-  return Effect.runPromiseExit(effect.pipe(Effect.provide(layer)))
+function runWithPrompter<A, E>(effect: Effect.Effect<A, E, Prompter>, spinner: PromptSpinner) {
+  return Effect.runPromiseExit(effect.pipe(Effect.provide(makePrompterLayer(spinner))))
 }
-
-describe("Prompter.confirm", () => {
-  test("returns the adapter value when the prompt completes", async () => {
-    const { spinner } = createSpinner()
-
-    const exit = await runWithPrompter(
-      Effect.gen(function* () {
-        const prompter = yield* Prompter
-        return yield* prompter.confirm({ message: "Continue?" })
-      }),
-      spinner
-    )
-
-    expect(exit).toEqual(Exit.succeed(true))
-  })
-
-  test("fails with OperationCancelled when the prompt is cancelled", async () => {
-    const { spinner } = createSpinner()
-
-    const exit = await runWithPrompter(
-      Effect.gen(function* () {
-        const prompter = yield* Prompter
-        return yield* prompter.confirm({ message: "Continue?" })
-      }),
-      spinner,
-      { cancelPrompts: true }
-    )
-
-    expect(exit).toEqual(Exit.fail(new OperationCancelled({})))
-  })
-})
-
-describe("Prompter.multiselect", () => {
-  test("fails with OperationCancelled when the prompt is cancelled", async () => {
-    const { spinner } = createSpinner()
-
-    const exit = await runWithPrompter(
-      Effect.gen(function* () {
-        const prompter = yield* Prompter
-        return yield* prompter.multiselect({
-          message: "Select packages",
-          options: [{ label: "effect", value: { name: "effect" } }],
-        })
-      }),
-      spinner,
-      { cancelPrompts: true }
-    )
-
-    expect(exit).toEqual(Exit.fail(new OperationCancelled({})))
-  })
-})
 
 describe("Prompter.withSpinner", () => {
   test("manages the spinner around a successful effect", async () => {

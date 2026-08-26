@@ -21,7 +21,6 @@ import { NpmRegistryClient } from "#lib/registries/npm/client.ts"
 import { RepositoryDownloader } from "#lib/sources/repository/fetch.ts"
 import { RemoteTagReader } from "#lib/sources/repository/tags.ts"
 import { Reflinker } from "#lib/workspace/reflinker.ts"
-import { PromptAdapter } from "#terminal/prompt-adapter.ts"
 import { Prompter } from "#terminal/prompter.ts"
 import { getPackageVersion } from "#version.macro.ts" with { type: "macro" }
 
@@ -40,11 +39,10 @@ const ManifestServices = Layer.provideMerge(
   ProjectDependencyReader.layer,
   Layer.provideMerge(PackageManagerServices, NodePlatform)
 )
-const TerminalServices = Prompter.layer.pipe(Layer.provide(PromptAdapter.layer))
 const PackrefServices = Layer.mergeAll(
   NpmRegistryClient.layer,
   ManifestServices,
-  TerminalServices,
+  Prompter.layer,
   Reflinker.layer,
   RemoteTagReader.layer,
   RepositoryDownloader.layer
