@@ -1,3 +1,4 @@
+import type * as Types from "effect/Types"
 import * as Effect from "effect/Effect"
 import * as Match from "effect/Match"
 import * as Option from "effect/Option"
@@ -59,14 +60,22 @@ const makeNormalizedSource = (
   const fetchRepositoryPath =
     provider === "sourcehut" ? repositoryPath.replace(/^~/u, "") : repositoryPath
 
-  return Effect.succeed({
-    ...(candidate.directory === undefined ? {} : { directory: candidate.directory }),
+  const source: Types.Mutable<NormalizedRepositorySource> = {
     fetchSource: provider === undefined ? undefined : `${provider}:${fetchRepositoryPath}`,
-    ...(candidate.requestedRef === undefined ? {} : { requestedRef: candidate.requestedRef }),
     host,
     type: "repository",
     url: `https://${host}/${repositoryPath}`,
-  } satisfies NormalizedRepositorySource)
+  }
+
+  if (candidate.directory !== undefined) {
+    source.directory = candidate.directory
+  }
+
+  if (candidate.requestedRef !== undefined) {
+    source.requestedRef = candidate.requestedRef
+  }
+
+  return Effect.succeed<NormalizedRepositorySource>(source)
 }
 
 const normalizeFromShorthandUrl = (
@@ -181,14 +190,17 @@ export const resolveDirectRepositoryRef = Effect.fn("resolveDirectRepositoryRef"
     )
   )
 
+  const resolvedSource: Types.Mutable<NormalizedRepositorySource> = { ...source }
+
+  if (requestedRef !== undefined) {
+    resolvedSource.requestedRef = requestedRef
+  }
+
   return {
     identity: { name: spec.name, registry: spec.registry, version: resolved.version },
     repository: {
       ref: resolved.ref,
-      source: {
-        ...source,
-        ...(requestedRef === undefined ? {} : { requestedRef }),
-      },
+      source: resolvedSource,
     },
   } satisfies ResolvedDirectRepositoryRef
 })

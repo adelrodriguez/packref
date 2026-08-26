@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test"
+import type * as Types from "effect/Types"
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -8,6 +9,7 @@ import * as Layer from "effect/Layer"
 import * as HttpClient from "effect/unstable/http/HttpClient"
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse"
 import { createTarGzip } from "nanotar"
+import type { RepositorySource } from "#lib/core/source.ts"
 import type { PackageEntry } from "#lib/workspace/lockfile.ts"
 import { exists, initializeProject } from "#commands/__tests__/helpers.ts"
 import {
@@ -20,6 +22,8 @@ import { RepositoryDownloader } from "#lib/sources/repository/fetch.ts"
 import { RemoteTagReader } from "#lib/sources/repository/tags.ts"
 import { PackrefHome } from "#lib/workspace/home.ts"
 import { Reflinker } from "#lib/workspace/reflinker.ts"
+
+type TestRepositorySource = Types.Mutable<RepositorySource>
 
 const temporaryPaths: string[] = []
 
@@ -48,19 +52,25 @@ const repositoryEntry = (
   version: string,
   directory?: string,
   tracking: PackageEntry["tracking"] = "manual"
-) =>
-  ({
+) => {
+  const source: TestRepositorySource = {
+    host: "github.com",
+    type: "repository",
+    url: `https://github.com/example/${name.replace("@scope/", "")}`,
+  }
+
+  if (directory !== undefined) {
+    source.directory = directory
+  }
+
+  return {
     name,
     registry: "npm",
-    source: {
-      ...(directory === undefined ? {} : { directory }),
-      host: "github.com",
-      type: "repository",
-      url: `https://github.com/example/${name.replace("@scope/", "")}`,
-    },
+    source,
     tracking,
     version,
-  }) satisfies PackageEntry
+  } satisfies PackageEntry
+}
 
 const getIdentitySegments = (entry: PackageEntry) => [
   "packages",
@@ -98,8 +108,11 @@ interface TestControls {
   tarballDownloads: number
 }
 
-const makeTestLayer = (home: string, controls: TestControls) =>
-  Layer.mergeAll(
+const makeTestLayer = (home: string, inputControls: TestControls) => {
+  // Tests read these counters after the callbacks run. The alias satisfies no-param-reassign.
+  const controls = inputControls
+
+  return Layer.mergeAll(
     NodeServices.layer,
     PackrefHome.at(home),
     Reflinker.layer,
@@ -114,7 +127,7 @@ const makeTestLayer = (home: string, controls: TestControls) =>
       download: (_source, ref, destination) => {
         controls.repositoryRefs?.push(ref)
         const nextDownloadCount = controls.repositoryDownloads + 1
-        Object.assign(controls, { repositoryDownloads: nextDownloadCount })
+        controls.repositoryDownloads = nextDownloadCount
         return Effect.promise(async () => {
           await mkdir(join(destination, "packages", "example"), { recursive: true })
           await writeFile(join(destination, "README.md"), "repository root")
@@ -126,7 +139,7 @@ const makeTestLayer = (home: string, controls: TestControls) =>
       HttpClient.HttpClient,
       HttpClient.make((request, url) => {
         const nextDownloadCount = controls.tarballDownloads + 1
-        Object.assign(controls, { tarballDownloads: nextDownloadCount })
+        controls.tarballDownloads = nextDownloadCount
 
         if (controls.failedTarballUrls?.includes(url.href) === true) {
           return Effect.succeed(
@@ -149,6 +162,7 @@ const makeTestLayer = (home: string, controls: TestControls) =>
       })
     )
   )
+}
 
 const runInstall = (projectPath: string, home: string, controls?: TestControls) => {
   const resolvedControls = controls ?? {
@@ -223,15 +237,20 @@ describe("installPackageReferences", () => {
     async ({ requestedRef, version }) => {
       const projectPath = await makeTempDirectory()
       const home = await makeTempDirectory()
+      const source: TestRepositorySource = {
+        host: "github.com",
+        type: "repository",
+        url: "https://github.com/owner/repo",
+      }
+
+      if (requestedRef !== undefined) {
+        source.requestedRef = requestedRef
+      }
+
       const entry = {
         ...repositoryEntry("owner/repo", version),
         registry: "github",
-        source: {
-          host: "github.com",
-          ...(requestedRef === undefined ? {} : { requestedRef }),
-          type: "repository",
-          url: "https://github.com/owner/repo",
-        },
+        source,
       } satisfies PackageEntry
       const repositoryRefs: string[] = []
       const controls = { repositoryDownloads: 0, repositoryRefs, tarballDownloads: 0 }

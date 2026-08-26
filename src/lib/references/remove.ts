@@ -1,3 +1,4 @@
+import type * as Types from "effect/Types"
 import * as Array from "effect/Array"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
@@ -26,6 +27,10 @@ export interface PackageReferenceOptions {
   readonly projectPath?: string
 }
 
+type PackageReferenceIdentity = Types.Mutable<
+  ConstructorParameters<typeof PackageNotReferencedError>[0]
+>
+
 export const listPackageReferences = Effect.fn("listPackageReferences")(function* (
   options: PackageReferenceOptions = {}
 ) {
@@ -47,11 +52,16 @@ export const findPackageReferenceMatches = Effect.fn("findPackageReferenceMatche
   const entries = findPackageEntries(lockfile, spec)
 
   if (entries.length === 0) {
-    return yield* new PackageNotReferencedError({
+    const identity: PackageReferenceIdentity = {
       name: spec.name,
       registry: spec.registry,
-      ...(spec.specifier === undefined ? {} : { version: spec.specifier }),
-    })
+    }
+
+    if (spec.specifier !== undefined) {
+      identity.version = spec.specifier
+    }
+
+    return yield* new PackageNotReferencedError(identity)
   }
 
   return {
