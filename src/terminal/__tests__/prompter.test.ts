@@ -1,21 +1,16 @@
-import type { SpinnerResult } from "@clack/prompts"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
-import * as Function from "effect/Function"
+import * as Layer from "effect/Layer"
 import { describe, expect, test } from "vitest"
-import { Prompter } from "#terminal/prompter.ts"
+import { Prompter, type PrompterPrimitives, type PromptSpinner } from "#terminal/prompter.ts"
+
+const succeedVoid = () => Effect.succeed(void 0)
 
 function createSpinner() {
   const messages: string[] = []
   const starts: Array<string | undefined> = []
   const stops: Array<string | undefined> = []
-  const spinner: SpinnerResult = {
-    cancel: Function.constVoid,
-    clear: Function.constVoid,
-    error: Function.constVoid,
-    get isCancelled() {
-      return false
-    },
+  const spinner: PromptSpinner = {
     message(message) {
       if (message !== undefined) {
         messages.push(message)
@@ -32,10 +27,28 @@ function createSpinner() {
   return { messages, spinner, starts, stops }
 }
 
-function runWithPrompter<A, E>(effect: Effect.Effect<A, E, Prompter>, spinner: SpinnerResult) {
-  return Effect.runPromiseExit(
-    effect.pipe(Effect.provide(Prompter.layerWithSpinner(() => spinner)))
-  )
+const makePrompterLayer = (spinner: PromptSpinner) => {
+  const primitives: PrompterPrimitives = {
+    cancel: succeedVoid,
+    confirm: () => Effect.succeed(true),
+    intro: succeedVoid,
+    log: {
+      error: succeedVoid,
+      info: succeedVoid,
+      message: succeedVoid,
+      success: succeedVoid,
+      warning: succeedVoid,
+    },
+    multiselect: <T extends object>() => Effect.succeed(new Array<T>()),
+    outro: succeedVoid,
+    spinner: () => Effect.succeed(spinner),
+  }
+
+  return Layer.succeed(Prompter)(Prompter.make(primitives))
+}
+
+function runWithPrompter<A, E>(effect: Effect.Effect<A, E, Prompter>, spinner: PromptSpinner) {
+  return Effect.runPromiseExit(effect.pipe(Effect.provide(makePrompterLayer(spinner))))
 }
 
 describe("Prompter.withSpinner", () => {

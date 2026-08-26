@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it } from "vitest"
 import { parsePackageSpec } from "#lib/core/packages.ts"
 import { ProjectDependencyReader } from "#lib/manifests/index.ts"
 import { PackageManagerResolver } from "#lib/manifests/javascript.ts"
+import { PackageManagerDetector } from "#lib/manifests/package-manager-detector.ts"
 import { addPackageReference } from "#lib/references/add.ts"
 import { NpmRegistryClient } from "#lib/registries/npm/client.ts"
 import { RepositoryDownloader } from "#lib/sources/repository/fetch.ts"
@@ -24,7 +25,10 @@ const ProductionServices = Layer.mergeAll(
     Layer.provide(
       Layer.merge(
         NodeServices.layer,
-        PackageManagerResolver.layer.pipe(Layer.provide(NodeServices.layer))
+        PackageManagerResolver.layer.pipe(
+          Layer.provide(PackageManagerDetector.layer),
+          Layer.provide(NodeServices.layer)
+        )
       )
     )
   ),
