@@ -1,5 +1,5 @@
 import { Macros } from "unplugin-macros"
-import { configDefaults, defineConfig } from "vitest/config"
+import { defineConfig } from "vitest/config"
 
 export default defineConfig({
   plugins: [Macros.vite()],
@@ -11,8 +11,7 @@ export default defineConfig({
       {
         extends: true,
         test: {
-          exclude: [...configDefaults.exclude, "**/*.integration.test.ts"],
-          include: ["src/**/*.test.ts"],
+          include: ["src/**/!(*.integration).test.ts"],
           name: "unit",
         },
       },
