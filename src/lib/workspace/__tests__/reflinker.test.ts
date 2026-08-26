@@ -36,17 +36,19 @@ const run = <A, E>(effect: Effect.Effect<A, E, Reflinker>) =>
 // used by Reflinker issues the same clone request before falling back, so on a
 // filesystem that passes this probe a reflink is guaranteed to have happened.
 const supportsReflink = async (root: string) => {
-  const probeDirectory = await mkdtemp(join(root, "packref-reflink-probe-"))
-  const source = join(probeDirectory, "source")
-  const target = join(probeDirectory, "target")
   try {
-    await writeFile(source, "probe")
-    await copyFile(source, target, constants.COPYFILE_FICLONE_FORCE)
-    return true
+    const probeDirectory = await mkdtemp(join(root, "packref-reflink-probe-"))
+    try {
+      const source = join(probeDirectory, "source")
+      const target = join(probeDirectory, "target")
+      await writeFile(source, "probe")
+      await copyFile(source, target, constants.COPYFILE_FICLONE_FORCE)
+      return true
+    } finally {
+      await rm(probeDirectory, { force: true, recursive: true })
+    }
   } catch {
     return false
-  } finally {
-    await rm(probeDirectory, { force: true, recursive: true })
   }
 }
 
@@ -122,15 +124,12 @@ describe("Reflinker", () => {
     expect(await readFile(target, "utf8")).toBe("occupied")
   })
 
-  it.if(reflinkRootOverride !== undefined)(
-    "dedicated reflink filesystem supports cloning",
-    () => {
-      expect(reflinkSupported).toBe(true)
-      if (process.platform === "linux") {
-        expect(hasFilefrag).toBe(true)
-      }
+  it.if(reflinkRootOverride !== undefined)("dedicated reflink filesystem supports cloning", () => {
+    expect(reflinkSupported).toBe(true)
+    if (process.platform === "linux") {
+      expect(hasFilefrag).toBe(true)
     }
-  )
+  })
 
   it.skipIf(!reflinkSupported)("clones the source instead of copying it", async () => {
     const directoryPath = await makeTempDirectory(reflinkRoot)
