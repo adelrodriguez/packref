@@ -34,10 +34,16 @@ flowchart TD
 | Commands              | Parse input, invoke package source reference workflows, report progress and results, and recover from user cancellation.                                                       |
 | Workflows             | Coordinate registry and manifest resolution, source snapshot acquisition, materialization, Packref lockfile changes, cleanup, and pruning.                                     |
 | Project services      | `Prompter`, `ProjectDependencyReader`, `PackageManagerResolver`, `NpmRegistryClient`, `RemoteTagReader`, `RepositoryDownloader`, and `Reflinker` isolate replaceable behavior. |
+| Adapter services      | `PromptAdapter` and `PackageManagerDetector` wrap the `@clack/prompts` and `nypm` libraries as injectable services consumed by project services, never by commands directly.   |
 | Contextual values     | `PackrefHome` supplies the default Packref home path and permits a test-specific path.                                                                                         |
 | Platform capabilities | Effect Node layers provide filesystem, path, HTTP, child-process, terminal, console, and runtime capabilities.                                                                 |
 | External libraries    | Promise-based or synchronous APIs remain behind Effect constructors or project services so thrown failures become typed failures.                                              |
 | Tests                 | Test layers replace external adapters and contextual values while preserving the production workflow and failure model.                                                        |
+
+Adapter services sit one level below project services and exist only to make an external library
+injectable. A project service such as `Prompter` may re-declare part of an adapter's surface so that
+commands keep a single entry point; that duplication is the accepted cost of keeping commands
+independent of external library shapes.
 
 Expected failures are recovered at the narrowest boundary that owns the policy. Commands handle user
 cancellation, workflows handle bounded fallback and partial-operation aggregation, and the runtime
