@@ -11,7 +11,7 @@ domain terms live in [CONTEXT.md](../CONTEXT.md), and durable tradeoffs live in
 into process exit codes. `@effect/platform-node` provides filesystem, path, process, HTTP, and runtime
 capabilities. Commands obtain dependencies through Effect services and do not construct adapters.
 
-The package build has one entry point: Bunup bundles `src/index.ts` to `dist/index.js`, and the
+The package build has one entry point: tsdown bundles `src/index.ts` to `dist/index.js`, and the
 executable `bin/packref` imports that output.
 
 ## Module seams
