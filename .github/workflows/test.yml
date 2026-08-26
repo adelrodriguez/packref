@@ -51,5 +51,19 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Mount Btrfs scratch filesystem for reflink tests
+        run: |
+          if ! command -v mkfs.btrfs >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq btrfs-progs
+          fi
+          truncate -s 512M /tmp/reflink-scratch.img
+          mkfs.btrfs -q /tmp/reflink-scratch.img
+          sudo mkdir -p /mnt/reflink-scratch
+          sudo mount -o loop /tmp/reflink-scratch.img /mnt/reflink-scratch
+          sudo chown "$USER" /mnt/reflink-scratch
+
       - name: Run tests
         run: bun test
+        env:
+          PACKREF_REFLINK_TEST_DIR: /mnt/reflink-scratch
