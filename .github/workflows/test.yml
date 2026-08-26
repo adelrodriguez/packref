@@ -17,12 +17,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  unit:
+  test:
+    name: ${{ matrix.suite }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: >-
       github.event_name == 'pull_request' ||
       github.event.workflow_run.conclusion == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: unit
+            command: pnpm run test
+          - suite: integration
+            command: pnpm run test:integration
 
     steps:
       - name: Checkout code
@@ -41,6 +50,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Mount Btrfs scratch filesystem for reflink tests
+        if: matrix.suite == 'unit'
         run: |
           if ! command -v mkfs.btrfs >/dev/null; then
             sudo apt-get update -qq
@@ -51,8 +61,7 @@ jobs:
           sudo mkdir -p /mnt/reflink-scratch
           sudo mount -o loop /tmp/reflink-scratch.img /mnt/reflink-scratch
           sudo chown "$USER" /mnt/reflink-scratch
+          echo "PACKREF_REFLINK_TEST_DIR=/mnt/reflink-scratch" >> "$GITHUB_ENV"
 
       - name: Run tests
-        run: pnpm run test
-        env:
-          PACKREF_REFLINK_TEST_DIR: /mnt/reflink-scratch
+        run: ${{ matrix.command }}

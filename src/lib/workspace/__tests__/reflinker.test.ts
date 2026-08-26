@@ -1,11 +1,11 @@
 import { execFile } from "node:child_process"
 import { constants } from "node:fs"
-import { copyFile, mkdir, mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises"
+import { copyFile, cp, mkdir, mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { promisify } from "node:util"
 import * as Effect from "effect/Effect"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { ReflinkError } from "#lib/core/errors.ts"
 import { Reflinker } from "#lib/workspace/reflinker.ts"
 
@@ -85,14 +85,25 @@ afterEach(async () => {
 })
 
 describe("Reflinker", () => {
-  it("copies directory contents", async () => {
+  it("requests a copy-on-write clone from the filesystem", async () => {
     const directoryPath = await makeTempDirectory()
     const source = join(directoryPath, "source")
     const target = join(directoryPath, "target")
     await mkdir(source)
     await writeFile(join(source, "index.ts"), "export {}")
-    await run(reflink(source, target))
+    const copySpy = vi.fn(cp)
 
+    await Effect.runPromise(
+      reflink(source, target).pipe(Effect.provide(Reflinker.layerWith(copySpy)))
+    )
+
+    expect(copySpy).toHaveBeenCalledTimes(1)
+    expect(copySpy).toHaveBeenCalledWith(source, target, {
+      errorOnExist: true,
+      force: false,
+      mode: constants.COPYFILE_FICLONE,
+      recursive: true,
+    })
     expect(await readFile(join(target, "index.ts"), "utf8")).toBe("export {}")
   })
 

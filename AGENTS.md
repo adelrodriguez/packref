@@ -23,6 +23,13 @@ Use the single-context domain-doc layout. See `docs/agents/domain.md`.
 
 Use Changesets for versioning and changelog management. See `docs/agents/changesets.md`.
 
+## Testing
+
+- `pnpm run test` runs the `unit` Vitest project. It must pass without network access.
+- Put each test that uses the network in a `*.integration.test.ts` file. The `integration` project in `vitest.config.ts` selects these files by that pattern, and the `unit` project excludes them. `pnpm run test:integration` runs them.
+- A network test in a file without the pattern runs in the `unit` CI job and fails there. Rename the file to correct this.
+- The reflink tests in `src/lib/workspace/__tests__/reflinker.test.ts` are hermetic, not integration tests. They probe the filesystem and skip where copy-on-write cloning is unsupported.
+
 <!-- PACKREF:START -->
 
 ## Packref
