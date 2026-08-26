@@ -41,11 +41,10 @@
     "fix": "adamantite fix",
     "format": "adamantite format",
     "release": "changeset publish",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "test:integration": "PACKREF_INTEGRATION=1 vitest run src/__tests__/integration.test.ts",
-    "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
+    "test": "vitest run --project unit",
+    "test:coverage": "vitest run --project unit --coverage",
+    "test:integration": "vitest run --project integration",
+    "test:watch": "vitest --project unit",
     "version": "changeset version && pnpm run format"
   },
   "dependencies": {

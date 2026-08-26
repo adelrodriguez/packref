@@ -7,6 +7,21 @@ export default defineConfig({
     coverage: {
       provider: "v8",
     },
-    include: ["src/**/*.test.ts"],
+    projects: [
+      {
+        extends: true,
+        test: {
+          include: ["src/**/!(*.integration).test.ts"],
+          name: "unit",
+        },
+      },
+      {
+        extends: true,
+        test: {
+          include: ["src/**/*.integration.test.ts"],
+          name: "integration",
+        },
+      },
+    ],
   },
 })
