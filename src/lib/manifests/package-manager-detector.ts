@@ -21,25 +21,20 @@ export class PackageManagerDetector extends Context.Service<
   PackageManagerDetector,
   PackageManagerDetectorService
 >()("PackageManagerDetector") {
-  static readonly layer = Layer.effect(
-    this,
-    Effect.sync(() =>
-      this.of({
-        detect: Effect.fn("PackageManagerDetector.detect")((projectPath: string) =>
-          Effect.tryPromise({
-            catch: (cause) =>
-              new ManifestResolutionError({
-                cause,
-                path: projectPath,
-              }),
-            try: () =>
-              detectPackageManager(projectPath, {
-                ignoreArgv: true,
-                includeParentDirs: true,
-              }),
-          })
-        ),
+  static readonly layer = Layer.succeed(this)({
+    detect: Effect.fn("PackageManagerDetector.detect")((projectPath: string) =>
+      Effect.tryPromise({
+        catch: (cause) =>
+          new ManifestResolutionError({
+            cause,
+            path: projectPath,
+          }),
+        try: () =>
+          detectPackageManager(projectPath, {
+            ignoreArgv: true,
+            includeParentDirs: true,
+          }),
       })
-    )
-  )
+    ),
+  })
 }
