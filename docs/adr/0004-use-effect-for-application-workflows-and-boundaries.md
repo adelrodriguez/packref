@@ -44,7 +44,9 @@ External libraries are wrapped inside the live layer of the service that owns th
 service interfaces stay domain-shaped: `Prompter` exposes typed `OperationCancelled` failures while
 its live layer contains the Clack cancellation mapping. Reusable orchestration such as
 `Prompter.withSpinner` derives from the service primitives in the shared `make` constructor, so test
-layers supply primitive fakes and exercise the derived logic unchanged. A separate adapter service is
+layers supply primitive fakes and exercise the derived logic unchanged. Live-layer glue, such as the
+Clack cancellation mapping, deliberately sits outside the test boundary and is verified by
+inspection, the same trust Effect extends to its platform adapters. A separate adapter service is
 justified only when a library performs I/O that bypasses the injectable capabilities, as `nypm` does
 for `PackageManagerDetector`.
 

@@ -34,7 +34,7 @@ export interface PrompterPrimitives {
   readonly spinner: () => Effect.Effect<PromptSpinner>
 }
 
-interface PrompterService extends PrompterPrimitives {
+interface PrompterService extends Omit<PrompterPrimitives, "spinner"> {
   readonly withSpinner: <A, E, R>(
     run: (spinner: {
       readonly message: (message: string) => Effect.Effect<void>
