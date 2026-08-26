@@ -75,7 +75,7 @@ const makeNormalizedSource = (
     source.requestedRef = candidate.requestedRef
   }
 
-  return Effect.succeed(source)
+  return Effect.succeed<NormalizedRepositorySource>(source)
 }
 
 const normalizeFromShorthandUrl = (

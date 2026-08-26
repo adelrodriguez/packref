@@ -109,6 +109,7 @@ interface TestControls {
 }
 
 const makeTestLayer = (home: string, inputControls: TestControls) => {
+  // Tests read these counters after the callbacks run. The alias satisfies no-param-reassign.
   const controls = inputControls
 
   return Layer.mergeAll(
