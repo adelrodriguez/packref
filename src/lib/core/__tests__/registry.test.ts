@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test"
+import { describe, expect, it } from "vitest"
 import { DEFAULT_REGISTRY, SUPPORTED_REGISTRIES, checkIsRegistry } from "#lib/core/registry.ts"
 
 describe("registry", () => {

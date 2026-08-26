@@ -18,14 +18,17 @@ import { Prompter } from "#terminal/prompter.ts"
 import { printTitle } from "#terminal/title.ts"
 
 const nonInteractive = Flag.boolean("non-interactive").pipe(
+  Flag.withDefault(false),
   Flag.withDescription("Configure the project from flags without prompts")
 )
 
 const ignore = Flag.boolean("ignore").pipe(
+  Flag.withDefault(false),
   Flag.withDescription("Update .gitignore and exclude .packref from TypeScript")
 )
 
 const agents = Flag.boolean("agents").pipe(
+  Flag.withDefault(false),
   Flag.withDescription("Add Packref guidance to AGENTS.md")
 )
 

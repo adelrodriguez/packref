@@ -1,4 +1,3 @@
-import { afterEach, describe, expect, it } from "bun:test"
 import type * as Path from "effect/Path"
 import { access, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
@@ -8,6 +7,7 @@ import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
 import * as PlatformError from "effect/PlatformError"
+import { afterEach, describe, expect, it } from "vitest"
 import { LockfileParseError, ReflinkError } from "#lib/core/errors.ts"
 import { ensureGitignoreEntry } from "#lib/workspace/integration.ts"
 import {

@@ -64,14 +64,14 @@ The remaining coupling points are:
   manifest adapter — no command or workspace changes.
 - Tarball extraction succeeds for archives whose single root is not named `package`.
 - Projects with multiple manifests get merged dependency lists.
-- `bun run check` and `bun run test` pass.
+- `pnpm run check` and `pnpm run test` pass.
 
 ## Validation
 
 ```sh
-bun run format
-bun run check
-bun run test
+pnpm run format
+pnpm run check
+pnpm run test
 ```
 
 ## Out Of Scope

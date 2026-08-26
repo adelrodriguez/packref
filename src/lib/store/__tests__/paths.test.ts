@@ -1,7 +1,7 @@
-import { describe, expect, it } from "bun:test"
 import { join } from "node:path"
 import * as Effect from "effect/Effect"
 import * as Path from "effect/Path"
+import { describe, expect, it } from "vitest"
 import { InvalidPackageIdentity } from "#lib/core/errors.ts"
 import { getGlobalStorePath, getStorePackagePath } from "#lib/store/paths.ts"
 

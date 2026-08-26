@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "bun:test"
+import { afterEach, describe, expect, it } from "vitest"
 import { makeCommandTestContext } from "#commands/__tests__/helpers.ts"
 
 const context = makeCommandTestContext("packref-help-command-test-")

@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it } from "bun:test"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
+import { afterEach, describe, expect, it } from "vitest"
 import { exists, makeCommandTestContext, repositoryEntry } from "#commands/__tests__/helpers.ts"
 
 const context = makeCommandTestContext("packref-prune-command-test-")

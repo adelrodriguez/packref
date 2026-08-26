@@ -51,14 +51,14 @@ Not started. Depends on Plan 10.
 - Name normalization means `packref add pypi:Django` and `pypi:django` resolve to one identity.
 - Python projects get manifest multiselect in bare `packref add`, and `sync` reconciles
   dependency-tracked PyPI entries.
-- `bun run check` and `bun run test` pass.
+- `pnpm run check` and `pnpm run test` pass.
 
 ## Validation
 
 ```sh
-bun run format
-bun run check
-bun run test
+pnpm run format
+pnpm run check
+pnpm run test
 ```
 
 ## Out Of Scope

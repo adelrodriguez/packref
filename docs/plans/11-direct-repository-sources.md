@@ -135,14 +135,14 @@ The gaps:
   before (no registry regressions).
 - `list`, `remove`, `sync`, `prune`, and `clean` handle repository entries without
   special-casing.
-- `bun run check` and `bun run test` pass.
+- `pnpm run check` and `pnpm run test` pass.
 
 ## Validation
 
 ```sh
-bun run format
-bun run check
-bun run test
+pnpm run format
+pnpm run check
+pnpm run test
 ```
 
 ## Out Of Scope

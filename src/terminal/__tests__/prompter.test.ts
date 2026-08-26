@@ -1,9 +1,8 @@
 import type { SpinnerResult } from "@clack/prompts"
-import { afterEach, describe, expect, mock, spyOn, test } from "bun:test"
-import * as prompts from "@clack/prompts"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Function from "effect/Function"
+import { describe, expect, test } from "vitest"
 import { Prompter } from "#terminal/prompter.ts"
 
 function createSpinner() {
@@ -33,18 +32,15 @@ function createSpinner() {
   return { messages, spinner, starts, stops }
 }
 
-function runWithPrompter<A, E>(effect: Effect.Effect<A, E, Prompter>) {
-  return Effect.runPromiseExit(effect.pipe(Effect.provide(Prompter.layer)))
+function runWithPrompter<A, E>(effect: Effect.Effect<A, E, Prompter>, spinner: SpinnerResult) {
+  return Effect.runPromiseExit(
+    effect.pipe(Effect.provide(Prompter.layerWithSpinner(() => spinner)))
+  )
 }
-
-afterEach(() => {
-  mock.restore()
-})
 
 describe("Prompter.withSpinner", () => {
   test("manages the spinner around a successful effect", async () => {
     const { messages, spinner, starts, stops } = createSpinner()
-    spyOn(prompts, "spinner").mockReturnValue(spinner)
 
     const exit = await runWithPrompter(
       Effect.gen(function* () {
@@ -61,7 +57,8 @@ describe("Prompter.withSpinner", () => {
             success: (result) => `Operation returned ${result}.`,
           }
         )
-      })
+      }),
+      spinner
     )
 
     expect(exit).toEqual(Exit.succeed(42))
@@ -72,7 +69,6 @@ describe("Prompter.withSpinner", () => {
 
   test("stops the spinner when the effect fails", async () => {
     const { spinner, stops } = createSpinner()
-    spyOn(prompts, "spinner").mockReturnValue(spinner)
 
     const exit = await runWithPrompter(
       Effect.gen(function* () {
@@ -82,7 +78,8 @@ describe("Prompter.withSpinner", () => {
           start: "Starting operation...",
           success: "Operation succeeded.",
         })
-      })
+      }),
+      spinner
     )
 
     expect(Exit.isFailure(exit)).toBe(true)
@@ -91,7 +88,6 @@ describe("Prompter.withSpinner", () => {
 
   test("stops the spinner when the effect is interrupted", async () => {
     const { spinner, stops } = createSpinner()
-    spyOn(prompts, "spinner").mockReturnValue(spinner)
 
     const exit = await runWithPrompter(
       Effect.gen(function* () {
@@ -101,7 +97,8 @@ describe("Prompter.withSpinner", () => {
           start: "Starting operation...",
           success: "Operation succeeded.",
         })
-      })
+      }),
+      spinner
     )
 
     expect(Exit.isFailure(exit)).toBe(true)
@@ -110,7 +107,6 @@ describe("Prompter.withSpinner", () => {
 
   test("allows the failure message to be omitted", async () => {
     const { spinner, stops } = createSpinner()
-    spyOn(prompts, "spinner").mockReturnValue(spinner)
 
     const exit = await runWithPrompter(
       Effect.gen(function* () {
@@ -119,7 +115,8 @@ describe("Prompter.withSpinner", () => {
           start: "Starting operation...",
           success: "Operation succeeded.",
         })
-      })
+      }),
+      spinner
     )
 
     expect(Exit.isFailure(exit)).toBe(true)

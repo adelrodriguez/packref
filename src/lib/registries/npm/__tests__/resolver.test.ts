@@ -1,7 +1,7 @@
-import { describe, expect, it } from "bun:test"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
+import { describe, expect, it } from "vitest"
 import type { RegistryPackageSpec } from "#lib/core/packages.ts"
 import type { NpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
 import { PackageNotFoundError, PackageVersionNotFoundError } from "#lib/core/errors.ts"
@@ -136,7 +136,7 @@ describe("npm", () => {
       expect(resolved.identity.version).toBe("19.0.0")
     })
 
-    it("returns PackageNotFoundError from the registry client", () => {
+    it("returns PackageNotFoundError from the registry client", async () => {
       const resolution = Effect.runPromise(
         npm.resolve(spec()).pipe(
           Effect.provide(
@@ -153,22 +153,22 @@ describe("npm", () => {
         )
       )
 
-      expect(resolution).rejects.toBeInstanceOf(PackageNotFoundError)
+      await expect(resolution).rejects.toBeInstanceOf(PackageNotFoundError)
     })
 
-    it("returns PackageVersionNotFoundError for missing version metadata", () => {
-      expect(runWithMetadata(npm.resolve(spec("20.0.0")))).rejects.toBeInstanceOf(
+    it("returns PackageVersionNotFoundError for missing version metadata", async () => {
+      await expect(runWithMetadata(npm.resolve(spec("20.0.0")))).rejects.toBeInstanceOf(
         PackageVersionNotFoundError
       )
     })
 
-    it("returns PackageVersionNotFoundError when latest has no version metadata", () => {
+    it("returns PackageVersionNotFoundError when latest has no version metadata", async () => {
       const metadata = {
         ...baseMetadata,
         "dist-tags": { latest: "20.0.0" },
       } satisfies NpmPackageMetadata
 
-      expect(runWithMetadata(npm.resolve(spec()), metadata)).rejects.toBeInstanceOf(
+      await expect(runWithMetadata(npm.resolve(spec()), metadata)).rejects.toBeInstanceOf(
         PackageVersionNotFoundError
       )
     })

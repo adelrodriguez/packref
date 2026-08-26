@@ -1,5 +1,5 @@
-import { describe, expect, it } from "bun:test"
 import * as Effect from "effect/Effect"
+import { describe, expect, it } from "vitest"
 import type { RepositorySourceCandidate } from "#lib/core/source.ts"
 import { InvalidRepositoryUrlError } from "#lib/core/errors.ts"
 import { normalizeRepositorySource } from "#lib/sources/repository/normalize.ts"

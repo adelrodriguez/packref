@@ -1,4 +1,3 @@
-import { afterEach, describe, expect, it } from "bun:test"
 import type * as FileSystem from "effect/FileSystem"
 import type * as Path from "effect/Path"
 import { access, mkdtemp, readFile, readdir, rm } from "node:fs/promises"
@@ -10,6 +9,7 @@ import * as Layer from "effect/Layer"
 import * as HttpClient from "effect/unstable/http/HttpClient"
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse"
 import { createTarGzip } from "nanotar"
+import { afterEach, describe, expect, it } from "vitest"
 import { TarballFetchError } from "#lib/core/errors.ts"
 import { fetchTarballSnapshot } from "#lib/sources/tarball/fetch.ts"
 import { PackrefHome } from "#lib/workspace/home.ts"
@@ -154,7 +154,7 @@ describe("fetchTarballSnapshot", () => {
       Effect.succeed(archive)
     )
 
-    expect(extraction).rejects.toMatchObject({
+    await expect(extraction).rejects.toMatchObject({
       cause: "Package archive must contain exactly one top-level directory",
     })
   })
@@ -184,7 +184,7 @@ describe("fetchTarballSnapshot", () => {
   it("fails safely and removes temporary data for invalid archives", async () => {
     const home = await makeTempDirectory()
 
-    expect(
+    await expect(
       run(fetchTarballSnapshot(identity, tarballUrl), home, () =>
         Effect.succeed(new Uint8Array([1, 2, 3]))
       )
@@ -232,7 +232,7 @@ describe("fetchTarballSnapshot", () => {
       }
     )
 
-    expect(download).rejects.toBeInstanceOf(TarballFetchError)
+    await expect(download).rejects.toBeInstanceOf(TarballFetchError)
     expect(requestCount).toBe(1)
   })
 
@@ -250,7 +250,7 @@ describe("fetchTarballSnapshot", () => {
       }
     )
 
-    expect(download).rejects.toBeInstanceOf(TarballFetchError)
+    await expect(download).rejects.toBeInstanceOf(TarballFetchError)
     expect(requestCount).toBe(3)
   })
 })

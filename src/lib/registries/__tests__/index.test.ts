@@ -1,5 +1,5 @@
-import { describe, expect, it } from "bun:test"
 import * as Effect from "effect/Effect"
+import { describe, expect, it } from "vitest"
 import { UnsupportedRegistryError } from "#lib/core/errors.ts"
 import { getRegistryAdapter } from "#lib/registries/index.ts"
 
