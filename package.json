@@ -42,7 +42,7 @@
     "format": "adamantite format",
     "release": "changeset publish",
     "test": "vitest run --project unit",
-    "test:coverage": "vitest run --coverage",
+    "test:coverage": "vitest run --project unit --coverage",
     "test:integration": "vitest run --project integration",
     "test:watch": "vitest --project unit",
     "typecheck": "tsc --noEmit",
