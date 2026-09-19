@@ -127,17 +127,17 @@ const makeTestLayer = (services: TestServices, home: string) => {
     ),
     Layer.succeed(RepositoryDownloader)({
       download:
-        services.repositoryDownload ??
-        ((_source, _ref, destination) =>
+        services.repositoryDownload
+        ?? ((_source, _ref, destination) =>
           Effect.promise(() => writeFile(join(destination, "SOURCE.md"), "repository source"))),
     }),
     Layer.succeed(
       HttpClient.HttpClient,
       HttpClient.make((request) =>
         (
-          services.tarballDownload ??
-          (() =>
-            Effect.tryPromise(() =>
+          services.tarballDownload
+          ?? (() =>
+            Effect.promise(() =>
               createTarGzip([
                 {
                   data: "tarball source",
@@ -602,7 +602,7 @@ describe("addPackageReference", () => {
       metadata: makeMetadata("example", ["1.0.0"], repository),
       tarballDownload: () => {
         tarballDownloadCount += 1
-        return Effect.tryPromise(() =>
+        return Effect.promise(() =>
           createTarGzip([
             {
               data: "fallback",

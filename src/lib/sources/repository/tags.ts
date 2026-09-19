@@ -124,8 +124,8 @@ const makeRemoteTagReader = (runCommand: RemoteTagCommand) => {
       Effect.retry({
         schedule: REMOTE_TAG_RETRY_SCHEDULE,
         while: (error) =>
-          Predicate.isTagged(error, "NetworkError") &&
-          (!Predicate.isString(error.cause) || TRANSIENT_GIT_FAILURE_PATTERN.test(error.cause)),
+          Predicate.isTagged(error, "NetworkError")
+          && (!Predicate.isString(error.cause) || TRANSIENT_GIT_FAILURE_PATTERN.test(error.cause)),
       })
     )
 

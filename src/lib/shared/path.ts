@@ -4,8 +4,8 @@ export const checkIsPathWithin = (path: Path.Path, root: string, candidate: stri
   const relativePath = path.relative(root, candidate)
 
   return (
-    relativePath !== ".." &&
-    !relativePath.startsWith(`..${path.sep}`) &&
-    !path.isAbsolute(relativePath)
+    relativePath !== ".."
+    && !relativePath.startsWith(`..${path.sep}`)
+    && !path.isAbsolute(relativePath)
   )
 }

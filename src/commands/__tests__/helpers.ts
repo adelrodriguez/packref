@@ -50,10 +50,10 @@ export const makeCommandTestContext = (prefix: string) => {
         output += data
 
         if (
-          !answeredPrompt &&
-          Predicate.isNotUndefined(input) &&
-          Predicate.isNotUndefined(prompt) &&
-          output.includes(prompt)
+          !answeredPrompt
+          && Predicate.isNotUndefined(input)
+          && Predicate.isNotUndefined(prompt)
+          && output.includes(prompt)
         ) {
           answeredPrompt = true
           child.write(input)

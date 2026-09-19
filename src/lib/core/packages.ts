@@ -309,10 +309,10 @@ const checkIsRepositorySpec = (value: string) => {
   }
 
   return (
-    (prefix !== undefined && checkIsRepositoryProvider(prefix)) ||
-    /^[^@/:\s]+\/[^@/:\s]+(?:\/[^@\s]+)?(?:@[^@]*)?$/u.test(value) ||
-    /^[a-z][a-z0-9+.-]*:\/\//iu.test(value) ||
-    /^(?:[^@]+@)?[^:]+:.+$/u.test(value)
+    (prefix !== undefined && checkIsRepositoryProvider(prefix))
+    || /^[^@/:\s]+\/[^@/:\s]+(?:\/[^@\s]+)?(?:@[^@]*)?$/u.test(value)
+    || /^[a-z][a-z0-9+.-]*:\/\//iu.test(value)
+    || /^(?:[^@]+@)?[^:]+:.+$/u.test(value)
   )
 }
 
@@ -387,9 +387,9 @@ export const parsePackageSpec = Effect.fn("parsePackageSpec")(function* (input: 
     const identity = yield* parseRepositoryIdentity(locator)
 
     if (
-      identity.provider !== undefined &&
-      !identity.name.startsWith("/") &&
-      !identity.name.endsWith("/")
+      identity.provider !== undefined
+      && !identity.name.startsWith("/")
+      && !identity.name.endsWith("/")
     ) {
       const repository: RepositoryBuilder = { url: identity.url }
 
@@ -421,9 +421,9 @@ export const parsePackageSpec = Effect.fn("parsePackageSpec")(function* (input: 
 
     const firstLocatorSegment = locator.split("/")[0] ?? ""
     const isUnambiguousRepositoryLocator =
-      /^[a-z][a-z0-9+.-]*:\/\//iu.test(locator) ||
-      /^[^@/:]+@[^:]+:.+$/u.test(locator) ||
-      (!locator.includes(":") && locator.includes("/") && firstLocatorSegment.includes("."))
+      /^[a-z][a-z0-9+.-]*:\/\//iu.test(locator)
+      || /^[^@/:]+@[^:]+:.+$/u.test(locator)
+      || (!locator.includes(":") && locator.includes("/") && firstLocatorSegment.includes("."))
 
     if (isUnambiguousRepositoryLocator) {
       return yield* new UnsupportedRepositoryHostError({ host: identity.host, url: locator })

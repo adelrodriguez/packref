@@ -17,17 +17,17 @@ import { ensureDirectory } from "#lib/workspace/project.ts"
 import { Prompter } from "#terminal/prompter.ts"
 import { printTitle } from "#terminal/title.ts"
 
-const nonInteractive = Flag.boolean("non-interactive").pipe(
+const nonInteractive = Flag.Boolean("non-interactive").pipe(
   Flag.withDefault(false),
   Flag.withDescription("Configure the project from flags without prompts")
 )
 
-const ignore = Flag.boolean("ignore").pipe(
+const ignore = Flag.Boolean("ignore").pipe(
   Flag.withDefault(false),
   Flag.withDescription("Update .gitignore and exclude .packref from TypeScript")
 )
 
-const agents = Flag.boolean("agents").pipe(
+const agents = Flag.Boolean("agents").pipe(
   Flag.withDefault(false),
   Flag.withDescription("Add Packref guidance to AGENTS.md")
 )
