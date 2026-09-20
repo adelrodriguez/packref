@@ -39,7 +39,7 @@ Packref provides local copies of dependency source code so you can inspect the e
 - Source references are stored in `.packref/packages/<registry>/<package>/<version>/` for unscoped packages and `.packref/packages/<registry>/<scope>/<package>/<version>/` for scoped packages — browse these directories to read dependency internals
 - `.packref/packref-lock.json` is shared and should be committed; `.packref/packages/` is developer-local and git-ignored
 - Run `npx -y packref install` after cloning when locked references are missing; install restores locked references exactly and does not install runtime dependencies
-- Run every command with `npx -y packref <command>`; the `-y` flag answers the npx install prompt, so the command does not stop in a non-interactive session
+- Run every command with `npx -y packref <command>`; `-y` skips the npx install confirmation prompt, so the command does not wait for input
 - Available commands:
   - `npx -y packref add [package]` — select manifest dependencies, fetch a registry package, or fetch a direct repository source (e.g. `npx -y packref add react`, `npx -y packref add hono@4.2.0`, `npx -y packref add adelrodriguez/packref`)
     - Direct repository package specs support GitHub shorthand (`owner/repository[/directory][@ref]`), provider shorthand (`github:`, `gitlab:`, `bitbucket:`, or `sourcehut:`), standard Git URLs, and SCP-style SSH URLs
