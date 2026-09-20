@@ -211,8 +211,8 @@ const addRepositoryReference = Effect.fn("addRepositoryReference")(function* (
   )
 
   if (
-    existingEntry?.source.type === "repository" &&
-    existingEntry.source.directory !== resolved.repository.source.directory
+    existingEntry?.source.type === "repository"
+    && existingEntry.source.directory !== resolved.repository.source.directory
   ) {
     const conflict: RepositoryDirectoryConflict = { ...resolved.identity }
 
@@ -231,9 +231,9 @@ const addRepositoryReference = Effect.fn("addRepositoryReference")(function* (
   })
 
   if (
-    storeEntry.source.type !== "repository" ||
-    storeEntry.source.host !== resolved.repository.source.host ||
-    storeEntry.source.url !== resolved.repository.source.url
+    storeEntry.source.type !== "repository"
+    || storeEntry.source.host !== resolved.repository.source.host
+    || storeEntry.source.url !== resolved.repository.source.url
   ) {
     return yield* new StoreSourceMismatchError(resolved.identity)
   }

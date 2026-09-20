@@ -38,19 +38,20 @@ Packref provides local copies of dependency source code so you can inspect the e
 
 - Source references are stored in `.packref/packages/<registry>/<package>/<version>/` for unscoped packages and `.packref/packages/<registry>/<scope>/<package>/<version>/` for scoped packages — browse these directories to read dependency internals
 - `.packref/packref-lock.json` is shared and should be committed; `.packref/packages/` is developer-local and git-ignored
-- Run `packref install` after cloning when locked references are missing; install restores locked references exactly and does not install runtime dependencies
+- Run `npx -y packref install` after cloning when locked references are missing; install restores locked references exactly and does not install runtime dependencies
+- Run every command with `npx -y packref <command>`; `-y` skips the npx install confirmation prompt, so the command does not wait for input
 - Available commands:
-  - `packref add [package]` — select manifest dependencies, fetch a registry package, or fetch a direct repository source (e.g. `packref add react`, `packref add hono@4.2.0`, `packref add adelrodriguez/packref`)
+  - `npx -y packref add [package]` — select manifest dependencies, fetch a registry package, or fetch a direct repository source (e.g. `npx -y packref add react`, `npx -y packref add hono@4.2.0`, `npx -y packref add adelrodriguez/packref`)
     - Direct repository package specs support GitHub shorthand (`owner/repository[/directory][@ref]`), provider shorthand (`github:`, `gitlab:`, `bitbucket:`, or `sourcehut:`), standard Git URLs, and SCP-style SSH URLs
     - A repository ref can be a tag, branch, or full 40-character commit SHA; without a ref, Packref pins the default branch commit
-  - `packref remove [package]` — select or name package references to remove
-  - `packref install` — materialize every reference already recorded in the committed lockfile
-  - `packref sync` — update or remove dependency-tracked lock entries to match current `package.json` dependency versions
-  - `packref list` — show all referenced packages
-  - `packref prune` — remove unused entries from the global store
-  - `packref clean` — remove all project-local references
-  - `packref clean --global` — wipe all global store entries
-- `packref remove`, `packref prune`, and `packref clean` delete state — run them only when the user requests that removal
+  - `npx -y packref remove [package]` — select or name package references to remove
+  - `npx -y packref install` — materialize every reference already recorded in the committed lockfile
+  - `npx -y packref sync` — update or remove dependency-tracked lock entries to match current `package.json` dependency versions
+  - `npx -y packref list` — show all referenced packages
+  - `npx -y packref prune` — remove unused entries from the global store
+  - `npx -y packref clean` — remove all project-local references
+  - `npx -y packref clean --global` — wipe all global store entries
+- `remove`, `prune`, and `clean` delete state — run them only when the user requests that removal
 - Use Packref when you need to understand how a dependency works internally — read the source in `.packref/` instead of guessing or searching the web
 - Multiple versions of the same package can coexist; check `.packref/packref-lock.json` for the full list
 
@@ -63,9 +64,8 @@ Packref provides local copies of dependency source code so you can inspect the e
 This project uses Adamantite for its managed formatting, linting, type checking, and dependency-analysis setup.
 
 - Prefer the package scripts Adamantite added for this workspace.
-- Run `pnpm run format` after editing files. Direct command: `adamantite format`.
 - Run `pnpm run check` to catch lint and type issues. Direct command: `adamantite check`.
-- Run `pnpm run fix` to apply safe lint fixes. Direct command: `adamantite fix`.
+- Run `pnpm run fix` after editing files to apply formatting and safe lint fixes. Direct command: `adamantite fix`.
 - Run `pnpm run analyze` after changing dependencies, imports, or exports. Direct command: `adamantite analyze`.
 - Use `adamantite doctor` to inspect managed setup and `adamantite doctor --fix` for safe local fixes.
 

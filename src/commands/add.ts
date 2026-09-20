@@ -16,7 +16,7 @@ import {
 import { Prompter } from "#terminal/prompter.ts"
 import { printTitle } from "#terminal/title.ts"
 
-const pkg = Argument.string("package").pipe(
+const pkg = Argument.String("package").pipe(
   Argument.withDescription(
     "Registry package with an optional version, or a direct repository spec (e.g. react, hono@4.2.0, adelrodriguez/packref)"
   ),
@@ -28,9 +28,9 @@ const reportAddDetails = Effect.fn("reportAddDetails")(function* (result: AddPac
 
   if (Predicate.isNotUndefined(result.manifestRange)) {
     yield* prompter.log.warning(
-      `${result.entry.name} has no installed version (no lockfile entry or node_modules copy); ` +
-        `resolved ${result.manifestRange} -> ${result.entry.version} from the registry. ` +
-        "Run your package manager's install, then `packref sync`, to pin the installed version."
+      `${result.entry.name} has no installed version (no lockfile entry or node_modules copy); `
+        + `resolved ${result.manifestRange} -> ${result.entry.version} from the registry. `
+        + "Run your package manager's install, then `packref sync`, to pin the installed version."
     )
   }
 

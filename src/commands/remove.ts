@@ -13,7 +13,7 @@ import {
 import { Prompter } from "#terminal/prompter.ts"
 import { printTitle } from "#terminal/title.ts"
 
-const pkg = Argument.string("package").pipe(
+const pkg = Argument.String("package").pipe(
   Argument.withDescription("Package name to remove (e.g. react, @effect/cli)"),
   Argument.optional
 )

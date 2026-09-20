@@ -259,11 +259,9 @@ export const resolveNpmLockVersion = (
         projectRelativePath === "." ? undefined : `${projectRelativePath}/node_modules/${name}`
 
       return Option.fromNullishOr(
-        (workspacePackagePath === undefined
-          ? undefined
-          : lockfile.packages?.[workspacePackagePath]) ??
-          lockfile.packages?.[`node_modules/${name}`] ??
-          lockfile.dependencies?.[name]
+        (workspacePackagePath === undefined ? undefined : lockfile.packages?.[workspacePackagePath])
+          ?? lockfile.packages?.[`node_modules/${name}`]
+          ?? lockfile.dependencies?.[name]
       )
     }),
     Option.flatMap(decodeNpmLockfileEntry),

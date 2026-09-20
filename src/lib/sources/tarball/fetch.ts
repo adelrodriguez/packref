@@ -41,9 +41,9 @@ const writeTarEntry = Effect.fn("writeTarEntry")(
       const rawSegments = entry.name.split("/")
 
       if (
-        entry.name.startsWith("/") ||
-        entry.name.includes("\\") ||
-        rawSegments.some((segment) => segment === "." || segment === "..")
+        entry.name.startsWith("/")
+        || entry.name.includes("\\")
+        || rawSegments.some((segment) => segment === "." || segment === "..")
       ) {
         return yield* new TarballFetchError({
           cause: `Archive entry contains an invalid path: ${entry.name}`,

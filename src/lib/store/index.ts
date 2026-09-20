@@ -121,8 +121,8 @@ export const listStoreEntries = Effect.fn("listStoreEntries")(function* () {
           const packageSegmentPath = path.join(registryPath, packageSegment)
 
           const hasNestedPackageName =
-            packageSegment.startsWith("@") ||
-            SUPPORTED_REPOSITORY_PROVIDERS.some((provider) => provider === registry)
+            packageSegment.startsWith("@")
+            || SUPPORTED_REPOSITORY_PROVIDERS.some((provider) => provider === registry)
 
           if (hasNestedPackageName) {
             const scopedPackages = yield* listDirectoryOrEmpty(packageSegmentPath, semaphore)

@@ -11,9 +11,9 @@ package source references for inspection. It does not install runtime dependenci
 
 ## Inspect a package
 
-1. Find `.packref/packref-lock.json`. If it exists, run `npx packref list` to review the current
+1. Find `.packref/packref-lock.json`. If it exists, run `npx -y packref list` to review the current
    references. If it does not exist, explain that the project is not initialized. Run
-   `npx packref init` only when the user authorizes initialization.
+   `npx -y packref init` only when the user authorizes initialization.
 2. Read the Packref lockfile and select the required package identity. Match the `registry`, package
    `name`, and exact `version`. Record its `tracking` mode and `source` metadata. If the lockfile has
    multiple versions, select the version required by the task.
@@ -24,9 +24,9 @@ package source references for inspection. It does not install runtime dependenci
    Keep the leading `@` in `<scope>`.
 
 4. If the lockfile contains the package identity but the reference is missing, run
-   `npx packref install`. This command restores all locked references without changing the lockfile
+   `npx -y packref install`. This command restores all locked references without changing the lockfile
    or installing runtime dependencies.
-5. If the lockfile does not contain the package identity, run `npx packref add <package-spec>` only
+5. If the lockfile does not contain the package identity, run `npx -y packref add <package-spec>` only
    when the task includes obtaining that source. For a registry package, add `@<version>` when the
    task requires an exact version; otherwise, Packref can follow the project's resolved manifest
    dependency. For a repository source, use a repository spec such as `adelrodriguez/packref` with an
@@ -43,32 +43,32 @@ subdirectory. Treat `source.directory` as repository provenance. Do not append i
 
 ## Command boundaries
 
-- `npx packref init` initializes a project. Run it only with user authorization. It can update
+- `npx -y packref init` initializes a project. Run it only with user authorization. It can update
   `.gitignore`, `tsconfig.json`, `AGENTS.md`, the Packref lockfile, and Packref's global project
   registration. Without flags it prompts interactively; agents should run
-  `npx packref init --non-interactive`, adding `--ignore` to update `.gitignore` and the TypeScript
+  `npx -y packref init --non-interactive`, adding `--ignore` to update `.gitignore` and the TypeScript
   exclude list and `--agents` to write the `AGENTS.md` guidance section. `--ignore` and `--agents`
   fail without `--non-interactive`.
-- `npx packref add [package-spec]` resolves and materializes a missing reference. The spec is a
+- `npx -y packref add [package-spec]` resolves and materializes a missing reference. The spec is a
   registry package with an optional exact version (`hono`, `hono@4.2.0`) or a direct repository
   spec (`adelrodriguez/packref`, `owner/repository[/directory][@ref]`, `github:`/`gitlab:`/`bitbucket:`/
   `sourcehut:` shorthand, or a Git URL). Without a package spec, it opens an interactive dependency
   selector.
-- `npx packref install` materializes every reference recorded in the committed Packref lockfile.
-- `npx packref sync` reconciles dependency-tracked references after changes to the manifest or
+- `npx -y packref install` materializes every reference recorded in the committed Packref lockfile.
+- `npx -y packref sync` reconciles dependency-tracked references after changes to the manifest or
   package-manager lockfile. It can update or remove references.
-- `npx packref remove [package-spec]` removes references. Run it only when the user requests
+- `npx -y packref remove [package-spec]` removes references. Run it only when the user requests
   removal.
-- `npx packref prune`, `npx packref clean`, and `npx packref clean --global` remove stored data.
+- `npx -y packref prune`, `npx -y packref clean`, and `npx -y packref clean --global` remove stored data.
   Run them only when the user explicitly requests the applicable scope.
 
 ## Examples
 
 - For `@effect/platform@0.90.0`, match its lockfile entry, then inspect
   `.packref/packages/npm/@effect/platform/0.90.0/`.
-- If `npm:react@19.1.0` is locked but its reference is missing, run `npx packref install`, then
+- If `npm:react@19.1.0` is locked but its reference is missing, run `npx -y packref install`, then
   inspect `.packref/packages/npm/react/19.1.0/`.
-- If `hono` is not in the lockfile, run `npx packref add hono` only when the task includes obtaining
+- If `hono` is not in the lockfile, run `npx -y packref add hono` only when the task includes obtaining
   its source. Read the resulting package identity and source metadata from the updated lockfile.
 - If both `npm:hono@4.2.0` and `npm:hono@4.3.0` are locked, inspect the version required by the task.
   Inspect both only for a version comparison.
