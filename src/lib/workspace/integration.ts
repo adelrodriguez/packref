@@ -6,6 +6,8 @@ import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
 import { applyEdits, modify, type ParseError, parse } from "jsonc-parser"
 
+import { getPackageVersion } from "#version.macro.ts" with { type: "macro" }
+
 const LEGACY_PACKREF_IGNORE_ENTRIES = new Set([".packref", ".packref/"])
 const PACKREF_PACKAGES_IGNORE_ENTRY = ".packref/packages/"
 const PACKREF_TEMP_LOCKFILE_IGNORE_ENTRY = ".packref/.packref-lock-*.tmp"
@@ -21,10 +23,12 @@ const AGENTS_NAME = "AGENTS.md"
 export const PACKREF_AGENTS_START_MARKER = "<!-- PACKREF:START -->"
 export const PACKREF_AGENTS_END_MARKER = "<!-- PACKREF:END -->"
 
+const packageVersion = await getPackageVersion()
+
 const PACKREF_AGENTS_BODY = `## Packref
 
-Use Packref when you need to inspect a dependency’s exact source implementation or compare referenced versions.
-Read the [Packref skill](https://github.com/adelrodriguez/packref/blob/main/skills/packref/SKILL.md) for source lookup and command instructions.`
+Use Packref when you need to inspect a dependency's exact source implementation or compare referenced versions; read the local \`packref\` skill, or install it with \`npx -y skills add https://github.com/adelrodriguez/packref/tree/v${packageVersion} --skill packref\`.
+Run \`remove\`, \`prune\`, \`clean\`, or \`clean --global\` only when the user requests that removal scope, because these commands delete state.`
 
 export const PACKREF_AGENTS_SECTION = [
   PACKREF_AGENTS_START_MARKER,

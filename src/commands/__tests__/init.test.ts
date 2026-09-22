@@ -15,6 +15,7 @@ import { spawn } from "@lydell/node-pty"
 import { parse } from "jsonc-parser"
 import { afterEach, describe, expect, it } from "vitest"
 import type { Lockfile } from "#lib/workspace/lockfile.ts"
+import packageJson from "../../../package.json" with { type: "json" }
 
 const temporaryPaths: string[] = []
 const cliPath = resolve(import.meta.dirname, "../../index.ts")
@@ -547,10 +548,14 @@ describe("init", () => {
       expect(agents).toContain(packrefAgentsStartMarker)
       expect(agents).toContain("## Packref")
       expect(agents).toContain(
-        "Use Packref when you need to inspect a dependency’s exact source implementation"
+        "Use Packref when you need to inspect a dependency's exact source implementation"
       )
       expect(agents).toContain(
-        "https://github.com/adelrodriguez/packref/blob/main/skills/packref/SKILL.md"
+        `npx -y skills add https://github.com/adelrodriguez/packref/tree/v${packageJson.version} --skill packref`
+      )
+      expect(agents).toContain("read the local `packref` skill")
+      expect(agents).toContain(
+        "Run `remove`, `prune`, `clean`, or `clean --global` only when the user requests that removal scope"
       )
       expect(agents).toContain(packrefAgentsEndMarker)
       expect(agents.endsWith("\n")).toBe(true)
@@ -587,7 +592,7 @@ describe("init", () => {
       expect(result.exitCode).toBe(0)
       expect(agents).toContain("# Existing Instructions")
       expect(agents).toContain("## Packref")
-      expect(agents).toContain("Read the [Packref skill]")
+      expect(agents).toContain("read the local `packref` skill")
       expect(agents).not.toContain("old content")
       expect(countOccurrences(agents, packrefAgentsStartMarker)).toBe(1)
       expect(countOccurrences(agents, packrefAgentsEndMarker)).toBe(1)
