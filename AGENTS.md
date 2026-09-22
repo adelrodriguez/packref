@@ -34,7 +34,7 @@ Use Changesets for versioning and changelog management. See `docs/agents/changes
 
 ## Packref
 
-Use Packref when you need to inspect a dependency's exact source implementation or compare referenced versions; read the local `packref` skill, or install it with `npx -y skills add https://github.com/adelrodriguez/packref/tree/v0.3.2 --skill packref`.
+Use Packref when you need to inspect a dependency's exact source implementation or compare referenced versions; read the local `packref` skill, or install it with `npx -y skills add https://github.com/adelrodriguez/packref/tree/v0.3.2 --skill packref --yes`.
 Run `remove`, `prune`, `clean`, or `clean --global` only when the user requests that removal scope, because these commands delete state.
 
 <!-- PACKREF:END -->

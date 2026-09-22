@@ -27,7 +27,7 @@ const packageVersion = await getPackageVersion()
 
 const PACKREF_AGENTS_BODY = `## Packref
 
-Use Packref when you need to inspect a dependency's exact source implementation or compare referenced versions; read the local \`packref\` skill, or install it with \`npx -y skills add https://github.com/adelrodriguez/packref/tree/v${packageVersion} --skill packref\`.
+Use Packref when you need to inspect a dependency's exact source implementation or compare referenced versions; read the local \`packref\` skill, or install it with \`npx -y skills add https://github.com/adelrodriguez/packref/tree/v${packageVersion} --skill packref --yes\`.
 Run \`remove\`, \`prune\`, \`clean\`, or \`clean --global\` only when the user requests that removal scope, because these commands delete state.`
 
 export const PACKREF_AGENTS_SECTION = [

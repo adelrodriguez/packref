@@ -551,7 +551,7 @@ describe("init", () => {
         "Use Packref when you need to inspect a dependency's exact source implementation"
       )
       expect(agents).toContain(
-        `npx -y skills add https://github.com/adelrodriguez/packref/tree/v${packageJson.version} --skill packref`
+        `npx -y skills add https://github.com/adelrodriguez/packref/tree/v${packageJson.version} --skill packref --yes`
       )
       expect(agents).toContain("read the local `packref` skill")
       expect(agents).toContain(
