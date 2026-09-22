@@ -34,26 +34,8 @@ Use Changesets for versioning and changelog management. See `docs/agents/changes
 
 ## Packref
 
-Packref provides local copies of dependency source code so you can inspect the exact implementation used by this project.
-
-- Source references are stored in `.packref/packages/<registry>/<package>/<version>/` for unscoped packages and `.packref/packages/<registry>/<scope>/<package>/<version>/` for scoped packages — browse these directories to read dependency internals
-- `.packref/packref-lock.json` is shared and should be committed; `.packref/packages/` is developer-local and git-ignored
-- Run `npx -y packref install` after cloning when locked references are missing; install restores locked references exactly and does not install runtime dependencies
-- Run every command with `npx -y packref <command>`; `-y` skips the npx install confirmation prompt, so the command does not wait for input
-- Available commands:
-  - `npx -y packref add [package]` — select manifest dependencies, fetch a registry package, or fetch a direct repository source (e.g. `npx -y packref add react`, `npx -y packref add hono@4.2.0`, `npx -y packref add adelrodriguez/packref`)
-    - Direct repository package specs support GitHub shorthand (`owner/repository[/directory][@ref]`), provider shorthand (`github:`, `gitlab:`, `bitbucket:`, or `sourcehut:`), standard Git URLs, and SCP-style SSH URLs
-    - A repository ref can be a tag, branch, or full 40-character commit SHA; without a ref, Packref pins the default branch commit
-  - `npx -y packref remove [package]` — select or name package references to remove
-  - `npx -y packref install` — materialize every reference already recorded in the committed lockfile
-  - `npx -y packref sync` — update or remove dependency-tracked lock entries to match current `package.json` dependency versions
-  - `npx -y packref list` — show all referenced packages
-  - `npx -y packref prune` — remove unused entries from the global store
-  - `npx -y packref clean` — remove all project-local references
-  - `npx -y packref clean --global` — wipe all global store entries
-- `remove`, `prune`, and `clean` delete state — run them only when the user requests that removal
-- Use Packref when you need to understand how a dependency works internally — read the source in `.packref/` instead of guessing or searching the web
-- Multiple versions of the same package can coexist; check `.packref/packref-lock.json` for the full list
+Use Packref when you need to inspect a dependency’s exact source implementation or compare referenced versions.
+Read the [Packref skill](https://github.com/adelrodriguez/packref/blob/main/skills/packref/SKILL.md) for source lookup and command instructions.
 
 <!-- PACKREF:END -->
 

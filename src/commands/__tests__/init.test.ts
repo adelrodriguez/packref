@@ -547,16 +547,11 @@ describe("init", () => {
       expect(agents).toContain(packrefAgentsStartMarker)
       expect(agents).toContain("## Packref")
       expect(agents).toContain(
-        ".packref/packages/<registry>/<package>/<version>/` for unscoped packages"
+        "Use Packref when you need to inspect a dependency’s exact source implementation"
       )
       expect(agents).toContain(
-        ".packref/packages/<registry>/<scope>/<package>/<version>/` for scoped packages"
+        "https://github.com/adelrodriguez/packref/blob/main/skills/packref/SKILL.md"
       )
-      expect(agents).toContain("packref add [package]")
-      expect(agents).toContain("packref remove [package]")
-      expect(agents).toContain(".packref/packref-lock.json` is shared and should be committed")
-      expect(agents).toContain("packref install")
-      expect(agents).toContain("install restores locked references exactly")
       expect(agents).toContain(packrefAgentsEndMarker)
       expect(agents.endsWith("\n")).toBe(true)
     })
@@ -592,7 +587,7 @@ describe("init", () => {
       expect(result.exitCode).toBe(0)
       expect(agents).toContain("# Existing Instructions")
       expect(agents).toContain("## Packref")
-      expect(agents).toContain("packref sync")
+      expect(agents).toContain("Read the [Packref skill]")
       expect(agents).not.toContain("old content")
       expect(countOccurrences(agents, packrefAgentsStartMarker)).toBe(1)
       expect(countOccurrences(agents, packrefAgentsEndMarker)).toBe(1)

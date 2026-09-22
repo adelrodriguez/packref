@@ -9,6 +9,12 @@ Use Packref to inspect the exact dependency source that a project references. Do
 documentation, another installed version, or an arbitrary repository revision. Packref materializes
 package source references for inspection. It does not install runtime dependencies.
 
+## Project state
+
+Commit `.packref/packref-lock.json` so other users can restore the same package source references.
+Keep `.packref/packages/` ignored by Git. This project source directory is local to each developer.
+Multiple versions can coexist; the Packref lockfile records the full set of package identities.
+
 ## Inspect a package
 
 1. Find `.packref/packref-lock.json`. If it exists, run `npx -y packref list` to review the current
@@ -30,8 +36,8 @@ package source references for inspection. It does not install runtime dependenci
    when the task includes obtaining that source. For a registry package, add `@<version>` when the
    task requires an exact version; otherwise, Packref can follow the project's resolved manifest
    dependency. For a repository source, use a repository spec such as `adelrodriguez/packref` with an
-   optional `@ref` (tag, branch, or commit SHA); without a ref, Packref pins the default branch
-   commit. Read the updated lockfile before inspection.
+   optional `@ref` (tag, branch, or full 40-character commit SHA). Without a ref, Packref pins the
+   default branch commit. Read the updated lockfile before inspection.
 6. Search the package source reference with local tools such as `rg` and `rg --files`. Start at the
    named public API or package exports. Follow imports until you reach the implementation that
    answers the question.
@@ -43,6 +49,8 @@ subdirectory. Treat `source.directory` as repository provenance. Do not append i
 
 ## Command boundaries
 
+Use `npx -y packref <command>` to skip the npx install confirmation prompt.
+
 - `npx -y packref init` initializes a project. Run it only with user authorization. It can update
   `.gitignore`, `tsconfig.json`, `AGENTS.md`, the Packref lockfile, and Packref's global project
   registration. Without flags it prompts interactively; agents should run
@@ -52,15 +60,18 @@ subdirectory. Treat `source.directory` as repository provenance. Do not append i
 - `npx -y packref add [package-spec]` resolves and materializes a missing reference. The spec is a
   registry package with an optional exact version (`hono`, `hono@4.2.0`) or a direct repository
   spec (`adelrodriguez/packref`, `owner/repository[/directory][@ref]`, `github:`/`gitlab:`/`bitbucket:`/
-  `sourcehut:` shorthand, or a Git URL). Without a package spec, it opens an interactive dependency
-  selector.
+  `sourcehut:` shorthand, a standard Git URL, or an SCP-style SSH URL). Without a package spec,
+  it opens an interactive dependency selector.
+- `npx -y packref list` shows all package source references recorded in the Packref lockfile.
 - `npx -y packref install` materializes every reference recorded in the committed Packref lockfile.
 - `npx -y packref sync` reconciles dependency-tracked references after changes to the manifest or
   package-manager lockfile. It can update or remove references.
 - `npx -y packref remove [package-spec]` removes references. Run it only when the user requests
   removal.
-- `npx -y packref prune`, `npx -y packref clean`, and `npx -y packref clean --global` remove stored data.
-  Run them only when the user explicitly requests the applicable scope.
+- `npx -y packref prune` removes unused source snapshots from the global store.
+- `npx -y packref clean` removes all project-local package source references.
+- `npx -y packref clean --global` removes all source snapshots from the global store.
+  Run `prune` and either form of `clean` only when the user explicitly requests that removal scope.
 
 ## Examples
 
