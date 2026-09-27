@@ -15,6 +15,7 @@ import { spawn } from "@lydell/node-pty"
 import { parse } from "jsonc-parser"
 import { afterEach, describe, expect, it } from "vitest"
 import type { Lockfile } from "#lib/workspace/lockfile.ts"
+import packageJson from "../../../package.json" with { type: "json" }
 
 const temporaryPaths: string[] = []
 const cliPath = resolve(import.meta.dirname, "../../index.ts")
@@ -547,16 +548,15 @@ describe("init", () => {
       expect(agents).toContain(packrefAgentsStartMarker)
       expect(agents).toContain("## Packref")
       expect(agents).toContain(
-        ".packref/packages/<registry>/<package>/<version>/` for unscoped packages"
+        "Use Packref when you need to inspect a dependency's exact source implementation"
       )
       expect(agents).toContain(
-        ".packref/packages/<registry>/<scope>/<package>/<version>/` for scoped packages"
+        `npx -y skills add https://github.com/adelrodriguez/packref/tree/v${packageJson.version} --skill packref --yes`
       )
-      expect(agents).toContain("packref add [package]")
-      expect(agents).toContain("packref remove [package]")
-      expect(agents).toContain(".packref/packref-lock.json` is shared and should be committed")
-      expect(agents).toContain("packref install")
-      expect(agents).toContain("install restores locked references exactly")
+      expect(agents).toContain("read the local `packref` skill")
+      expect(agents).toContain(
+        "Run `remove`, `prune`, `clean`, or `clean --global` only when the user requests that removal scope"
+      )
       expect(agents).toContain(packrefAgentsEndMarker)
       expect(agents.endsWith("\n")).toBe(true)
     })
@@ -592,7 +592,7 @@ describe("init", () => {
       expect(result.exitCode).toBe(0)
       expect(agents).toContain("# Existing Instructions")
       expect(agents).toContain("## Packref")
-      expect(agents).toContain("packref sync")
+      expect(agents).toContain("read the local `packref` skill")
       expect(agents).not.toContain("old content")
       expect(countOccurrences(agents, packrefAgentsStartMarker)).toBe(1)
       expect(countOccurrences(agents, packrefAgentsEndMarker)).toBe(1)
