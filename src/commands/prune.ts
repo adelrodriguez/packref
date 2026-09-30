@@ -1,5 +1,5 @@
+import * as Command from "effect/cli/Command"
 import * as Effect from "effect/Effect"
-import * as Command from "effect/unstable/cli/Command"
 import { formatPackageIdentity } from "#lib/core/packages.ts"
 import { applyPrunePlan, discoverPrunePlan } from "#lib/references/prune.ts"
 import { Prompter } from "#terminal/prompter.ts"

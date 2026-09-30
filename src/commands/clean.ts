@@ -1,6 +1,6 @@
+import * as Command from "effect/cli/Command"
+import * as Flag from "effect/cli/Flag"
 import * as Effect from "effect/Effect"
-import * as Command from "effect/unstable/cli/Command"
-import * as Flag from "effect/unstable/cli/Flag"
 import { applyProjectCleanPlan, discoverProjectCleanPlan } from "#lib/references/clean.ts"
 import { cleanStore } from "#lib/store/index.ts"
 import { Prompter } from "#terminal/prompter.ts"

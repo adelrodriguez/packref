@@ -1,5 +1,5 @@
+import * as Command from "effect/cli/Command"
 import * as Effect from "effect/Effect"
-import * as Command from "effect/unstable/cli/Command"
 import color from "picocolors"
 import { formatPackageIdentity } from "#lib/core/packages.ts"
 import { listPackageEntries, readProjectLockfile } from "#lib/workspace/lockfile.ts"

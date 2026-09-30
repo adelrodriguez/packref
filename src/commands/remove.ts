@@ -1,8 +1,8 @@
 import * as Array from "effect/Array"
+import * as Argument from "effect/cli/Argument"
+import * as Command from "effect/cli/Command"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
-import * as Argument from "effect/unstable/cli/Argument"
-import * as Command from "effect/unstable/cli/Command"
 import type { PackageEntry } from "#lib/workspace/lockfile.ts"
 import { formatPackageIdentity, parsePackageSpec } from "#lib/core/packages.ts"
 import {

@@ -1,9 +1,9 @@
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
+import * as HttpClient from "effect/http/HttpClient"
+import * as HttpClientResponse from "effect/http/HttpClientResponse"
 import * as Layer from "effect/Layer"
 import * as Schedule from "effect/Schedule"
-import * as HttpClient from "effect/unstable/http/HttpClient"
-import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse"
 import { NetworkError, PackageNotFoundError } from "#lib/core/errors.ts"
 import { NpmPackageMetadataSchema, type NpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
 
