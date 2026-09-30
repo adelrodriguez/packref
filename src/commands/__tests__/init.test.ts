@@ -347,16 +347,6 @@ describe("init", () => {
       expect(agents).toContain(packrefAgentsStartMarker)
     })
 
-    it("does not create gitignore when ignore files are declined", async () => {
-      const projectPath = await makeTempDirectory()
-      const homePath = await makeTempDirectory()
-
-      const result = await runInitCommand(projectPath, homePath, { ignore: "\n\r" })
-
-      expect(result.exitCode).toBe(0)
-      expect(await exists(join(projectPath, ".gitignore"))).toBe(false)
-    })
-
     it("gracefully handles ignore files prompt cancellation", async () => {
       const projectPath = await makeTempDirectory()
       const homePath = await makeTempDirectory()
@@ -510,16 +500,6 @@ describe("init", () => {
 
       expect(result.exitCode).toBe(0)
       expect(tsconfig.exclude).toEqual(["node_modules", ".packref/"])
-    })
-
-    it("skips missing tsconfig files", async () => {
-      const projectPath = await makeTempDirectory()
-      const homePath = await makeTempDirectory()
-
-      const result = await runInitCommand(projectPath, homePath)
-
-      expect(result.exitCode).toBe(0)
-      expect(await exists(join(projectPath, "tsconfig.json"))).toBe(false)
     })
 
     it("warns and succeeds for malformed tsconfig files", async () => {

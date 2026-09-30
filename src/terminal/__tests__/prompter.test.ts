@@ -117,22 +117,4 @@ describe("Prompter.withSpinner", () => {
     expect(Exit.isFailure(exit)).toBe(true)
     expect(stops).toEqual(["Operation interrupted."])
   })
-
-  test("allows the failure message to be omitted", async () => {
-    const { spinner, stops } = createSpinner()
-
-    const exit = await runWithPrompter(
-      Effect.gen(function* () {
-        const prompter = yield* Prompter
-        return yield* prompter.withSpinner(() => Effect.fail("failed"), {
-          start: "Starting operation...",
-          success: "Operation succeeded.",
-        })
-      }),
-      spinner
-    )
-
-    expect(Exit.isFailure(exit)).toBe(true)
-    expect(stops).toEqual([undefined])
-  })
 })

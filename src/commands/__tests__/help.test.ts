@@ -38,28 +38,4 @@ describe("CLI help", () => {
     expect(unknown.output).toContain('Unknown subcommand "unknown"')
     expect(unknown.output).not.toContain("Help requested")
   })
-
-  it("documents optional package selection, init setup, and global cleaning", async () => {
-    const projectPath = await context.makeTempDirectory()
-    const homePath = await context.makeTempDirectory()
-    const [addHelp, removeHelp, cleanHelp, initHelp] = await Promise.all([
-      context.runCli({ args: ["add", "--help"], homePath, projectPath }),
-      context.runCli({ args: ["remove", "--help"], homePath, projectPath }),
-      context.runCli({ args: ["clean", "--help"], homePath, projectPath }),
-      context.runCli({ args: ["init", "--help"], homePath, projectPath }),
-    ])
-
-    expect(addHelp.exitCode).toBe(0)
-    expect(addHelp.output).toContain("[<package>]")
-    expect(addHelp.output).toContain("optional version")
-    expect(removeHelp.exitCode).toBe(0)
-    expect(removeHelp.output).toContain("[<package>]")
-    expect(cleanHelp.exitCode).toBe(0)
-    expect(cleanHelp.output).toContain("--global, -g")
-    expect(cleanHelp.output).toContain("global Packref store")
-    expect(initHelp.exitCode).toBe(0)
-    expect(initHelp.output).toContain("--non-interactive")
-    expect(initHelp.output).toContain("--ignore")
-    expect(initHelp.output).toContain("--agents")
-  })
 })

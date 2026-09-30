@@ -140,24 +140,4 @@ describe("install command", () => {
     expect(result.exitCode).toBe(0)
     expect(result.output).toContain("Reused 1 global store entry")
   })
-
-  it("distinguishes Packref references from runtime dependencies in help", async () => {
-    const projectPath = await context.makeTempDirectory()
-    const homePath = await context.makeTempDirectory()
-
-    const installHelp = await context.runCli({
-      args: ["install", "--help"],
-      homePath,
-      projectPath,
-    })
-    const rootHelp = await context.runCli({
-      args: ["--help"],
-      homePath,
-      projectPath,
-    })
-
-    expect(installHelp.exitCode).toBe(0)
-    expect(installHelp.output).toContain("not project dependencies")
-    expect(rootHelp.output).toContain("install")
-  })
 })

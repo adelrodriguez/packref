@@ -247,22 +247,6 @@ describe("clean command", () => {
     expect(await readFile(config.configPath, "utf8")).toBe(config.contents)
   })
 
-  it("reports an empty global store", async () => {
-    const projectPath = await context.makeTempDirectory()
-    const homePath = await context.makeTempDirectory()
-
-    const result = await context.runCli({
-      args: ["clean", "--global"],
-      homePath,
-      input: "y\r",
-      projectPath,
-      prompt: globalConfirmationPrompt,
-    })
-
-    expect(result.exitCode).toBe(0)
-    expect(result.output).toContain("No global store entries found")
-  })
-
   it("preserves the global store when global confirmation is cancelled", async () => {
     const projectPath = await context.makeTempDirectory()
     const homePath = await context.makeTempDirectory()

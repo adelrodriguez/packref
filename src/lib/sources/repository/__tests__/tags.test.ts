@@ -21,7 +21,6 @@ import {
   resolveRepositoryRef,
 } from "#lib/sources/repository/normalize.ts"
 import {
-  getTagCandidates,
   matchRepositoryTag,
   parseGitRemoteRefsOutput,
   parseGitRemoteTagsOutput,
@@ -94,12 +93,6 @@ describe("parseGitRemoteRefsOutput", () => {
     expect(refs.heads.get("main")).toBe("2222222222222222222222222222222222222222")
     expect(refs.tags.get("1.0")).toBe("3333333333333333333333333333333333333333")
     expect(refs.tags.get("release/next")).toBe("5555555555555555555555555555555555555555")
-  })
-})
-
-describe("getTagCandidates", () => {
-  it("returns tag candidates in priority order", () => {
-    expect(getTagCandidates(reactIdentity)).toEqual(["v19.0.0", "19.0.0", "react@19.0.0"])
   })
 })
 

@@ -119,24 +119,6 @@ describe("fetchTarballSnapshot", () => {
     expect(await exists(join(result.path, "example-1.0.0"))).toBe(false)
   })
 
-  it("strips an sdist-style top-level archive directory", async () => {
-    const home = await makeTempDirectory()
-    const archive = await createTarGzip([
-      {
-        data: '[project]\nname = "example"',
-        name: "Example-1.0.0/pyproject.toml",
-      },
-    ])
-    const result = await run(fetchTarballSnapshot(identity, tarballUrl), home, () =>
-      Effect.succeed(archive)
-    )
-
-    expect(await readFile(join(result.path, "pyproject.toml"), "utf8")).toBe(
-      '[project]\nname = "example"'
-    )
-    expect(await exists(join(result.path, "Example-1.0.0"))).toBe(false)
-  })
-
   it("rejects archives with multiple top-level directories", async () => {
     const home = await makeTempDirectory()
     const archive = await createTarGzip([

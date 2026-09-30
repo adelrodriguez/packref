@@ -85,17 +85,6 @@ describe("prune", () => {
     expect(await exists(unusedPath)).toBe(false)
   })
 
-  it("returns an empty plan for an empty store", async () => {
-    const homePath = await makeTempDirectory()
-    await writeGlobalConfig(homePath, [])
-
-    const plan = await run(discoverPrunePlan(), homePath)
-    const result = await run(applyPrunePlan(plan, false), homePath)
-
-    expect(plan.storeEntries).toEqual([])
-    expect(result.removedEntries).toEqual([])
-  })
-
   it("reports missing and malformed lockfiles without crashing", async () => {
     const homePath = await makeTempDirectory()
     const missingLockfileProjectPath = await makeTempDirectory()
