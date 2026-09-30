@@ -115,6 +115,9 @@ importers:
       '@effect/platform-node':
         specifier: 4.0.0-rc.118
         version: 4.0.0-rc.118(effect@4.0.0-rc.118)(redis@6.2.1)
+      '@effect/platform-node-shared':
+        specifier: 4.0.0-rc.118
+        version: 4.0.0-rc.118
       effect:
         specifier: 4.0.0-rc.118
         version: 4.0.0-rc.118
