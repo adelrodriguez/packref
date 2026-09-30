@@ -1,10 +1,10 @@
+import * as Command from "effect/cli/Command"
+import * as Flag from "effect/cli/Flag"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Match from "effect/Match"
 import * as Path from "effect/Path"
-import * as Command from "effect/unstable/cli/Command"
-import * as Flag from "effect/unstable/cli/Flag"
 import { RequestedIntegrationError } from "#lib/core/errors.ts"
 import { registerProject } from "#lib/workspace/config.ts"
 import {

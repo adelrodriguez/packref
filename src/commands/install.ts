@@ -1,5 +1,5 @@
+import * as Command from "effect/cli/Command"
 import * as Effect from "effect/Effect"
-import * as Command from "effect/unstable/cli/Command"
 import {
   installPackageReferences,
   type InstallPackageReferencesResult,
