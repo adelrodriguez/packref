@@ -136,9 +136,13 @@ describe("fetchTarballSnapshot", () => {
       Effect.succeed(archive)
     )
 
+    await expect(extraction).rejects.toBeInstanceOf(TarballFetchError)
     await expect(extraction).rejects.toMatchObject({
       cause: "Package archive must contain exactly one top-level directory",
+      url: tarballUrl,
     })
+    const packageParent = join(home, ".agents", "packref", "store", "packages", "npm", "example")
+    expect(await readdir(packageParent)).toEqual([])
   })
 
   it("reuses an existing tarball store entry", async () => {

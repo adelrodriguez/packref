@@ -132,7 +132,9 @@ describe("init", () => {
 
       expect(result.exitCode).toBe(0)
       expect(result.stdout).not.toContain("Ignore generated Packref references")
-      expect(await readText(join(projectPath, ".gitignore"))).toContain(".packref/packages/")
+      expect(await readText(join(projectPath, ".gitignore"))).toBe(
+        ".packref/packages/\n.packref/.packref-lock-*.tmp\n"
+      )
       expect(await readText(join(projectPath, "AGENTS.md"))).toContain(packrefAgentsStartMarker)
       expect(await readJson<{ exclude: string[] }>(join(projectPath, "tsconfig.json"))).toEqual({
         exclude: [".packref"],
@@ -684,6 +686,7 @@ describe("init", () => {
       expect(result.exitCode).toBe(1)
       expect(result.stdout).toContain("Failed to parse Packref lockfile")
       expect(result.stdout).toContain("Failed to create the packref-lock.json")
+      expect(await readText(join(projectPath, ".packref", "packref-lock.json"))).toBe("{")
     })
   })
 
@@ -701,6 +704,7 @@ describe("init", () => {
       expect(result.exitCode).toBe(1)
       expect(result.stdout).toContain("Failed to parse Packref config")
       expect(result.stdout).toContain("Failed to register project in global store")
+      expect(await readText(join(globalPath, "config.json"))).toBe("{")
     })
   })
 })

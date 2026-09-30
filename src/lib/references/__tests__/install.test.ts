@@ -256,9 +256,13 @@ describe("installPackageReferences", () => {
       const controls = { repositoryDownloads: 0, repositoryRefs, tarballDownloads: 0 }
       await initializeProject(projectPath, [entry])
 
-      await runInstall(projectPath, home, controls)
+      const result = await runInstall(projectPath, home, controls)
 
       expect(repositoryRefs).toEqual([version])
+      expect(result.fetched).toEqual([entry])
+      expect(await readFile(join(getReferencePath(projectPath, entry), "README.md"), "utf8")).toBe(
+        "repository root"
+      )
     }
   )
 
@@ -305,7 +309,9 @@ describe("installPackageReferences", () => {
 
     expect(result.reused).toEqual([entry])
     expect(controls.tarballDownloads).toBe(0)
-    expect(await exists(getReferencePath(projectPath, entry))).toBe(true)
+    expect(await readFile(join(getReferencePath(projectPath, entry), "SOURCE.md"), "utf8")).toBe(
+      "example@1.0.0"
+    )
   })
 
   it("skips an existing project reference without inspecting or fetching the store", async () => {
@@ -339,7 +345,9 @@ describe("installPackageReferences", () => {
     expect(result.reused).toEqual(entries)
     await Promise.all(
       entries.map(async (entry) => {
-        expect(await exists(getReferencePath(projectPath, entry))).toBe(true)
+        expect(
+          await readFile(join(getReferencePath(projectPath, entry), "SOURCE.md"), "utf8")
+        ).toBe(`${entry.name}@${entry.version}`)
       })
     )
   })

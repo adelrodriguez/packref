@@ -10,7 +10,11 @@ import { createTarGzip } from "nanotar"
 import { afterEach, describe, expect, it } from "vitest"
 import type { NpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
 import type { Lockfile, PackageEntry } from "#lib/workspace/lockfile.ts"
-import { NotInitializedError, UnsupportedManifestError } from "#lib/core/errors.ts"
+import {
+  NotInitializedError,
+  TarballFetchError,
+  UnsupportedManifestError,
+} from "#lib/core/errors.ts"
 import { ProjectDependencyReader } from "#lib/manifests/index.ts"
 import { PackageManagerResolver } from "#lib/manifests/javascript.ts"
 import { preparePackageReferenceSync, syncPackageReferences } from "#lib/references/sync.ts"
@@ -385,14 +389,25 @@ describe("sync package references", () => {
     const projectPath = await makeTempDirectory()
     const homePath = await makeTempDirectory()
     const oldEntry = makeEntry("example", "1.0.0")
+    const metadataRequests: string[] = []
 
     await initializeProject(projectPath, { example: "^2.0.0" }, [oldEntry])
     const { result } = await runSync(projectPath, homePath, {
       metadata: { example: makeMetadata("example", ["1.0.0", "2.0.0"]) },
+      onMetadataRequest: (name) => {
+        metadataRequests.push(name)
+      },
     })
+    const lockfile = JSON.parse(
+      await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
+    )
 
+    expect(metadataRequests).toEqual(["example"])
     expect(result.updated[0]?.current.version).toBe("2.0.0")
     expect(result.updated[0]?.manifestRange).toBe("^2.0.0")
+    expect(lockfile.packages).toEqual([
+      expect.objectContaining({ name: "example", tracking: "dependency", version: "2.0.0" }),
+    ])
   })
 
   it("preserves registry fallback metadata when only stale references are removed", async () => {
@@ -427,20 +442,16 @@ describe("sync package references", () => {
 
     await initializeProject(projectPath, { example: "^2.0.0" }, [oldEntry])
 
-    let failed = false
-
-    try {
-      await runSync(projectPath, homePath, {
+    await expect(
+      runSync(projectPath, homePath, {
         exactVersions: { example: "2.0.0" },
         metadata: { example: makeMetadata("example", ["2.0.0"]) },
         tarballStatus: 500,
       })
-    } catch {
-      failed = true
-    }
+    ).rejects.toBeInstanceOf(TarballFetchError)
 
-    expect(failed).toBe(true)
     expect(await exists(oldReferencePath)).toBe(true)
+    expect(await exists(getReferencePath(projectPath, makeEntry("example", "2.0.0")))).toBe(false)
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )

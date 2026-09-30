@@ -485,12 +485,20 @@ importers:
     expect(dependencies[0]?.exactVersion).toBe("4.0.0-beta.55")
   })
 
-  it("reports no dependency for packages absent from the manifest", async () => {
+  it("reports no dependency for installed packages absent from the manifest", async () => {
     const projectPath = await makeTempDirectory()
-    await writeFile(join(projectPath, "package.json"), JSON.stringify({ dependencies: {} }))
+    await writeFile(
+      join(projectPath, "package.json"),
+      JSON.stringify({ dependencies: { effect: "^4.0.0-beta.50" } })
+    )
+    await mkdir(join(projectPath, "node_modules", "react"), { recursive: true })
+    await writeFile(
+      join(projectPath, "node_modules", "react", "package.json"),
+      JSON.stringify({ version: "19.0.0" })
+    )
 
     const dependencies = Option.getOrThrow(await run(readProjectDependencies(projectPath)))
 
-    expect(dependencies.find((dependency) => dependency.name === "react")).toBeUndefined()
+    expect(dependencies.map((dependency) => dependency.name)).toEqual(["effect"])
   })
 })

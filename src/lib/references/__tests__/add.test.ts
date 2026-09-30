@@ -252,7 +252,7 @@ describe("addPackageReference", () => {
       metadata: makeMetadata("example", ["1.0.0"]),
     }
 
-    await runAdd("github:owner/repo", projectPath, home, services)
+    const existing = await runAdd("github:owner/repo", projectPath, home, services)
     let failure: unknown
 
     try {
@@ -268,6 +268,10 @@ describe("addPackageReference", () => {
       "message",
       expect.stringContaining("Remove the existing package source reference")
     )
+    const lockfile = JSON.parse(
+      await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
+    )
+    expect(lockfile).toEqual({ packages: [existing.entry] })
   })
 
   it("reuses one snapshot for different directories in different projects", async () => {
@@ -671,6 +675,9 @@ describe("addPackageReference", () => {
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
     expect(lockfile).toEqual({ packages: [] })
+    expect(
+      await exists(join(home, ".agents", "packref", "store", "packages", "npm", "example", "1.0.0"))
+    ).toBe(false)
   })
 
   it("keeps a fetched store entry but not a lockfile entry when project materialization fails", async () => {
