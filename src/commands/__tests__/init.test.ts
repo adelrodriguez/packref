@@ -504,6 +504,16 @@ describe("init", () => {
       expect(tsconfig.exclude).toEqual(["node_modules", ".packref/"])
     })
 
+    it("skips missing tsconfig files", async () => {
+      const projectPath = await makeTempDirectory()
+      const homePath = await makeTempDirectory()
+
+      const result = await runInitCommand(projectPath, homePath)
+
+      expect(result.exitCode).toBe(0)
+      expect(await exists(join(projectPath, "tsconfig.json"))).toBe(false)
+    })
+
     it("warns and succeeds for malformed tsconfig files", async () => {
       const projectPath = await makeTempDirectory()
       const homePath = await makeTempDirectory()
