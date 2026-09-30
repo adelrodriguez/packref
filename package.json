@@ -49,6 +49,7 @@
   "dependencies": {
     "@clack/prompts": "1.7.0",
     "@effect/platform-node": "4.0.0-rc.116",
+    "@effect/platform-node-shared": "4.0.0-rc.116",
     "effect": "4.0.0-rc.116",
     "giget": "3.3.1",
     "jsonc-parser": "3.3.1",
