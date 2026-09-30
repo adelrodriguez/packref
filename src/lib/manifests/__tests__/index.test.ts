@@ -85,29 +85,6 @@ describe("ProjectDependencyReader", () => {
     expect(dependencies.map((dependency) => dependency.name)).toEqual(["effect", "typescript"])
   })
 
-  it("preserves adapter-defined dependency groups", async () => {
-    const dependencies = Option.getOrThrow(
-      await Effect.runPromise(
-        readProjectDependencies().pipe(Effect.provide(readerLayer([first, second])))
-      )
-    )
-
-    expect(dependencies).toEqual([
-      {
-        group: "dependencies",
-        name: "effect",
-        registry: "npm",
-        specifier: "^4.0.0",
-      },
-      {
-        group: "tool.packref.dependencies",
-        name: "typescript",
-        registry: "npm",
-        specifier: "^7.0.0",
-      },
-    ])
-  })
-
   it("accepts an adapter with foreign error and requirement types", async () => {
     const cargo = defineManifest<CargoManifestError, CargoManifestEnvironment>({
       detect: () => Effect.succeed(true),

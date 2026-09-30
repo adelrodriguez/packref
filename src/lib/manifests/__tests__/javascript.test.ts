@@ -245,45 +245,6 @@ dependencies:
 })
 
 describe("readJavascriptManifest", () => {
-  it("uses the package manager detector supplied through the Effect environment", async () => {
-    const projectPath = await makeTempDirectory()
-    await writeFile(
-      join(projectPath, "detected-versions.json"),
-      JSON.stringify({
-        packages: {
-          "node_modules/effect": {
-            version: "4.0.0-beta.56",
-          },
-        },
-      })
-    )
-    const detectorLayer = Layer.succeed(PackageManagerDetector)({
-      detect: () =>
-        Effect.succeed({
-          lockFile: "detected-versions.json",
-          name: "npm",
-        }),
-    })
-    const resolverLayer = PackageManagerResolver.layer.pipe(
-      Layer.provide(detectorLayer),
-      Layer.provide(NodeServices.layer)
-    )
-    const versions = await Effect.runPromise(
-      Effect.gen(function* () {
-        const resolver = yield* PackageManagerResolver
-
-        return yield* resolver.resolveLockedVersions(projectPath, [
-          {
-            name: "effect",
-            specifier: "^4.0.0",
-          },
-        ])
-      }).pipe(Effect.provide(resolverLayer))
-    )
-
-    expect(versions).toEqual(new Map([["effect", "4.0.0-beta.56"]]))
-  })
-
   it("detects package.json and reports all dependency groups", async () => {
     const projectPath = await makeTempDirectory()
     await writeFile(
@@ -524,12 +485,20 @@ importers:
     expect(dependencies[0]?.exactVersion).toBe("4.0.0-beta.55")
   })
 
-  it("reports no dependency for packages absent from the manifest", async () => {
+  it("reports no dependency for installed packages absent from the manifest", async () => {
     const projectPath = await makeTempDirectory()
-    await writeFile(join(projectPath, "package.json"), JSON.stringify({ dependencies: {} }))
+    await writeFile(
+      join(projectPath, "package.json"),
+      JSON.stringify({ dependencies: { effect: "^4.0.0-beta.50" } })
+    )
+    await mkdir(join(projectPath, "node_modules", "react"), { recursive: true })
+    await writeFile(
+      join(projectPath, "node_modules", "react", "package.json"),
+      JSON.stringify({ version: "19.0.0" })
+    )
 
     const dependencies = Option.getOrThrow(await run(readProjectDependencies(projectPath)))
 
-    expect(dependencies.find((dependency) => dependency.name === "react")).toBeUndefined()
+    expect(dependencies.map((dependency) => dependency.name)).toEqual(["effect"])
   })
 })

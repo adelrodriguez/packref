@@ -2,7 +2,6 @@ import type * as Types from "effect/Types"
 import * as Effect from "effect/Effect"
 import * as Equivalence from "effect/Equivalence"
 import * as Order from "effect/Order"
-import * as Path from "effect/Path"
 import {
   InvalidPackageIdentity,
   UnsupportedRegistryError,
@@ -368,15 +367,6 @@ export const getPackageIdentitySegments = Effect.fn("getPackageIdentitySegments"
   yield* validatePathSegment("name", name)
 
   return [PACKAGE_DIRECTORY_NAME, registry, name, version]
-})
-
-export const getPackageIdentityPath = Effect.fn("getPackageIdentityPath")(function* (
-  identity: PackageIdentity
-) {
-  const path = yield* Path.Path
-  const segments = yield* getPackageIdentitySegments(identity)
-
-  return path.join(...segments)
 })
 
 export const parsePackageSpec = Effect.fn("parsePackageSpec")(function* (input: string) {

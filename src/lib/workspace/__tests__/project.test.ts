@@ -115,11 +115,15 @@ describe("project references", () => {
 
   it("rejects repository directories that escape the stored snapshot", async () => {
     const projectPath = await makeTempDirectory()
-    const storePath = await makeTempDirectory()
+    const storeParentPath = await makeTempDirectory()
+    const storePath = join(storeParentPath, "snapshot")
+    await mkdir(storePath)
+    await mkdir(join(storeParentPath, "outside"))
+    await writeFile(join(storeParentPath, "outside", "secret.txt"), "outside the snapshot")
     await run(ensureDirectory(projectPath))
 
-    try {
-      await run(
+    const failure = await run(
+      Effect.flip(
         createProjectReference(
           projectPath,
           {
@@ -136,10 +140,12 @@ describe("project references", () => {
           }
         )
       )
-      throw new Error("Expected project reference creation to fail.")
-    } catch (error) {
-      expect(error).toBeInstanceOf(ReflinkError)
-    }
+    )
+
+    expect(failure).toBeInstanceOf(ReflinkError)
+    expect(await exists(join(projectPath, ".packref", "packages", "npm", "example", "1.0.0"))).toBe(
+      false
+    )
   })
 
   it("cleans partial copies before retrying project materialization", async () => {
@@ -207,7 +213,10 @@ describe("workspace integration", () => {
 
     const failure = await run(Effect.flip(ensureGitignoreEntry(projectPath)))
 
-    expect(failure).toMatchObject({ _tag: "PlatformError" })
+    expect(failure).toMatchObject({
+      _tag: "PlatformError",
+      reason: { _tag: "BadResource", method: "readFile" },
+    })
   })
 })
 

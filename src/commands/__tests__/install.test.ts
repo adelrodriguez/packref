@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises"
+import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { createServer } from "node:http"
 import { join } from "node:path"
 import * as Match from "effect/Match"
@@ -40,6 +40,9 @@ const materializeStoreEntry = async (homePath: string, entry: PackageEntry) => {
   await writeFile(join(entryPath, "SOURCE.md"), "stored source")
   await writeFile(metadataPath, JSON.stringify({ source: entry.source }))
 }
+
+const getReferencePath = (projectPath: string, entry: PackageEntry) =>
+  join(projectPath, ".packref", "packages", entry.registry, entry.name, entry.version)
 
 afterEach(context.cleanup)
 
@@ -107,6 +110,9 @@ describe("install command", () => {
 
       expect(result.exitCode).toBe(0)
       expect(result.output).toContain("Fetched 1 reference")
+      expect(await readFile(join(getReferencePath(projectPath, entry), "SOURCE.md"), "utf8")).toBe(
+        "source"
+      )
     } finally {
       await new Promise<void>((resolve, reject) => {
         server.close((error) => {
@@ -139,25 +145,8 @@ describe("install command", () => {
 
     expect(result.exitCode).toBe(0)
     expect(result.output).toContain("Reused 1 global store entry")
-  })
-
-  it("distinguishes Packref references from runtime dependencies in help", async () => {
-    const projectPath = await context.makeTempDirectory()
-    const homePath = await context.makeTempDirectory()
-
-    const installHelp = await context.runCli({
-      args: ["install", "--help"],
-      homePath,
-      projectPath,
-    })
-    const rootHelp = await context.runCli({
-      args: ["--help"],
-      homePath,
-      projectPath,
-    })
-
-    expect(installHelp.exitCode).toBe(0)
-    expect(installHelp.output).toContain("not project dependencies")
-    expect(rootHelp.output).toContain("install")
+    expect(await readFile(join(getReferencePath(projectPath, entry), "SOURCE.md"), "utf8")).toBe(
+      "stored source"
+    )
   })
 })

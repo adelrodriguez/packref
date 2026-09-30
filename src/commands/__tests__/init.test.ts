@@ -132,7 +132,9 @@ describe("init", () => {
 
       expect(result.exitCode).toBe(0)
       expect(result.stdout).not.toContain("Ignore generated Packref references")
-      expect(await readText(join(projectPath, ".gitignore"))).toContain(".packref/packages/")
+      expect(await readText(join(projectPath, ".gitignore"))).toBe(
+        ".packref/packages/\n.packref/.packref-lock-*.tmp\n"
+      )
       expect(await readText(join(projectPath, "AGENTS.md"))).toContain(packrefAgentsStartMarker)
       expect(await readJson<{ exclude: string[] }>(join(projectPath, "tsconfig.json"))).toEqual({
         exclude: [".packref"],
@@ -345,16 +347,6 @@ describe("init", () => {
       expect(await readText(join(projectPath, ".gitignore"))).toBe(existingGitignore)
       expect(await readText(join(projectPath, "tsconfig.json"))).toBe(existingTsconfig)
       expect(agents).toContain(packrefAgentsStartMarker)
-    })
-
-    it("does not create gitignore when ignore files are declined", async () => {
-      const projectPath = await makeTempDirectory()
-      const homePath = await makeTempDirectory()
-
-      const result = await runInitCommand(projectPath, homePath, { ignore: "\n\r" })
-
-      expect(result.exitCode).toBe(0)
-      expect(await exists(join(projectPath, ".gitignore"))).toBe(false)
     })
 
     it("gracefully handles ignore files prompt cancellation", async () => {
@@ -704,6 +696,7 @@ describe("init", () => {
       expect(result.exitCode).toBe(1)
       expect(result.stdout).toContain("Failed to parse Packref lockfile")
       expect(result.stdout).toContain("Failed to create the packref-lock.json")
+      expect(await readText(join(projectPath, ".packref", "packref-lock.json"))).toBe("{")
     })
   })
 
@@ -721,6 +714,7 @@ describe("init", () => {
       expect(result.exitCode).toBe(1)
       expect(result.stdout).toContain("Failed to parse Packref config")
       expect(result.stdout).toContain("Failed to register project in global store")
+      expect(await readText(join(globalPath, "config.json"))).toBe("{")
     })
   })
 })

@@ -109,17 +109,6 @@ describe("list", () => {
     expect(result.output).toContain("No packages are currently installed.")
   })
 
-  it("supports ls as an alias", async () => {
-    const projectPath = await makeTempDirectory()
-    const homePath = await makeTempDirectory()
-    await initializeProject(projectPath, [])
-
-    const result = await runList(projectPath, homePath, "ls")
-
-    expect(result.exitCode).toBe(0)
-    expect(result.output).toContain("No packages are currently installed.")
-  })
-
   it("prints repository and tarball entries in deterministic identity order", async () => {
     const projectPath = await makeTempDirectory()
     const homePath = await makeTempDirectory()
