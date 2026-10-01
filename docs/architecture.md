@@ -26,7 +26,7 @@ executable `bin/packref` imports that output.
 | `sources`    | Normalize, select, and fetch repository or tarball source, including source-specific external adapters.            |
 | `store`      | Address and manage immutable global source snapshots by package identity.                                          |
 | `workspace`  | Own the Packref lockfile, user-level state, integrations, and reference materialization adapters.                  |
-| `layout`     | Define the on-disk paths of project state, user-level state, and the global store, and the Packref home.           |
+| `layout`     | Define the on-disk paths of project state and user-level state, and the Packref home.                              |
 | `core`       | Define package identity, package specs, repository hosts, source types, registries, and shared typed errors.       |
 
 ### Layers

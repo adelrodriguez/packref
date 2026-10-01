@@ -31,6 +31,7 @@ type LibFolder = keyof typeof ALLOWED_DEPENDENCIES
 
 const LIB_ROOT = join(import.meta.dirname, "..")
 const LIB_IMPORT_PATTERN = /from "#lib\/(?<target>[^"]+)"/gu
+const RELATIVE_IMPORT_PATTERN = /from "(?<target>\.\.?\/[^"]*)"/gu
 
 const sourceFiles = readdirSync(LIB_ROOT, { recursive: true, withFileTypes: true })
   .filter(
@@ -42,16 +43,52 @@ const sourceFiles = readdirSync(LIB_ROOT, { recursive: true, withFileTypes: true
   .map((entry) => relative(LIB_ROOT, join(entry.parentPath, entry.name)).replaceAll("\\", "/"))
   .toSorted()
 
+const sourceContents = new Map(
+  sourceFiles.map((file) => [file, readFileSync(join(LIB_ROOT, file), "utf8")])
+)
+
 const importGraph = new Map(
-  sourceFiles.map((file) => [
+  [...sourceContents].map(([file, contents]) => [
     file,
-    [...readFileSync(join(LIB_ROOT, file), "utf8").matchAll(LIB_IMPORT_PATTERN)].map(
-      (match) => match.groups?.target ?? ""
-    ),
+    [...contents.matchAll(LIB_IMPORT_PATTERN)].map((match) => match.groups?.target ?? ""),
   ])
 )
 
 const getFolder = (file: string) => file.split("/")[0] ?? ""
+
+const findCycles = (graph: ReadonlyMap<string, readonly string[]>) => {
+  const cycles: string[] = []
+  const visiting: string[] = []
+  const visited = new Set<string>()
+
+  const visit = (node: string) => {
+    const cycleStart = visiting.indexOf(node)
+
+    if (cycleStart !== -1) {
+      cycles.push([...visiting.slice(cycleStart), node].join(" -> "))
+      return
+    }
+
+    if (visited.has(node)) {
+      return
+    }
+
+    visiting.push(node)
+
+    for (const target of graph.get(node) ?? []) {
+      visit(target)
+    }
+
+    visiting.pop()
+    visited.add(node)
+  }
+
+  for (const node of graph.keys()) {
+    visit(node)
+  }
+
+  return cycles
+}
 
 const checkIsLibFolder = (folder: string): folder is LibFolder =>
   Object.hasOwn(ALLOWED_DEPENDENCIES, folder)
@@ -78,37 +115,21 @@ describe("lib layers", () => {
     expect(violations).toEqual([])
   })
 
+  it("allows no cycles between folders", () => {
+    expect(findCycles(new Map(Object.entries(ALLOWED_DEPENDENCIES)))).toEqual([])
+  })
+
+  it("uses #lib specifiers instead of relative imports", () => {
+    const relativeImports = [...sourceContents].flatMap(([file, contents]) =>
+      [...contents.matchAll(RELATIVE_IMPORT_PATTERN)].map(
+        (match) => `${file} -> ${match.groups?.target ?? ""}`
+      )
+    )
+
+    expect(relativeImports).toEqual([])
+  })
+
   it("has no import cycles between files", () => {
-    const cycles: string[] = []
-    const visiting: string[] = []
-    const visited = new Set<string>()
-
-    const visit = (file: string) => {
-      const cycleStart = visiting.indexOf(file)
-
-      if (cycleStart !== -1) {
-        cycles.push([...visiting.slice(cycleStart), file].join(" -> "))
-        return
-      }
-
-      if (visited.has(file)) {
-        return
-      }
-
-      visiting.push(file)
-
-      for (const target of importGraph.get(file) ?? []) {
-        visit(target)
-      }
-
-      visiting.pop()
-      visited.add(file)
-    }
-
-    for (const file of sourceFiles) {
-      visit(file)
-    }
-
-    expect(cycles).toEqual([])
+    expect(findCycles(importGraph)).toEqual([])
   })
 })
