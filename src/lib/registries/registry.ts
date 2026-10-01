@@ -1,5 +1,6 @@
 import type * as Effect from "effect/Effect"
-import type { PackageIdentity, RegistryPackageSpec } from "#lib/core/packages.ts"
+import type { PackageIdentity } from "#lib/core/identity.ts"
+import type { RegistryPackageSpec } from "#lib/core/packages.ts"
 import type { Registry } from "#lib/core/registry.ts"
 import type { RepositorySourceCandidate } from "#lib/core/source.ts"
 

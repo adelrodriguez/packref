@@ -7,12 +7,11 @@ import {
   UnsupportedRepositoryHostError,
 } from "#lib/core/errors.ts"
 import {
-  getPackageIdentitySegments,
   packageCoordinatesEquivalence,
   packageCoordinatesOrder,
-  parsePackageSpec,
   type PackageIdentity,
-} from "#lib/core/packages.ts"
+} from "#lib/core/identity.ts"
+import { getPackageIdentitySegments, parsePackageSpec } from "#lib/core/packages.ts"
 
 const runEffect = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect)
 

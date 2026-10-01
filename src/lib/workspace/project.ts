@@ -1,12 +1,11 @@
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Path from "effect/Path"
-import type { PackageIdentity } from "#lib/core/packages.ts"
+import type { PackageIdentity } from "#lib/core/identity.ts"
 import type { PackageSource } from "#lib/core/source.ts"
 import { NotInitializedError, ReflinkError } from "#lib/core/errors.ts"
+import { getDirectoryPath, getPackageIdentityPath } from "#lib/layout/paths.ts"
 import { checkIsPathWithin } from "#lib/shared/path.ts"
-import { getStorePackagePath } from "#lib/store/paths.ts"
-import { getDirectoryPath } from "#lib/workspace/paths.ts"
 import { Reflinker } from "#lib/workspace/reflinker.ts"
 
 export const ensureDirectory = Effect.fn("ensureDirectory")(function* (projectPath: string) {
@@ -43,7 +42,7 @@ export const getProjectReferencePath = Effect.fn("getProjectReferencePath")(func
 ) {
   const path = yield* Path.Path
 
-  return yield* getStorePackagePath(getDirectoryPath(path, projectPath), identity)
+  return yield* getPackageIdentityPath(getDirectoryPath(path, projectPath), identity)
 })
 
 export const hasProjectReference = Effect.fn("hasProjectReference")(function* (
@@ -66,7 +65,7 @@ export const createProjectReference = Effect.fn("createProjectReference")(functi
   const path = yield* Path.Path
   const reflinker = yield* Reflinker
   const projectDirectoryPath = getDirectoryPath(path, projectPath)
-  const targetPath = yield* getStorePackagePath(projectDirectoryPath, identity)
+  const targetPath = yield* getPackageIdentityPath(projectDirectoryPath, identity)
   const referenceSourcePath =
     source.type === "repository" && source.directory !== undefined
       ? path.resolve(storePath, source.directory)

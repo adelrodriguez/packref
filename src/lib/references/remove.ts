@@ -2,7 +2,6 @@ import type * as Types from "effect/Types"
 import * as Array from "effect/Array"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
-import * as Path from "effect/Path"
 import * as Result from "effect/Result"
 import type { ParsedPackageSpec } from "#lib/core/packages.ts"
 import {
@@ -10,7 +9,6 @@ import {
   PackageReferenceFilesystemError,
   RemovePackageReferencesError,
 } from "#lib/core/errors.ts"
-import { getStorePackagePath } from "#lib/store/paths.ts"
 import {
   findPackageEntries,
   listPackageEntries,
@@ -18,8 +16,7 @@ import {
   removePackageEntries,
   type PackageEntry,
 } from "#lib/workspace/lockfile.ts"
-import { getDirectoryPath } from "#lib/workspace/paths.ts"
-import { requireInitializedProject } from "#lib/workspace/project.ts"
+import { getProjectReferencePath, requireInitializedProject } from "#lib/workspace/project.ts"
 
 const REMOVE_CONCURRENCY = 8
 
@@ -79,13 +76,11 @@ export const removePackageReferences = Effect.fn("removePackageReferences")(func
   entries: readonly PackageEntry[]
 ) {
   const fs = yield* FileSystem.FileSystem
-  const path = yield* Path.Path
-  const projectDirectoryPath = getDirectoryPath(path, projectPath)
   const attempts = yield* Effect.forEach(
     entries,
     (entry) =>
       Effect.gen(function* () {
-        const referencePath = yield* getStorePackagePath(projectDirectoryPath, entry)
+        const referencePath = yield* getProjectReferencePath(projectPath, entry)
         const referenceExists = yield* fs.exists(referencePath).pipe(
           Effect.mapError(
             (cause) =>

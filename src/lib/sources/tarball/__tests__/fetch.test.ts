@@ -11,8 +11,8 @@ import * as Layer from "effect/Layer"
 import { createTarGzip } from "nanotar"
 import { afterEach, describe, expect, it } from "vitest"
 import { TarballFetchError } from "#lib/core/errors.ts"
+import { PackrefHome } from "#lib/layout/home.ts"
 import { fetchTarballSnapshot } from "#lib/sources/tarball/fetch.ts"
-import { PackrefHome } from "#lib/workspace/home.ts"
 
 const temporaryPaths: string[] = []
 

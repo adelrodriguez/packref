@@ -25,8 +25,25 @@ executable `bin/packref` imports that output.
 | `manifests`  | Detect project manifests and resolve declared dependencies to exact versions. JavaScript is the v1 adapter.        |
 | `sources`    | Normalize, select, and fetch repository or tarball source, including source-specific external adapters.            |
 | `store`      | Address and manage immutable global source snapshots by package identity.                                          |
-| `workspace`  | Own the Packref lockfile, user-level state, project paths, integrations, and reference materialization adapters.   |
-| `core`       | Define package identity, package specs, source types, registry contracts, and shared typed errors.                 |
+| `workspace`  | Own the Packref lockfile, user-level state, integrations, and reference materialization adapters.                  |
+| `layout`     | Define the on-disk paths of project state and user-level state, and the Packref home.                              |
+| `core`       | Define package identity, package specs, repository hosts, source types, registries, and shared typed errors.       |
+
+### Layers
+
+Dependencies inside `src/lib` point in a single direction. A folder imports only folders in lower
+layers, and folders in the same layer do not import each other:
+
+1. `core` and `shared`
+2. `layout`
+3. `registries`, `manifests`, `store`, and `workspace`
+4. `sources` (imports `store` to write snapshots)
+5. `references`
+
+`oxlint.config.ts` enforces these layers with one `no-restricted-imports` override for each folder.
+`import/no-relative-parent-imports` stops relative imports from bypassing these overrides, and
+`import/no-cycle` rejects import cycles between files. When you add a folder or a dependency, update
+the overrides.
 
 Commands remain thin so the `references` interface is also the main behavior test seam. Registry and
 manifest adapters do not know filesystem layout, while source adapters do not know project manifests
@@ -95,7 +112,8 @@ src/
   commands/       CLI command definitions
   terminal/       prompts, logs, spinners, titles, and cancellation
   lib/
-    core/         identities, sources, errors, registry contracts
+    core/         identities, specs, repository hosts, sources, registries, errors
+    layout/       on-disk paths and the Packref home
     manifests/    project dependency adapters
     references/   command-aligned domain workflows
     registries/   package registry adapters

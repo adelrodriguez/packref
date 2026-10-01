@@ -2,8 +2,8 @@ import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Path from "effect/Path"
 import { PACKAGE_DIRECTORY_NAME } from "#lib/core/packages.ts"
+import { getDirectoryPath, getProjectLockfilePath } from "#lib/layout/paths.ts"
 import { emptyLockfile, readProjectLockfile, writeLockfileAtPath } from "#lib/workspace/lockfile.ts"
-import { getDirectoryPath, getProjectLockfilePath } from "#lib/workspace/paths.ts"
 import { requireInitializedProject } from "#lib/workspace/project.ts"
 
 export interface ProjectCleanPlan {

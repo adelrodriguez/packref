@@ -15,13 +15,13 @@ import {
   TarballFetchError,
   UnsupportedManifestError,
 } from "#lib/core/errors.ts"
+import { PackrefHome } from "#lib/layout/home.ts"
 import { ProjectDependencyReader } from "#lib/manifests/index.ts"
 import { PackageManagerResolver } from "#lib/manifests/javascript.ts"
 import { preparePackageReferenceSync, syncPackageReferences } from "#lib/references/sync.ts"
 import { NpmRegistryClient } from "#lib/registries/npm/client.ts"
 import { RepositoryDownloader } from "#lib/sources/repository/fetch.ts"
 import { RemoteTagReader } from "#lib/sources/repository/tags.ts"
-import { PackrefHome } from "#lib/workspace/home.ts"
 import { Reflinker } from "#lib/workspace/reflinker.ts"
 
 const temporaryPaths: string[] = []

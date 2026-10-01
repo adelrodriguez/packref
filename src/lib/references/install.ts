@@ -6,7 +6,7 @@ import {
   StoreSourceMismatchError,
   UnsupportedRepositoryHostError,
 } from "#lib/core/errors.ts"
-import { SUPPORTED_REPOSITORY_PROVIDERS } from "#lib/core/packages.ts"
+import { checkIsRepositoryProvider } from "#lib/core/repository.ts"
 import { packageSourceEquivalence } from "#lib/core/source.ts"
 import { fetchRepositorySnapshot } from "#lib/sources/repository/fetch.ts"
 import {
@@ -69,9 +69,7 @@ const fetchLockedStoreEntry = Effect.fn("fetchLockedStoreEntry")(function* (entr
     return yield* ensureMatchingSource(entry, materialized)
   }
 
-  const isDirectRepository = SUPPORTED_REPOSITORY_PROVIDERS.some(
-    (provider) => provider === entry.registry
-  )
+  const isDirectRepository = checkIsRepositoryProvider(entry.registry)
   const resolvedRepository = isDirectRepository
     ? yield* Effect.gen(function* () {
         const source = yield* normalizeRepositorySource(entry.source)

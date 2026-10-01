@@ -4,9 +4,9 @@ import * as Filter from "effect/Filter"
 import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
 import { ConfigParseError } from "#lib/core/errors.ts"
+import { PackrefHome } from "#lib/layout/home.ts"
+import { getGlobalConfigPath, getGlobalDirectoryPath } from "#lib/layout/paths.ts"
 import { formatJson } from "#lib/shared/json.ts"
-import { PackrefHome } from "#lib/workspace/home.ts"
-import { getGlobalConfigPath, getGlobalDirectoryPath } from "#lib/workspace/paths.ts"
 
 export const GlobalConfigSchema = Schema.Struct({
   projects: Schema.Array(Schema.String),

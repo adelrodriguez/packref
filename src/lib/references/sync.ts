@@ -2,16 +2,15 @@ import * as Array from "effect/Array"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Option from "effect/Option"
-import * as Path from "effect/Path"
 import * as Result from "effect/Result"
 import type { ManifestDependency } from "#lib/manifests/manifest.ts"
 import { PackageReferenceFilesystemError, UnsupportedManifestError } from "#lib/core/errors.ts"
 import {
+  type PackageCoordinates,
   packageCoordinatesEquivalence,
   packageCoordinatesOrder,
   packageIdentityEquivalence,
-  type PackageCoordinates,
-} from "#lib/core/packages.ts"
+} from "#lib/core/identity.ts"
 import { ProjectDependencyReader } from "#lib/manifests/index.ts"
 import {
   materializePackageCandidateReference,
@@ -19,15 +18,13 @@ import {
   type ResolvedPackageCandidateReference,
 } from "#lib/references/add.ts"
 import { removePackageReferences } from "#lib/references/remove.ts"
-import { getStorePackagePath } from "#lib/store/paths.ts"
 import { registerProject } from "#lib/workspace/config.ts"
 import {
   listPackageEntries,
   readProjectLockfile,
   type PackageEntry,
 } from "#lib/workspace/lockfile.ts"
-import { getDirectoryPath } from "#lib/workspace/paths.ts"
-import { requireInitializedProject } from "#lib/workspace/project.ts"
+import { getProjectReferencePath, requireInitializedProject } from "#lib/workspace/project.ts"
 
 export interface SyncPackageReferencesOptions {
   readonly projectPath?: string
@@ -80,9 +77,7 @@ const packageReferenceExists = Effect.fn("sync.packageReferenceExists")(function
   entry: PackageEntry
 ) {
   const fs = yield* FileSystem.FileSystem
-  const path = yield* Path.Path
-  const projectDirectoryPath = getDirectoryPath(path, projectPath)
-  const referencePath = yield* getStorePackagePath(projectDirectoryPath, entry)
+  const referencePath = yield* getProjectReferencePath(projectPath, entry)
 
   return yield* fs.exists(referencePath).pipe(
     Effect.mapError(

@@ -2,6 +2,8 @@ import type * as Types from "effect/Types"
 import * as Effect from "effect/Effect"
 import * as Match from "effect/Match"
 import * as Option from "effect/Option"
+import type { PackageIdentity } from "#lib/core/identity.ts"
+import type { RepositoryPackageSpec } from "#lib/core/packages.ts"
 import type {
   NormalizedRepositorySource,
   RepositorySourceCandidate,
@@ -13,28 +15,21 @@ import {
   UnsupportedRepositoryHostError,
 } from "#lib/core/errors.ts"
 import {
+  checkIsRepositoryProvider,
+  HOST_REPOSITORY_PROVIDERS,
   REPOSITORY_PROVIDER_HOSTS,
   SUPPORTED_REPOSITORY_PROVIDERS,
-  type PackageIdentity,
-  type RepositoryPackageSpec,
   type RepositoryProvider,
-} from "#lib/core/packages.ts"
+} from "#lib/core/repository.ts"
 import { matchRepositoryTag, RemoteTagReader } from "#lib/sources/repository/tags.ts"
 
 const COMMIT_SHA_PATTERN = /^[0-9a-f]{40}$/iu
-
-const HOST_PROVIDERS = new Map<string, RepositoryProvider>(
-  SUPPORTED_REPOSITORY_PROVIDERS.map((provider) => [REPOSITORY_PROVIDER_HOSTS[provider], provider])
-)
 
 const DEFAULT_SHORTHAND_PROVIDER = "github" satisfies RepositoryProvider
 const SHORTHAND_PATTERN = new RegExp(
   `^(?<provider>${SUPPORTED_REPOSITORY_PROVIDERS.join("|")}):(?<repositoryPath>.+)$`,
   "u"
 )
-
-const checkIsKnownProvider = (value: string): value is RepositoryProvider =>
-  SUPPORTED_REPOSITORY_PROVIDERS.some((provider) => provider === value)
 
 const cleanRepositoryPath = (repositoryPath: string) =>
   repositoryPath
@@ -56,7 +51,7 @@ const makeNormalizedSource = (
     return Effect.fail(invalidRepositoryUrl(candidate, "repository path must not be empty"))
   }
 
-  const provider = HOST_PROVIDERS.get(host)
+  const provider = HOST_REPOSITORY_PROVIDERS.get(host)
   const fetchRepositoryPath =
     provider === "sourcehut" ? repositoryPath.replace(/^~/u, "") : repositoryPath
 
@@ -130,7 +125,11 @@ export const normalizeRepositorySource = Effect.fn("normalizeRepositorySource")(
   const provider = Option.getOrUndefined(shorthandGroups)?.provider
   const shorthandPath = Option.getOrUndefined(shorthandGroups)?.repositoryPath
 
-  if (provider !== undefined && shorthandPath !== undefined && checkIsKnownProvider(provider)) {
+  if (
+    provider !== undefined
+    && shorthandPath !== undefined
+    && checkIsRepositoryProvider(provider)
+  ) {
     return normalizeFromShorthandUrl(candidate, provider, shorthandPath)
   }
 

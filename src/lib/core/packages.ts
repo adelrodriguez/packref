@@ -1,45 +1,18 @@
 import type * as Types from "effect/Types"
 import * as Effect from "effect/Effect"
-import * as Equivalence from "effect/Equivalence"
-import * as Order from "effect/Order"
+import type { PackageIdentity } from "#lib/core/identity.ts"
 import {
   InvalidPackageIdentity,
   UnsupportedRegistryError,
   UnsupportedRepositoryHostError,
 } from "#lib/core/errors.ts"
 import { DEFAULT_REGISTRY, checkIsRegistry, type Registry } from "#lib/core/registry.ts"
-
-export interface PackageCoordinates {
-  readonly name: string
-  readonly registry: string
-}
-
-export interface PackageIdentity extends PackageCoordinates {
-  readonly version: string
-}
-
-export const packageCoordinatesEquivalence = Equivalence.Struct({
-  name: Equivalence.String,
-  registry: Equivalence.String,
-})
-
-export const packageCoordinatesOrder = Order.combineAll([
-  Order.mapInput(Order.String, (coordinates: PackageCoordinates) => coordinates.registry),
-  Order.mapInput(Order.String, (coordinates: PackageCoordinates) => coordinates.name),
-])
-
-export const packageIdentityEquivalence = Equivalence.combine(
-  packageCoordinatesEquivalence,
-  Equivalence.mapInput(Equivalence.String, (identity: PackageIdentity) => identity.version)
-)
-
-export const packageIdentityOrder = Order.combine(
-  packageCoordinatesOrder,
-  Order.mapInput(Order.String, (identity: PackageIdentity) => identity.version)
-)
-
-export const formatPackageIdentity = (identity: PackageIdentity) =>
-  `${identity.registry}:${identity.name}@${identity.version}`
+import {
+  HOST_REPOSITORY_PROVIDERS,
+  checkIsRepositoryProvider,
+  REPOSITORY_PROVIDER_HOSTS,
+  type RepositoryProvider,
+} from "#lib/core/repository.ts"
 
 export interface RegistryPackageSpec {
   readonly _tag: "registry"
@@ -47,14 +20,6 @@ export interface RegistryPackageSpec {
   readonly registry: Registry
   readonly specifier?: string
 }
-
-export const SUPPORTED_REPOSITORY_PROVIDERS = [
-  "bitbucket",
-  "github",
-  "gitlab",
-  "sourcehut",
-] as const
-export type RepositoryProvider = (typeof SUPPORTED_REPOSITORY_PROVIDERS)[number]
 
 export interface RepositoryPackageSpec {
   readonly _tag: "repository"
@@ -107,20 +72,6 @@ const validatePathSegment = Effect.fn("validatePathSegment")(function* (
     })
   }
 })
-
-export const REPOSITORY_PROVIDER_HOSTS = {
-  bitbucket: "bitbucket.org",
-  github: "github.com",
-  gitlab: "gitlab.com",
-  sourcehut: "git.sr.ht",
-} satisfies Record<RepositoryProvider, string>
-
-const HOST_REPOSITORY_PROVIDERS = new Map<string, RepositoryProvider>(
-  SUPPORTED_REPOSITORY_PROVIDERS.map((provider) => [REPOSITORY_PROVIDER_HOSTS[provider], provider])
-)
-
-const checkIsRepositoryProvider = (value: string): value is RepositoryProvider =>
-  SUPPORTED_REPOSITORY_PROVIDERS.some((provider) => provider === value)
 
 const splitRepositoryRef = (value: string) => {
   const schemeIndex = value.indexOf("://")

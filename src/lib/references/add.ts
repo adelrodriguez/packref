@@ -5,6 +5,7 @@ import * as Option from "effect/Option"
 import * as Order from "effect/Order"
 import * as Path from "effect/Path"
 import * as Predicate from "effect/Predicate"
+import type { ParsedPackageSpec, RepositoryPackageSpec } from "#lib/core/packages.ts"
 import type { RepositorySource } from "#lib/core/source.ts"
 import type { ManifestDependency } from "#lib/manifests/manifest.ts"
 import type { ResolvedPackageReference } from "#lib/registries/registry.ts"
@@ -16,11 +17,9 @@ import {
 } from "#lib/core/errors.ts"
 import {
   packageCoordinatesEquivalence,
-  packageIdentityEquivalence,
   type PackageIdentity,
-  type ParsedPackageSpec,
-  type RepositoryPackageSpec,
-} from "#lib/core/packages.ts"
+  packageIdentityEquivalence,
+} from "#lib/core/identity.ts"
 import { ProjectDependencyReader } from "#lib/manifests/index.ts"
 import { resolvePackageReference } from "#lib/registries/index.ts"
 import { fetchRepositorySnapshot } from "#lib/sources/repository/fetch.ts"
