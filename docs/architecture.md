@@ -40,6 +40,10 @@ layers, and folders in the same layer do not import each other:
 4. `sources` (imports `store` to write snapshots)
 5. `references`
 
+`LIB_LAYERS` in `oxlint.config.ts` enforces these layers with `no-restricted-imports`, and
+`import/no-cycle` rejects import cycles between files. When you add a folder or a dependency, update
+`LIB_LAYERS`.
+
 Commands remain thin so the `references` interface is also the main behavior test seam. Registry and
 manifest adapters do not know filesystem layout, while source adapters do not know project manifests
 or lockfile mutation rules.
