@@ -1,7 +1,7 @@
 import * as Command from "effect/cli/Command"
 import * as Effect from "effect/Effect"
 import color from "picocolors"
-import { formatPackageIdentity } from "#lib/core/packages.ts"
+import { formatPackageIdentity } from "#lib/core/identity.ts"
 import { listPackageEntries, readProjectLockfile } from "#lib/workspace/lockfile.ts"
 import { requireInitializedProject } from "#lib/workspace/project.ts"
 import { Prompter } from "#terminal/prompter.ts"

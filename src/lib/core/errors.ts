@@ -1,5 +1,5 @@
 import * as Data from "effect/Data"
-import type { PackageIdentity } from "#lib/core/packages.ts"
+import type { PackageIdentity } from "#lib/core/identity.ts"
 import { SUPPORTED_REGISTRIES } from "#lib/core/registry.ts"
 
 export class MissingPackageVersion extends Data.TaggedError("MissingPackageVersion")<{

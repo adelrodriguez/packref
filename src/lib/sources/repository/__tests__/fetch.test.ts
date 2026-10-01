@@ -8,8 +8,8 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { afterEach, describe, expect, it } from "vitest"
 import { SnapshotFetchError } from "#lib/core/errors.ts"
+import { PackrefHome } from "#lib/layout/home.ts"
 import { fetchRepositorySnapshot, RepositoryDownloader } from "#lib/sources/repository/fetch.ts"
-import { PackrefHome } from "#lib/workspace/home.ts"
 
 const temporaryPaths: string[] = []
 

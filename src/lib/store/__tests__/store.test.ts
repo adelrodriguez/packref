@@ -7,13 +7,13 @@ import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { afterEach, describe, expect, it } from "vitest"
+import { PackrefHome } from "#lib/layout/home.ts"
 import {
   getStoreEntryPath,
   hasStoreEntry,
   listStoreEntries,
   removeStoreEntry,
 } from "#lib/store/index.ts"
-import { PackrefHome } from "#lib/workspace/home.ts"
 
 const temporaryPaths: string[] = []
 

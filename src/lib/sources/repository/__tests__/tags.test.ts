@@ -8,7 +8,8 @@ import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as PlatformError from "effect/PlatformError"
 import { afterEach, describe, expect, it } from "vitest"
-import type { PackageIdentity, RepositoryPackageSpec } from "#lib/core/packages.ts"
+import type { PackageIdentity } from "#lib/core/identity.ts"
+import type { RepositoryPackageSpec } from "#lib/core/packages.ts"
 import type { NormalizedRepositorySource } from "#lib/core/source.ts"
 import {
   GitExecutableNotFoundError,

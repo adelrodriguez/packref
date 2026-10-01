@@ -4,16 +4,16 @@ import * as FileSystem from "effect/FileSystem"
 import * as Filter from "effect/Filter"
 import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
+import type { ParsedPackageSpec } from "#lib/core/packages.ts"
 import { LockfileParseError } from "#lib/core/errors.ts"
 import {
+  type PackageIdentity,
   packageIdentityEquivalence,
   packageIdentityOrder,
-  type PackageIdentity,
-  type ParsedPackageSpec,
-} from "#lib/core/packages.ts"
+} from "#lib/core/identity.ts"
 import { PackageSourceSchema } from "#lib/core/source.ts"
+import { getProjectLockfilePath } from "#lib/layout/paths.ts"
 import { formatJson } from "#lib/shared/json.ts"
-import { getProjectLockfilePath } from "#lib/workspace/paths.ts"
 
 export const PackageEntrySchema = Schema.Struct({
   name: Schema.String,

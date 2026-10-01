@@ -4,7 +4,8 @@ import * as Command from "effect/cli/Command"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import type { PackageEntry } from "#lib/workspace/lockfile.ts"
-import { formatPackageIdentity, parsePackageSpec } from "#lib/core/packages.ts"
+import { formatPackageIdentity } from "#lib/core/identity.ts"
+import { parsePackageSpec } from "#lib/core/packages.ts"
 import {
   findPackageReferenceMatches,
   listPackageReferences,

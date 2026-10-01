@@ -15,6 +15,7 @@ import type { NpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
 import type { PackageEntry } from "#lib/workspace/lockfile.ts"
 import { NetworkError, ReflinkError, SnapshotFetchError } from "#lib/core/errors.ts"
 import { parsePackageSpec } from "#lib/core/packages.ts"
+import { PackrefHome } from "#lib/layout/home.ts"
 import { ProjectDependencyReader } from "#lib/manifests/index.ts"
 import { PackageManagerResolver } from "#lib/manifests/javascript.ts"
 import {
@@ -26,7 +27,6 @@ import {
 import { NpmRegistryClient } from "#lib/registries/npm/client.ts"
 import { RepositoryDownloader } from "#lib/sources/repository/fetch.ts"
 import { RemoteTagReader } from "#lib/sources/repository/tags.ts"
-import { PackrefHome } from "#lib/workspace/home.ts"
 import { Reflinker } from "#lib/workspace/reflinker.ts"
 
 const temporaryPaths: string[] = []

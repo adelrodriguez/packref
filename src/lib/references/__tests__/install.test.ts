@@ -17,10 +17,10 @@ import {
   StoreSourceMismatchError,
   TarballFetchError,
 } from "#lib/core/errors.ts"
+import { PackrefHome } from "#lib/layout/home.ts"
 import { installPackageReferences } from "#lib/references/install.ts"
 import { RepositoryDownloader } from "#lib/sources/repository/fetch.ts"
 import { RemoteTagReader } from "#lib/sources/repository/tags.ts"
-import { PackrefHome } from "#lib/workspace/home.ts"
 import { Reflinker } from "#lib/workspace/reflinker.ts"
 
 type TestRepositorySource = Types.Mutable<RepositorySource>

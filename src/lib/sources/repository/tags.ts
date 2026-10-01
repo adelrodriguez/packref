@@ -12,7 +12,7 @@ import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner"
 import * as Result from "effect/Result"
 import * as Schedule from "effect/Schedule"
 import * as Stream from "effect/Stream"
-import type { PackageIdentity } from "#lib/core/packages.ts"
+import type { PackageIdentity } from "#lib/core/identity.ts"
 import type { NormalizedRepositorySource } from "#lib/core/source.ts"
 import { GitExecutableNotFoundError, NetworkError } from "#lib/core/errors.ts"
 

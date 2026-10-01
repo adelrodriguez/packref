@@ -8,19 +8,16 @@ import * as Schema from "effect/Schema"
 import * as Semaphore from "effect/Semaphore"
 import type { PackageSource } from "#lib/core/source.ts"
 import { GlobalStoreFilesystemError, StoreCorruptedError } from "#lib/core/errors.ts"
-import {
-  packageIdentityOrder,
-  PACKAGE_DIRECTORY_NAME,
-  SUPPORTED_REPOSITORY_PROVIDERS,
-  type PackageIdentity,
-} from "#lib/core/packages.ts"
+import { type PackageIdentity, packageIdentityOrder } from "#lib/core/identity.ts"
+import { PACKAGE_DIRECTORY_NAME } from "#lib/core/packages.ts"
+import { checkIsRepositoryProvider } from "#lib/core/repository.ts"
 import { PackageSourceSchema } from "#lib/core/source.ts"
+import { PackrefHome } from "#lib/layout/home.ts"
 import { formatJson } from "#lib/shared/json.ts"
 import {
   getGlobalStorePath,
   getStoreEntryPaths as getPathsForStoreEntry,
 } from "#lib/store/paths.ts"
-import { PackrefHome } from "#lib/workspace/home.ts"
 
 export interface StoreEntry {
   readonly identity: PackageIdentity
@@ -121,8 +118,7 @@ export const listStoreEntries = Effect.fn("listStoreEntries")(function* () {
           const packageSegmentPath = path.join(registryPath, packageSegment)
 
           const hasNestedPackageName =
-            packageSegment.startsWith("@")
-            || SUPPORTED_REPOSITORY_PROVIDERS.some((provider) => provider === registry)
+            packageSegment.startsWith("@") || checkIsRepositoryProvider(registry)
 
           if (hasNestedPackageName) {
             const scopedPackages = yield* listDirectoryOrEmpty(packageSegmentPath, semaphore)

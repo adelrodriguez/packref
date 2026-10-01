@@ -5,7 +5,8 @@ import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import * as Predicate from "effect/Predicate"
 import type { ManifestDependency } from "#lib/manifests/manifest.ts"
-import { formatPackageIdentity, parsePackageSpec } from "#lib/core/packages.ts"
+import { formatPackageIdentity } from "#lib/core/identity.ts"
+import { parsePackageSpec } from "#lib/core/packages.ts"
 import {
   addPackageReference,
   findPackageCandidates,

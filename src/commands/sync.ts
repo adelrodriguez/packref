@@ -1,6 +1,6 @@
 import * as Command from "effect/cli/Command"
 import * as Effect from "effect/Effect"
-import { formatPackageIdentity } from "#lib/core/packages.ts"
+import { formatPackageIdentity } from "#lib/core/identity.ts"
 import {
   preparePackageReferenceSync,
   syncPackageReferences,

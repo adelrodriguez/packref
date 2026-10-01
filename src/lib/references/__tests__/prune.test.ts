@@ -7,11 +7,11 @@ import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { afterEach, describe, expect, it } from "vitest"
-import type { PackageIdentity } from "#lib/core/packages.ts"
+import type { PackageIdentity } from "#lib/core/identity.ts"
 import { initializeProject, repositoryEntry } from "#commands/__tests__/helpers.ts"
+import { PackrefHome } from "#lib/layout/home.ts"
 import { applyPrunePlan, discoverPrunePlan } from "#lib/references/prune.ts"
 import { getStoreEntryPath } from "#lib/store/index.ts"
-import { PackrefHome } from "#lib/workspace/home.ts"
 
 const temporaryPaths: string[] = []
 
