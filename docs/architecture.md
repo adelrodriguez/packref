@@ -40,9 +40,6 @@ layers, and folders in the same layer do not import each other:
 4. `sources` (imports `store` to write snapshots)
 5. `references`
 
-`src/lib/__tests__/layers.test.ts` enforces these rules and rejects import cycles between files. When
-you add a folder or a dependency, update `ALLOWED_DEPENDENCIES` in that test.
-
 Commands remain thin so the `references` interface is also the main behavior test seam. Registry and
 manifest adapters do not know filesystem layout, while source adapters do not know project manifests
 or lockfile mutation rules.
