@@ -1,56 +1,6 @@
 import core, { ignorePatterns } from "adamantite/lint"
 import antislop from "adamantite/lint/antislop"
-import { defineConfig, type OxlintOverride } from "oxlint"
-
-// Each `src/lib` folder lists the folders it may import, so dependencies point in a single
-// direction. See the layers in `docs/architecture.md`.
-const LIB_LAYERS = {
-  core: [],
-  layout: ["core"],
-  manifests: ["core"],
-  references: [
-    "core",
-    "layout",
-    "manifests",
-    "registries",
-    "shared",
-    "sources",
-    "store",
-    "workspace",
-  ],
-  registries: ["core"],
-  shared: [],
-  sources: ["core", "shared", "store"],
-  store: ["core", "layout", "shared"],
-  workspace: ["core", "layout", "shared"],
-} satisfies Record<string, readonly string[]>
-
-const libFolders = Object.keys(LIB_LAYERS)
-
-const libLayerOverrides = Object.entries(LIB_LAYERS).map(
-  ([folder, allowed]: [string, readonly string[]]): OxlintOverride => ({
-    files: [`src/lib/${folder}/**/*.ts`],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            {
-              group: libFolders
-                .filter((target) => target !== folder && !allowed.includes(target))
-                .map((target) => `#lib/${target}/**`),
-              message: `${folder} may import only ${[folder, ...allowed].join(", ")}.`,
-            },
-            {
-              group: ["./**", "../**"],
-              message: "Use a #lib import so the layer rules apply.",
-            },
-          ],
-        },
-      ],
-    },
-  })
-)
+import { defineConfig } from "oxlint"
 
 export default defineConfig({
   extends: [core, antislop],
@@ -61,11 +11,207 @@ export default defineConfig({
     typeCheck: true,
   },
   overrides: [
-    ...libLayerOverrides,
+    // Each `src/lib` folder imports only the folders in lower layers. See the layers in
+    // `docs/architecture.md`. `references` is the top layer and may import every other folder.
+    {
+      files: ["src/lib/**/*.ts"],
+      rules: {
+        "import/no-relative-parent-imports": "error",
+      },
+    },
+    {
+      files: ["src/lib/core/**/*.ts"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: [
+                  "#lib/layout/**",
+                  "#lib/manifests/**",
+                  "#lib/references/**",
+                  "#lib/registries/**",
+                  "#lib/shared/**",
+                  "#lib/sources/**",
+                  "#lib/store/**",
+                  "#lib/workspace/**",
+                ],
+                message: "core may import only no other lib folder.",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: ["src/lib/shared/**/*.ts"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: [
+                  "#lib/core/**",
+                  "#lib/layout/**",
+                  "#lib/manifests/**",
+                  "#lib/references/**",
+                  "#lib/registries/**",
+                  "#lib/sources/**",
+                  "#lib/store/**",
+                  "#lib/workspace/**",
+                ],
+                message: "shared may import only no other lib folder.",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: ["src/lib/layout/**/*.ts"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: [
+                  "#lib/manifests/**",
+                  "#lib/references/**",
+                  "#lib/registries/**",
+                  "#lib/shared/**",
+                  "#lib/sources/**",
+                  "#lib/store/**",
+                  "#lib/workspace/**",
+                ],
+                message: "layout may import only core.",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: ["src/lib/manifests/**/*.ts"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: [
+                  "#lib/layout/**",
+                  "#lib/references/**",
+                  "#lib/registries/**",
+                  "#lib/shared/**",
+                  "#lib/sources/**",
+                  "#lib/store/**",
+                  "#lib/workspace/**",
+                ],
+                message: "manifests may import only core.",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: ["src/lib/registries/**/*.ts"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: [
+                  "#lib/layout/**",
+                  "#lib/manifests/**",
+                  "#lib/references/**",
+                  "#lib/shared/**",
+                  "#lib/sources/**",
+                  "#lib/store/**",
+                  "#lib/workspace/**",
+                ],
+                message: "registries may import only core.",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: ["src/lib/store/**/*.ts"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: [
+                  "#lib/manifests/**",
+                  "#lib/references/**",
+                  "#lib/registries/**",
+                  "#lib/sources/**",
+                  "#lib/workspace/**",
+                ],
+                message: "store may import only core, layout, shared.",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: ["src/lib/workspace/**/*.ts"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: [
+                  "#lib/manifests/**",
+                  "#lib/references/**",
+                  "#lib/registries/**",
+                  "#lib/sources/**",
+                  "#lib/store/**",
+                ],
+                message: "workspace may import only core, layout, shared.",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: ["src/lib/sources/**/*.ts"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: [
+                  "#lib/layout/**",
+                  "#lib/manifests/**",
+                  "#lib/references/**",
+                  "#lib/registries/**",
+                  "#lib/workspace/**",
+                ],
+                message: "sources may import only core, shared, store.",
+              },
+            ],
+          },
+        ],
+      },
+    },
     {
       // Tests compose layers from several folders to build their fixtures.
       files: ["src/lib/**/__tests__/**/*.ts"],
       rules: {
+        "import/no-relative-parent-imports": "off",
         "no-restricted-imports": "off",
       },
     },
