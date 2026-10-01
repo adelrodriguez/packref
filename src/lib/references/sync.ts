@@ -199,7 +199,7 @@ export const preparePackageReferenceSync = Effect.fn("preparePackageReferenceSyn
     (dependency) => prepareDependency(projectPath, entries, dependency),
     { concurrency: SYNC_PREPARE_CONCURRENCY }
   )
-  const [unchanged, updates] = Array.partition(
+  const [updates, unchanged] = Array.partition(
     preparedDependencies.filter((prepared) => prepared.type !== "none"),
     (prepared) =>
       prepared.type === "update" ? Result.succeed(prepared.update) : Result.fail(prepared.entry)
