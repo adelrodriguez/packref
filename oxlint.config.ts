@@ -11,6 +11,8 @@ export default defineConfig({
     typeCheck: true,
   },
   rules: {
+    // Also report cycles that pass through type-only imports.
+    "import/no-cycle": ["error", { ignoreTypes: false }],
     // Effect combinators such as `Option.some(value)`, `Option.flatMap(fn)`, and
     // `Effect.map(effect, fn)` are indistinguishable from array iteration methods
     // to these array-specific rules.
