@@ -34,7 +34,7 @@ export const JavascriptPackageManifestSchema = Schema.StructWithRest(
 
 const InstalledPackageSchema = Schema.StructWithRest(
   Schema.Struct({
-    version: Schema.String,
+    version: Schema.optional(Schema.String),
   }),
   [Schema.Record(Schema.String, Schema.Unknown)]
 )
@@ -485,10 +485,15 @@ const readNodeModulesVersion = Effect.fn("readNodeModulesVersion")(function* (
         toManifestParseError(packageJsonPath)
       )
 
-      return valid(manifest.version) === null
-        ? Result.fail(void 0)
-        : Result.succeed(manifest.version)
+      // Like Node resolution, stop at the nearest installed package even if it has no version.
+      return Result.succeed(manifest.version)
     })
+  ).pipe(
+    Effect.map(
+      Option.filter(
+        (version): version is string => version !== undefined && valid(version) !== null
+      )
+    )
   )
 })
 
