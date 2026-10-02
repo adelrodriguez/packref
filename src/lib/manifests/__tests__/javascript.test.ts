@@ -485,7 +485,7 @@ importers:
     expect(dependencies[0]?.exactVersion).toBe("4.0.0-beta.55")
   })
 
-  it("reports no exact version for a symlinked workspace package without a version", async () => {
+  it("stops at the nearest installed package when it has no version", async () => {
     const workspaceRoot = await makeTempDirectory()
     const projectPath = join(workspaceRoot, "apps", "web")
     const workspacePackagePath = join(workspaceRoot, "tooling", "linting")
@@ -508,6 +508,11 @@ importers:
     )
     await mkdir(join(projectPath, "node_modules", "@tooling"), { recursive: true })
     await symlink(workspacePackagePath, join(projectPath, "node_modules", "@tooling", "linting"))
+    await mkdir(join(workspaceRoot, "node_modules", "@tooling", "linting"), { recursive: true })
+    await writeFile(
+      join(workspaceRoot, "node_modules", "@tooling", "linting", "package.json"),
+      JSON.stringify({ name: "@tooling/linting", version: "2.0.0" })
+    )
     await mkdir(join(projectPath, "node_modules", "effect"), { recursive: true })
     await writeFile(
       join(projectPath, "node_modules", "effect", "package.json"),
@@ -522,31 +527,26 @@ importers:
     ])
   })
 
-  it.each(["link:../local", "file:../local", "portal:../local"])(
-    "does not read node_modules for the local specifier %s",
-    async (specifier) => {
-      const projectPath = await makeTempDirectory()
-      await writeFile(
-        join(projectPath, "package.json"),
-        JSON.stringify({
-          dependencies: {
-            local: specifier,
-          },
-        })
-      )
-      await mkdir(join(projectPath, "node_modules", "local"), { recursive: true })
-      await writeFile(
-        join(projectPath, "node_modules", "local", "package.json"),
-        "{ not valid JSON"
-      )
+  it("keeps the installed version for a local path dependency", async () => {
+    const projectPath = await makeTempDirectory()
+    await writeFile(
+      join(projectPath, "package.json"),
+      JSON.stringify({
+        dependencies: {
+          example: "file:../example",
+        },
+      })
+    )
+    await mkdir(join(projectPath, "node_modules", "example"), { recursive: true })
+    await writeFile(
+      join(projectPath, "node_modules", "example", "package.json"),
+      JSON.stringify({ name: "example", version: "1.0.0" })
+    )
 
-      const dependencies = await run(readJavascriptManifest(projectPath))
+    const dependencies = await run(readJavascriptManifest(projectPath))
 
-      expect(dependencies).toEqual([
-        { group: "dependencies", name: "local", registry: "npm", specifier },
-      ])
-    }
-  )
+    expect(dependencies[0]?.exactVersion).toBe("1.0.0")
+  })
 
   it("reports no dependency for installed packages absent from the manifest", async () => {
     const projectPath = await makeTempDirectory()
