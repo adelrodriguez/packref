@@ -1,5 +1,12 @@
 # packref
 
+## 0.3.4
+
+### Patch Changes
+
+- b13a2b1: Fix a crash on startup after a fresh install. The install could get an incompatible Effect version.
+- a5f7c77: Effect is updated to the stable `4.0.0` release.
+
 ## 0.3.3
 
 ### Patch Changes
