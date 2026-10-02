@@ -21,6 +21,12 @@ const DEPENDENCY_GROUPS = ["dependencies", "devDependencies", "peerDependencies"
 
 const NODE_MODULES_RESOLUTION_CONCURRENCY = 8
 
+// These specifiers point to source on disk, so no registry version exists for them.
+const LOCAL_SPECIFIER_PREFIXES = ["link:", "file:", "portal:"] as const
+
+const isLocalSpecifier = (specifier: string) =>
+  LOCAL_SPECIFIER_PREFIXES.some((prefix) => specifier.startsWith(prefix))
+
 const DependencyRecordSchema = Schema.Record(Schema.String, Schema.String)
 
 export const JavascriptPackageManifestSchema = Schema.StructWithRest(
@@ -34,7 +40,7 @@ export const JavascriptPackageManifestSchema = Schema.StructWithRest(
 
 const InstalledPackageSchema = Schema.StructWithRest(
   Schema.Struct({
-    version: Schema.String,
+    version: Schema.optional(Schema.String),
   }),
   [Schema.Record(Schema.String, Schema.Unknown)]
 )
@@ -485,7 +491,7 @@ const readNodeModulesVersion = Effect.fn("readNodeModulesVersion")(function* (
         toManifestParseError(packageJsonPath)
       )
 
-      return valid(manifest.version) === null
+      return manifest.version === undefined || valid(manifest.version) === null
         ? Result.fail(void 0)
         : Result.succeed(manifest.version)
     })
@@ -536,7 +542,9 @@ export const readJavascriptManifest = Effect.fn("readJavascriptManifest")(functi
       const lockedVersion = lockedVersions.get(dependency.name)
       const exactVersion =
         lockedVersion === undefined
-          ? readNodeModulesVersion(projectPath, dependency.name)
+          ? isLocalSpecifier(dependency.specifier)
+            ? Effect.succeedNone
+            : readNodeModulesVersion(projectPath, dependency.name)
           : Effect.succeedSome(lockedVersion)
 
       return Effect.map(

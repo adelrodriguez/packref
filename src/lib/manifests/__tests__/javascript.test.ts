@@ -1,6 +1,6 @@
 import type * as FileSystem from "effect/FileSystem"
 import type * as Path from "effect/Path"
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import * as NodeServices from "@effect/platform-node/NodeServices"
@@ -484,6 +484,69 @@ importers:
 
     expect(dependencies[0]?.exactVersion).toBe("4.0.0-beta.55")
   })
+
+  it("reports no exact version for a symlinked workspace package without a version", async () => {
+    const workspaceRoot = await makeTempDirectory()
+    const projectPath = join(workspaceRoot, "apps", "web")
+    const workspacePackagePath = join(workspaceRoot, "tooling", "linting")
+    await mkdir(projectPath, { recursive: true })
+    await mkdir(workspacePackagePath, { recursive: true })
+    await writeFile(
+      join(projectPath, "package.json"),
+      JSON.stringify({
+        dependencies: {
+          effect: "^4.0.0-beta.50",
+        },
+        devDependencies: {
+          "@tooling/linting": "workspace:*",
+        },
+      })
+    )
+    await writeFile(
+      join(workspacePackagePath, "package.json"),
+      JSON.stringify({ name: "@tooling/linting", private: true })
+    )
+    await mkdir(join(projectPath, "node_modules", "@tooling"), { recursive: true })
+    await symlink(workspacePackagePath, join(projectPath, "node_modules", "@tooling", "linting"))
+    await mkdir(join(projectPath, "node_modules", "effect"), { recursive: true })
+    await writeFile(
+      join(projectPath, "node_modules", "effect", "package.json"),
+      JSON.stringify({ version: "4.0.0-beta.55" })
+    )
+
+    const dependencies = await run(readJavascriptManifest(projectPath))
+
+    expect(dependencies.map(({ exactVersion, name }) => [name, exactVersion])).toEqual([
+      ["effect", "4.0.0-beta.55"],
+      ["@tooling/linting", undefined],
+    ])
+  })
+
+  it.each(["link:../local", "file:../local", "portal:../local"])(
+    "does not read node_modules for the local specifier %s",
+    async (specifier) => {
+      const projectPath = await makeTempDirectory()
+      await writeFile(
+        join(projectPath, "package.json"),
+        JSON.stringify({
+          dependencies: {
+            local: specifier,
+          },
+        })
+      )
+      await mkdir(join(projectPath, "node_modules", "local"), { recursive: true })
+      await writeFile(
+        join(projectPath, "node_modules", "local", "package.json"),
+        "{ not valid JSON"
+      )
+
+      const dependencies = await run(readJavascriptManifest(projectPath))
+
+      expect(dependencies).toEqual([
+        { group: "dependencies", name: "local", registry: "npm", specifier },
+      ])
+    }
+  )
 
   it("reports no dependency for installed packages absent from the manifest", async () => {
     const projectPath = await makeTempDirectory()
