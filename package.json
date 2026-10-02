@@ -63,7 +63,7 @@
     "@types/node": "24.13.3",
     "@types/semver": "7.8.0",
     "@vitest/coverage-v8": "5.0.2",
-    "adamantite": "0.41.0",
+    "adamantite": "0.42.0",
     "figlet": "1.11.4",
     "knip": "6.32.2",
     "oxfmt": "0.65.0",
