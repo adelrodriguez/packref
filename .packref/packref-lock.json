@@ -24,17 +24,6 @@
       "version": "0.3.0"
     },
     {
-      "name": "adamantite",
-      "registry": "npm",
-      "source": {
-        "host": "github.com",
-        "type": "repository",
-        "url": "https://github.com/adelrodriguez/adamantite"
-      },
-      "tracking": "dependency",
-      "version": "0.41.0"
-    },
-    {
       "name": "effect",
       "registry": "npm",
       "source": {
@@ -44,7 +33,18 @@
         "url": "https://github.com/Effect-TS/effect"
       },
       "tracking": "dependency",
-      "version": "4.0.0-rc.118"
+      "version": "4.0.0"
+    },
+    {
+      "name": "adamantite",
+      "registry": "npm",
+      "source": {
+        "host": "github.com",
+        "type": "repository",
+        "url": "https://github.com/adelrodriguez/adamantite"
+      },
+      "tracking": "dependency",
+      "version": "0.42.0"
     }
   ]
 }

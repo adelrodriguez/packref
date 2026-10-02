@@ -138,7 +138,7 @@ export const installPackageReferences = Effect.fn("installPackageReferences")(fu
       ),
     { concurrency: INSTALL_CONCURRENCY }
   )
-  const [failures, results] = Array.partition(attempts, (attempt) =>
+  const [results, failures] = Array.partition(attempts, (attempt) =>
     attempt.type === "success"
       ? Result.succeed(attempt.result)
       : Result.fail({ cause: attempt.error, identity: attempt.entry })
@@ -148,10 +148,10 @@ export const installPackageReferences = Effect.fn("installPackageReferences")(fu
     return yield* new InstallPackageReferencesError({ failures })
   }
 
-  const [alreadyInstalled, pending] = Array.partition(results, (result) =>
+  const [pending, alreadyInstalled] = Array.partition(results, (result) =>
     result.type === "already-installed" ? Result.fail(result.entry) : Result.succeed(result)
   )
-  const [fetched, reused] = Array.partition(pending, (result) =>
+  const [reused, fetched] = Array.partition(pending, (result) =>
     result.type === "reused" ? Result.succeed(result.entry) : Result.fail(result.entry)
   )
 

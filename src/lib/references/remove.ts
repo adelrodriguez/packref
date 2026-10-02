@@ -116,7 +116,7 @@ export const removePackageReferences = Effect.fn("removePackageReferences")(func
       ),
     { concurrency: REMOVE_CONCURRENCY }
   )
-  const [failures, confirmedEntries] = Array.partition(attempts, (attempt) =>
+  const [confirmedEntries, failures] = Array.partition(attempts, (attempt) =>
     attempt.type === "failure"
       ? Result.fail({ cause: attempt.cause, identity: attempt.entry })
       : Result.succeed(attempt.entry)

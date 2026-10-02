@@ -19,6 +19,6 @@ be checked against the locked local version.
 
 Source inspection can also identify version-specific operations that replace local collection ceremony.
 For example, the locked Effect version provides `Array.partition`, which applies a `Result`-returning
-filter and returns transformed failure and success arrays as a tuple. Use this operation when code must
-classify one collection into two transformed outputs. Do not force it onto classifications that must also
-discard a third outcome.
+filter and returns the transformed success and failure arrays as a `[passes, fails]` tuple. Use this
+operation when code must classify one collection into two transformed outputs. Do not force it onto
+classifications that must also discard a third outcome.
