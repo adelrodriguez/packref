@@ -11,7 +11,7 @@ export default Command.make("prune").pipe(
     Effect.gen(function* () {
       const prompter = yield* Prompter
 
-      yield* printTitle()
+      yield* printTitle
       yield* prompter.intro("🧹 packref prune")
 
       const plan = yield* prompter.withSpinner(() => discoverPrunePlan(), {

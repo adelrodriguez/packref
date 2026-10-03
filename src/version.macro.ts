@@ -8,7 +8,7 @@ const PackageJsonSchema = Schema.Struct({
 
 export async function getPackageVersion() {
   const rawText = await readFile(new URL("../package.json", import.meta.url), "utf8")
-  const packageJson = Schema.decodeUnknownSync(Schema.fromJsonString(PackageJsonSchema))(rawText)
+  const packageJson = Schema.decodeSync(Schema.fromJsonString(PackageJsonSchema))(rawText)
 
   if (!packageJson.version) {
     throw new MissingPackageVersion({ path: "package.json" })

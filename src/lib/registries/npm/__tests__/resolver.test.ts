@@ -1,5 +1,4 @@
 import * as Effect from "effect/Effect"
-import * as Layer from "effect/Layer"
 import { describe, expect, it } from "vitest"
 import type { RegistryPackageSpec } from "#lib/core/packages.ts"
 import type { NpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
@@ -56,11 +55,9 @@ const runWithMetadata = <A, E>(
 ) =>
   Effect.runPromise(
     effect.pipe(
-      Effect.provide(
-        Layer.succeed(NpmRegistryClient)({
-          getPackageMetadata: () => Effect.succeed(metadata),
-        })
-      )
+      Effect.provideService(NpmRegistryClient, {
+        getPackageMetadata: () => Effect.succeed(metadata),
+      })
     )
   )
 

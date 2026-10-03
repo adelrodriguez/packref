@@ -72,7 +72,7 @@ type RepositoryDirectoryConflict = Types.Mutable<
 type ProjectRepositorySource = Types.Mutable<RepositorySource>
 
 const noManifestDependencies: readonly ManifestDependency[] = []
-const useTarball = () => Effect.succeed(Option.none())
+const useTarball = () => Effect.succeedNone
 
 const toProjectFilesystemError =
   (operation: ProjectFilesystemError["operation"], path: string) => (cause: unknown) =>
@@ -176,7 +176,7 @@ const fetchAndRecordResolvedPackage = Effect.fn("fetchAndRecordResolvedPackage")
     onNone: useTarball,
     onSome: (repository) =>
       resolveRepositoryRef(resolvedPackage.identity, repository).pipe(
-        Effect.map(Option.some),
+        Effect.asSome,
         Effect.catchTags({
           InvalidRepositoryUrlError: useTarball,
           TagNotFoundError: useTarball,

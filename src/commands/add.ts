@@ -133,7 +133,7 @@ export default Command.make("add", { pkg }).pipe(
     Effect.gen(function* () {
       const prompter = yield* Prompter
 
-      yield* printTitle()
+      yield* printTitle
       yield* prompter.intro(
         `📦 packref add${Option.match(pkg, { onNone: () => "", onSome: (value) => ` ${value}` })}`
       )

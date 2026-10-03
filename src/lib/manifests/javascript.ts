@@ -471,9 +471,7 @@ const readNodeModulesVersion = Effect.fn("readNodeModulesVersion")(function* (
     Effect.gen(function* () {
       const packageJsonPath = path.join(directoryPath, "node_modules", packageName, "package.json")
       const rawPackageJson = yield* fs.readFileString(packageJsonPath).pipe(
-        Effect.catchFilter(Filter.reason("PlatformError", "NotFound"), () =>
-          Effect.succeed(void 0)
-        ),
+        Effect.catchFilter(Filter.reason("PlatformError", "NotFound"), () => Effect.void),
         toManifestParseError(packageJsonPath)
       )
 

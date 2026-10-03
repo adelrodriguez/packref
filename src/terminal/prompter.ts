@@ -31,7 +31,7 @@ export interface PrompterPrimitives {
     options: MultiSelectOptions<T>
   ) => Effect.Effect<T[], OperationCancelled>
   readonly outro: (message: string) => Effect.Effect<void>
-  readonly spinner: () => Effect.Effect<PromptSpinner>
+  readonly spinner: Effect.Effect<PromptSpinner>
 }
 
 interface PrompterService extends Omit<PrompterPrimitives, "spinner"> {
@@ -52,7 +52,7 @@ export class Prompter extends Context.Service<Prompter, PrompterService>()("Prom
     ...primitives,
     withSpinner: (run, options) =>
       Effect.acquireUseRelease(
-        primitives.spinner().pipe(
+        primitives.spinner.pipe(
           Effect.tap((spinner) =>
             Effect.sync(() => {
               spinner.start(options.start)
@@ -144,7 +144,7 @@ export class Prompter extends Context.Service<Prompter, PrompterService>()("Prom
           prompts.outro(message)
         })
       ),
-      spinner: Effect.fn("Prompter.spinner")(() => Effect.sync(() => prompts.spinner())),
+      spinner: Effect.sync(() => prompts.spinner()).pipe(Effect.withSpan("Prompter.spinner")),
     })
   )
 }

@@ -55,7 +55,7 @@ export default Command.make("init", { agents, ignore, nonInteractive }).pipe(
         return yield* new InitFlagsRequireNonInteractiveError({ requiredMode: "non-interactive" })
       }
 
-      yield* printTitle()
+      yield* printTitle
 
       yield* prompter.intro(`🚚 packref init${nonInteractive ? " --non-interactive" : ""}`)
       yield* prompter.log.info(`Preparing project at ${projectPath}`)

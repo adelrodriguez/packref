@@ -108,18 +108,16 @@ const makeRemoteTagReader = (runCommand: RemoteTagCommand) => {
             })
           )
       ),
-      Effect.flatMap((result) =>
-        result.exitCode === 0
-          ? Effect.succeed(result)
-          : Effect.fail(
-              new NetworkError({
-                cause:
-                  result.stderr.length > 0
-                    ? result.stderr
-                    : `git ls-remote exited with code ${result.exitCode}`,
-                url: source.url,
-              })
-            )
+      Effect.filterOrFail(
+        (result) => result.exitCode === 0,
+        (result) =>
+          new NetworkError({
+            cause:
+              result.stderr.length > 0
+                ? result.stderr
+                : `git ls-remote exited with code ${result.exitCode}`,
+            url: source.url,
+          })
       ),
       Effect.retry({
         schedule: REMOTE_TAG_RETRY_SCHEDULE,
