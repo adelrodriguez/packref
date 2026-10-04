@@ -69,7 +69,7 @@ export default Command.make("clean", { global }).pipe(
     Effect.gen(function* () {
       const prompter = yield* Prompter
 
-      yield* printTitle()
+      yield* printTitle
       yield* prompter.intro(`🧹 packref clean${global ? " --global" : ""}`)
       yield* global ? cleanGlobalStore() : cleanProject()
     }).pipe(

@@ -63,6 +63,18 @@ const ensureMatchingSource = Effect.fn("ensureMatchingSource")(function* (
   return storedEntry
 })
 
+const resolveDirectRepositoryRef = Effect.fn("resolveDirectRepositoryRef")(function* (
+  entry: PackageEntry
+) {
+  const source = yield* normalizeRepositorySource(entry.source)
+
+  if (source.fetchSource === undefined) {
+    return yield* new UnsupportedRepositoryHostError({ host: source.host, url: source.url })
+  }
+
+  return { ref: entry.version, source }
+})
+
 const fetchLockedStoreEntry = Effect.fn("fetchLockedStoreEntry")(function* (entry: PackageEntry) {
   if (entry.source.type === "tarball") {
     const materialized = yield* fetchTarballSnapshot(entry, entry.source.url)
@@ -71,15 +83,7 @@ const fetchLockedStoreEntry = Effect.fn("fetchLockedStoreEntry")(function* (entr
 
   const isDirectRepository = checkIsRepositoryProvider(entry.registry)
   const resolvedRepository = isDirectRepository
-    ? yield* Effect.gen(function* () {
-        const source = yield* normalizeRepositorySource(entry.source)
-
-        if (source.fetchSource === undefined) {
-          return yield* new UnsupportedRepositoryHostError({ host: source.host, url: source.url })
-        }
-
-        return { ref: entry.version, source }
-      })
+    ? yield* resolveDirectRepositoryRef(entry)
     : yield* resolveRepositoryRef(entry, entry.source)
   const materialized = yield* fetchRepositorySnapshot(entry, resolvedRepository, {
     includeDirectory: !isDirectRepository,

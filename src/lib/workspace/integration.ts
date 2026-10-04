@@ -51,10 +51,8 @@ const readOptionalFile = Effect.fn("readOptionalFile")(function* (path: string) 
   const fs = yield* FileSystem.FileSystem
 
   return yield* fs.readFileString(path).pipe(
-    Effect.map(Option.some),
-    Effect.catchFilter(Filter.reason("PlatformError", "NotFound"), () =>
-      Effect.succeed(Option.none())
-    )
+    Effect.asSome,
+    Effect.catchFilter(Filter.reason("PlatformError", "NotFound"), () => Effect.succeedNone)
   )
 })
 

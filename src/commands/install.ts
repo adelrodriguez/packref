@@ -39,7 +39,7 @@ export default Command.make("install").pipe(
     Effect.gen(function* () {
       const prompter = yield* Prompter
 
-      yield* printTitle()
+      yield* printTitle
       yield* prompter.intro("📥 packref install")
 
       const result = yield* prompter.withSpinner(() => installPackageReferences(), {

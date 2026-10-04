@@ -115,7 +115,7 @@ export default Command.make("remove", { pkg }).pipe(
     Effect.gen(function* () {
       const prompter = yield* Prompter
 
-      yield* printTitle()
+      yield* printTitle
       yield* prompter.intro(
         `📦 packref remove${Option.match(pkg, { onNone: () => "", onSome: (value) => ` ${value}` })}`
       )

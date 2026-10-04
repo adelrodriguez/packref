@@ -88,8 +88,12 @@ describe("NpmRegistryClient", () => {
         yield* TestClock.adjust("31 seconds")
         yield* Fiber.join(request)
       }).pipe(
-        Effect.provide(NpmRegistryClient.layer.pipe(Layer.provide(httpClientLayer))),
-        Effect.provide(TestClock.layer())
+        Effect.provide(
+          Layer.mergeAll(
+            NpmRegistryClient.layer.pipe(Layer.provide(httpClientLayer)),
+            TestClock.layer()
+          )
+        )
       )
     )
 

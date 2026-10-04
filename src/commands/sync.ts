@@ -110,7 +110,7 @@ export default Command.make("sync").pipe(
     Effect.gen(function* () {
       const prompter = yield* Prompter
 
-      yield* printTitle()
+      yield* printTitle
       yield* prompter.intro("🔄 packref sync")
 
       const preparation = yield* prompter.withSpinner(() => preparePackageReferenceSync(), {

@@ -241,22 +241,16 @@ export const materializeStoreEntry = Effect.fn("materializeStoreEntry")(function
         .pipe(Effect.mapError(mapPlatformError))
       yield* Effect.scoped(
         Effect.gen(function* () {
-          const temporaryMetadataPath = yield* fs
-            .makeTempFileScoped({
-              directory: temporaryPath,
-              prefix: ".packref-store-",
-              suffix: ".json",
-            })
-            .pipe(Effect.mapError(mapPlatformError))
+          const temporaryMetadataPath = yield* fs.makeTempFileScoped({
+            directory: temporaryPath,
+            prefix: ".packref-store-",
+            suffix: ".json",
+          })
 
-          yield* fs
-            .writeFileString(temporaryMetadataPath, encodedMetadata)
-            .pipe(Effect.mapError(mapPlatformError))
-          yield* fs.remove(metadataPath, { force: true }).pipe(Effect.mapError(mapPlatformError))
-          yield* fs
-            .rename(temporaryMetadataPath, metadataPath)
-            .pipe(Effect.mapError(mapPlatformError))
-        })
+          yield* fs.writeFileString(temporaryMetadataPath, encodedMetadata)
+          yield* fs.remove(metadataPath, { force: true })
+          yield* fs.rename(temporaryMetadataPath, metadataPath)
+        }).pipe(Effect.mapError(mapPlatformError))
       )
       yield* fs.rename(temporaryPath, storePath).pipe(
         Effect.mapError(mapPlatformError),

@@ -35,10 +35,7 @@ const NodePlatform = Layer.mergeAll(NodeHttpClient.layerFetch, NodeServices.laye
 const PackageManagerServices = PackageManagerResolver.layer.pipe(
   Layer.provide(PackageManagerDetector.layer)
 )
-const ManifestServices = Layer.provideMerge(
-  ProjectDependencyReader.layer,
-  Layer.provideMerge(PackageManagerServices, NodePlatform)
-)
+const ManifestServices = Layer.provideMerge(ProjectDependencyReader.layer, PackageManagerServices)
 const PackrefServices = Layer.mergeAll(
   NpmRegistryClient.layer,
   ManifestServices,

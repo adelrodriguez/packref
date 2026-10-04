@@ -4,7 +4,7 @@ import * as Layer from "effect/Layer"
 import { describe, expect, test } from "vitest"
 import { Prompter, type PrompterPrimitives, type PromptSpinner } from "#terminal/prompter.ts"
 
-const succeedVoid = () => Effect.succeed(void 0)
+const succeedVoid = () => Effect.void
 
 function createSpinner() {
   const messages: string[] = []
@@ -41,7 +41,7 @@ const makePrompterLayer = (spinner: PromptSpinner) => {
     },
     multiselect: <T extends object>() => Effect.succeed(new Array<T>()),
     outro: succeedVoid,
-    spinner: () => Effect.succeed(spinner),
+    spinner: Effect.succeed(spinner),
   }
 
   return Layer.succeed(Prompter)(Prompter.make(primitives))
