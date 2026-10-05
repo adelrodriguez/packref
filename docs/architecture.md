@@ -2,7 +2,7 @@
 
 Packref is a single-process CLI with command modules at the edge and domain modules behind narrow
 interfaces. Product behavior is documented in the [README](../README.md),
-domain terms live in [CONTEXT.md](../CONTEXT.md), and durable tradeoffs live in
+domain terms live in [GLOSSARY.md](../GLOSSARY.md), and durable tradeoffs live in
 [decision records](./adr/README.md).
 
 ## Runtime
