@@ -1,5 +1,11 @@
 # packref
 
+## 0.3.6
+
+### Patch Changes
+
+- fe726b3: Remove Packref's own `engines.node` declaration, so Packref itself no longer causes npm engine warnings or failures. Dependency engine checks still apply. The README now says that Packref supports Node.js 22.19 or later, which the current dependencies require.
+
 ## 0.3.5
 
 ### Patch Changes
