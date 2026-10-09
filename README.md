@@ -45,6 +45,8 @@ dependency manifest, or replace your package manager.
 
 ## Quick start
 
+Packref supports Node.js 22.19 or later.
+
 Initialize Packref from the root of a project:
 
 ```sh
