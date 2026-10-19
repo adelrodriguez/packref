@@ -48,7 +48,7 @@
     "version": "changeset version && pnpm run fix"
   },
   "dependencies": {
-    "@clack/prompts": "1.7.0",
+    "@clack/prompts": "1.8.1",
     "@effect/platform-node": "4.0.0",
     "@effect/platform-node-shared": "4.0.0",
     "effect": "4.0.0",
@@ -67,12 +67,12 @@
     "@types/semver": "7.8.0",
     "@vitest/coverage-v8": "5.0.5",
     "adamantite": "0.43.0",
-    "figlet": "1.11.4",
+    "figlet": "1.12.0",
     "knip": "6.39.0",
     "oxfmt": "0.71.0",
     "oxlint": "1.86.0",
     "oxlint-tsgolint": "7.0.2003",
-    "tsdown": "0.22.14",
+    "tsdown": "0.23.1",
     "typescript": "7.0.2",
     "unplugin-macros": "0.23.3",
     "vitest": "5.0.5"
