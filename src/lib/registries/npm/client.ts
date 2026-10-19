@@ -48,7 +48,7 @@ export class NpmRegistryClient extends Context.Service<
 
           if (response.status === 404) {
             return yield* new PackageNotFoundError({
-              name,
+              packageName: name,
               registry: "npm",
             })
           }

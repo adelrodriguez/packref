@@ -12,18 +12,6 @@
       "version": "0.3.0"
     },
     {
-      "name": "effect",
-      "registry": "npm",
-      "source": {
-        "directory": "packages/effect",
-        "host": "github.com",
-        "type": "repository",
-        "url": "https://github.com/Effect-TS/effect"
-      },
-      "tracking": "dependency",
-      "version": "4.0.0"
-    },
-    {
       "name": "@clack/prompts",
       "registry": "npm",
       "source": {
@@ -44,7 +32,19 @@
         "url": "https://github.com/adelrodriguez/adamantite"
       },
       "tracking": "dependency",
-      "version": "0.43.0"
+      "version": "0.44.0"
+    },
+    {
+      "name": "effect",
+      "registry": "npm",
+      "source": {
+        "directory": "packages/effect",
+        "host": "github.com",
+        "type": "repository",
+        "url": "https://github.com/Effect-TS/effect"
+      },
+      "tracking": "dependency",
+      "version": "4.0.5"
     }
   ]
 }

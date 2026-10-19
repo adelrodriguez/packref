@@ -80,12 +80,12 @@ export class NotInitializedError extends Data.TaggedError("NotInitializedError")
 }
 
 export class PackageNotReferencedError extends Data.TaggedError("PackageNotReferencedError")<{
-  name: string
+  packageName: string
   registry: string
   version?: string
 }> {
   override get message() {
-    const identity = `${this.registry}:${this.name}${this.version === undefined ? "" : `@${this.version}`}`
+    const identity = `${this.registry}:${this.packageName}${this.version === undefined ? "" : `@${this.version}`}`
     return `Package \`${identity}\` is not referenced by this project. Run \`packref list\` to see available references.`
   }
 }
@@ -109,21 +109,21 @@ export class UnsupportedRegistryError extends Data.TaggedError("UnsupportedRegis
 }
 
 export class PackageNotFoundError extends Data.TaggedError("PackageNotFoundError")<{
-  name: string
+  packageName: string
   registry: string
 }> {
   override get message() {
-    return `Package \`${this.registry}:${this.name}\` was not found. Check the package name and registry, then retry.`
+    return `Package \`${this.registry}:${this.packageName}\` was not found. Check the package name and registry, then retry.`
   }
 }
 
 export class PackageVersionNotFoundError extends Data.TaggedError("PackageVersionNotFoundError")<{
-  name: string
+  packageName: string
   registry: string
   specifier: string
 }> {
   override get message() {
-    return `Package \`${this.registry}:${this.name}\` does not have a version matching \`${this.specifier}\`. Choose a published version or range, then retry.`
+    return `Package \`${this.registry}:${this.packageName}\` does not have a version matching \`${this.specifier}\`. Choose a published version or range, then retry.`
   }
 }
 
@@ -254,12 +254,12 @@ export class StoreCorruptedError extends Data.TaggedError("StoreCorruptedError")
 }
 
 export class StoreSourceMismatchError extends Data.TaggedError("StoreSourceMismatchError")<{
-  name: string
+  packageName: string
   registry: string
   version: string
 }> {
   override get message() {
-    return `Global store entry for \`${this.registry}:${this.name}@${this.version}\` does not match the source recorded in packref-lock.json. Run \`packref clean --global\` and retry.`
+    return `Global store entry for \`${this.registry}:${this.packageName}@${this.version}\` does not match the source recorded in packref-lock.json. Run \`packref clean --global\` and retry.`
   }
 }
 
@@ -267,7 +267,7 @@ export class RepositoryDirectoryConflictError extends Data.TaggedError(
   "RepositoryDirectoryConflictError"
 )<{
   existingDirectory?: string
-  name: string
+  packageName: string
   registry: string
   requestedDirectory?: string
   version: string
@@ -276,7 +276,7 @@ export class RepositoryDirectoryConflictError extends Data.TaggedError(
     const existingDirectory = this.existingDirectory ?? "the repository root"
     const requestedDirectory = this.requestedDirectory ?? "the repository root"
 
-    return `Project already references \`${this.registry}:${this.name}@${this.version}\` from \`${existingDirectory}\` and cannot also reference \`${requestedDirectory}\` because both use the same package identity. Remove the existing package source reference before adding the requested repository directory.`
+    return `Project already references \`${this.registry}:${this.packageName}@${this.version}\` from \`${existingDirectory}\` and cannot also reference \`${requestedDirectory}\` because both use the same package identity. Remove the existing package source reference before adding the requested repository directory.`
   }
 }
 

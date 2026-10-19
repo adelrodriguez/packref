@@ -35,7 +35,7 @@ export default defineRegistry({
 
       if (Option.isNone(resolvedVersion)) {
         return yield* new PackageVersionNotFoundError({
-          name: spec.name,
+          packageName: spec.name,
           registry: spec.registry,
           specifier: requestedSpecifier,
         })
@@ -46,7 +46,7 @@ export default defineRegistry({
 
       if (versionMetadata === undefined) {
         return yield* new PackageVersionNotFoundError({
-          name: spec.name,
+          packageName: spec.name,
           registry: spec.registry,
           specifier: requestedSpecifier,
         })

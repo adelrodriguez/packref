@@ -213,7 +213,11 @@ const addRepositoryReference = Effect.fn("addRepositoryReference")(function* (
     existingEntry?.source.type === "repository"
     && existingEntry.source.directory !== resolved.repository.source.directory
   ) {
-    const conflict: RepositoryDirectoryConflict = { ...resolved.identity }
+    const conflict: RepositoryDirectoryConflict = {
+      packageName: resolved.identity.name,
+      registry: resolved.identity.registry,
+      version: resolved.identity.version,
+    }
 
     if (existingEntry.source.directory !== undefined) {
       conflict.existingDirectory = existingEntry.source.directory
@@ -234,7 +238,11 @@ const addRepositoryReference = Effect.fn("addRepositoryReference")(function* (
     || storeEntry.source.host !== resolved.repository.source.host
     || storeEntry.source.url !== resolved.repository.source.url
   ) {
-    return yield* new StoreSourceMismatchError(resolved.identity)
+    return yield* new StoreSourceMismatchError({
+      packageName: resolved.identity.name,
+      registry: resolved.identity.registry,
+      version: resolved.identity.version,
+    })
   }
 
   const projectSource: ProjectRepositorySource = {
