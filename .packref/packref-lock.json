@@ -1,18 +1,6 @@
 {
   "packages": [
     {
-      "name": "@clack/prompts",
-      "registry": "npm",
-      "source": {
-        "directory": "packages/prompts",
-        "host": "github.com",
-        "type": "repository",
-        "url": "https://github.com/bombshell-dev/clack"
-      },
-      "tracking": "dependency",
-      "version": "1.7.0"
-    },
-    {
       "name": "nanotar",
       "registry": "npm",
       "source": {
@@ -36,6 +24,18 @@
       "version": "4.0.0"
     },
     {
+      "name": "@clack/prompts",
+      "registry": "npm",
+      "source": {
+        "directory": "packages/prompts",
+        "host": "github.com",
+        "type": "repository",
+        "url": "https://github.com/bombshell-dev/clack"
+      },
+      "tracking": "dependency",
+      "version": "1.8.1"
+    },
+    {
       "name": "adamantite",
       "registry": "npm",
       "source": {
@@ -44,7 +44,7 @@
         "url": "https://github.com/adelrodriguez/adamantite"
       },
       "tracking": "dependency",
-      "version": "0.42.0"
+      "version": "0.43.0"
     }
   ]
 }
