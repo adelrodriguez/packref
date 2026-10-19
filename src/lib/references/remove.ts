@@ -50,7 +50,7 @@ export const findPackageReferenceMatches = Effect.fn("findPackageReferenceMatche
 
   if (entries.length === 0) {
     const identity: PackageReferenceIdentity = {
-      name: spec.name,
+      packageName: spec.name,
       registry: spec.registry,
     }
 

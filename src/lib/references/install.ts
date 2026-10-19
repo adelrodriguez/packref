@@ -54,7 +54,7 @@ const ensureMatchingSource = Effect.fn("ensureMatchingSource")(function* (
 ) {
   if (!packageSnapshotSourceEquivalence(entry.source, storedEntry.source)) {
     return yield* new StoreSourceMismatchError({
-      name: entry.name,
+      packageName: entry.name,
       registry: entry.registry,
       version: entry.version,
     })
