@@ -1,5 +1,14 @@
 # packref
 
+## 0.3.7
+
+### Patch Changes
+
+- 35ca17a: Update `effect`, `@effect/platform-node`, and `@effect/platform-node-shared` to 4.0.5. Package errors now keep their error type as their name, so logs show the error type instead of the package name.
+- 95bbb54: Pin `@effect/platform-node-shared` to the same version as `effect` and `@effect/platform-node`. This prevents fresh pnpm installs from selecting an incompatible shared platform version and failing at startup.
+- d2e33e0: Update `@clack/prompts` to 1.8.1.
+- 6f9b046: Update `nypm` to 0.6.10.
+
 ## 0.3.6
 
 ### Patch Changes
