@@ -7,7 +7,8 @@ import {
   UnsupportedRepositoryHostError,
 } from "#lib/core/errors.ts"
 import { checkIsRepositoryProvider } from "#lib/core/repository.ts"
-import { packageSourceEquivalence } from "#lib/core/source.ts"
+import { packageSourceEquivalence, type RepositorySource } from "#lib/core/source.ts"
+import { getRegistryAdapter } from "#lib/registries/index.ts"
 import { fetchRepositorySnapshot } from "#lib/sources/repository/fetch.ts"
 import {
   normalizeRepositorySource,
@@ -75,6 +76,15 @@ const resolveDirectRepositoryRef = Effect.fn("resolveDirectRepositoryRef")(funct
   return { ref: entry.version, source }
 })
 
+const resolveRegistryRepositoryRef = Effect.fn("resolveRegistryRepositoryRef")(function* (
+  entry: PackageEntry,
+  source: RepositorySource
+) {
+  const adapter = yield* getRegistryAdapter(entry.registry)
+
+  return yield* resolveRepositoryRef(entry, source, adapter.tagCandidates(entry))
+})
+
 const fetchLockedStoreEntry = Effect.fn("fetchLockedStoreEntry")(function* (entry: PackageEntry) {
   if (entry.source.type === "tarball") {
     const materialized = yield* fetchTarballSnapshot(entry, entry.source.url)
@@ -84,7 +94,7 @@ const fetchLockedStoreEntry = Effect.fn("fetchLockedStoreEntry")(function* (entr
   const isDirectRepository = checkIsRepositoryProvider(entry.registry)
   const resolvedRepository = isDirectRepository
     ? yield* resolveDirectRepositoryRef(entry)
-    : yield* resolveRepositoryRef(entry, entry.source)
+    : yield* resolveRegistryRepositoryRef(entry, entry.source)
   const materialized = yield* fetchRepositorySnapshot(entry, resolvedRepository, {
     includeDirectory: !isDirectRepository,
   })

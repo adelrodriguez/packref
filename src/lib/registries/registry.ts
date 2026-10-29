@@ -12,7 +12,15 @@ export interface ResolvedPackageReference {
 
 export interface RegistryAdapter<E = never, R = never> {
   readonly name: Registry
+  /**
+   * Maps a package name to the form the registry uses for its package identities.
+   */
+  readonly normalizeName: (name: string) => string
   readonly resolve: (spec: RegistryPackageSpec) => Effect.Effect<ResolvedPackageReference, E, R>
+  /**
+   * Lists repository tags that can hold the source of a package identity, in priority order.
+   */
+  readonly tagCandidates: (identity: PackageIdentity) => readonly string[]
 }
 
 export const defineRegistry = <E, R>(adapter: RegistryAdapter<E, R>) => adapter

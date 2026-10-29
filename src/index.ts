@@ -18,6 +18,7 @@ import { ProjectDependencyReader } from "#lib/manifests/index.ts"
 import { PackageManagerResolver } from "#lib/manifests/javascript.ts"
 import { PackageManagerDetector } from "#lib/manifests/package-manager-detector.ts"
 import { NpmRegistryClient } from "#lib/registries/npm/client.ts"
+import { userAgentLayer } from "#lib/shared/http.ts"
 import { RepositoryDownloader } from "#lib/sources/repository/fetch.ts"
 import { RemoteTagReader } from "#lib/sources/repository/tags.ts"
 import { Reflinker } from "#lib/workspace/reflinker.ts"
@@ -31,7 +32,8 @@ const main = Command.make("packref").pipe(
 
 const version = await getPackageVersion()
 
-const NodePlatform = Layer.mergeAll(NodeHttpClient.layerFetch, NodeServices.layer)
+const HttpClientLayer = userAgentLayer(version).pipe(Layer.provide(NodeHttpClient.layerFetch))
+const NodePlatform = Layer.mergeAll(HttpClientLayer, NodeServices.layer)
 const PackageManagerServices = PackageManagerResolver.layer.pipe(
   Layer.provide(PackageManagerDetector.layer)
 )

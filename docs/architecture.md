@@ -54,7 +54,12 @@ or lockfile mutation rules.
 To add a registry:
 
 1. Add its name to `SUPPORTED_REGISTRIES` in `src/lib/core/registry.ts`.
-2. Add a self-contained adapter under `src/lib/registries/<registry>/`.
+2. Add a self-contained adapter under `src/lib/registries/<registry>/`. The adapter declares:
+   - `resolve`: resolves a package spec to a package identity and its source candidates.
+   - `normalizeName`: maps a package name to the form of the registry's package identities.
+     `add` and `remove` apply it before they match a name.
+   - `tagCandidates`: lists the repository tags that can hold the source of a package identity,
+     in priority order. `add` and `install` use it to find a repository snapshot.
 3. Add the adapter to `registryAdapters` in `src/lib/registries/index.ts`.
 4. If the ecosystem has a project manifest, add an adapter under `src/lib/manifests/` and register it
    in `manifestAdapters`.
