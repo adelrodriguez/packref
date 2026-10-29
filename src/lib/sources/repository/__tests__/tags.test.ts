@@ -61,6 +61,8 @@ const reactIdentity = {
   version: "19.0.0",
 } satisfies PackageIdentity
 
+const reactTagCandidates = ["v19.0.0", "19.0.0", "react@19.0.0"]
+
 const repositorySource = {
   fetchSource: "github:facebook/react",
   host: "github.com",
@@ -98,26 +100,16 @@ describe("parseGitRemoteRefsOutput", () => {
 })
 
 describe("matchRepositoryTag", () => {
-  it("matches tags in the documented priority order", () => {
+  it("matches tag candidates in their priority order", () => {
     expect(
-      Option.getOrThrow(matchRepositoryTag(reactIdentity, ["19.0.0", "react@19.0.0", "v19.0.0"]))
+      Option.getOrThrow(
+        matchRepositoryTag(["v19.0.0", "19.0.0"], ["19.0.0", "react@19.0.0", "v19.0.0"])
+      )
     ).toBe("v19.0.0")
   })
 
-  it("supports scoped package names", () => {
-    const identity = {
-      name: "@effect/cli",
-      registry: "npm",
-      version: "0.29.0",
-    } satisfies PackageIdentity
-
-    expect(Option.getOrThrow(matchRepositoryTag(identity, ["@effect/cli@0.29.0"]))).toBe(
-      "@effect/cli@0.29.0"
-    )
-  })
-
   it("returns None when no tag matches", () => {
-    expect(Option.isNone(matchRepositoryTag(reactIdentity, ["v18.3.1"]))).toBe(true)
+    expect(Option.isNone(matchRepositoryTag(["v19.0.0", "19.0.0"], ["v18.3.1"]))).toBe(true)
   })
 })
 
@@ -330,9 +322,11 @@ describe("resolveDirectRepositoryRef", () => {
 describe("resolveRepositoryRef", () => {
   it("resolves the matching remote tag for a normalized repository source candidate", async () => {
     const resolved = await runWithRemoteTagCommand(
-      resolveRepositoryRef(reactIdentity, {
-        url: "git+https://github.com/facebook/react.git",
-      }),
+      resolveRepositoryRef(
+        reactIdentity,
+        { url: "git+https://github.com/facebook/react.git" },
+        reactTagCandidates
+      ),
       () =>
         Effect.succeed({
           exitCode: 0,
@@ -347,11 +341,27 @@ describe("resolveRepositoryRef", () => {
     })
   })
 
+  it("matches the tag candidates of the registry", async () => {
+    const resolved = await runWithRemoteTagCommand(
+      resolveRepositoryRef(
+        { name: "serde", registry: "crates", version: "1.0.219" },
+        { url: "https://github.com/serde-rs/serde" },
+        ["v1.0.219", "serde-1.0.219"]
+      ),
+      () =>
+        Effect.succeed({
+          exitCode: 0,
+          stderr: "",
+          stdout: "8f2b1f\trefs/tags/serde-1.0.219\n",
+        })
+    )
+
+    expect(resolved.ref).toBe("serde-1.0.219")
+  })
+
   it("fails with TagNotFoundError when no matching tag exists", async () => {
     const resolution = runWithRemoteTagCommand(
-      resolveRepositoryRef(reactIdentity, {
-        url: "github:facebook/react",
-      }),
+      resolveRepositoryRef(reactIdentity, { url: "github:facebook/react" }, reactTagCandidates),
       () =>
         Effect.succeed({
           exitCode: 0,
@@ -366,9 +376,11 @@ describe("resolveRepositoryRef", () => {
   it("skips tag discovery for unsupported repository hosts", async () => {
     let commandWasRun = false
     const resolution = runWithRemoteTagCommand(
-      resolveRepositoryRef(reactIdentity, {
-        url: "https://code.example.com/acme/react.git",
-      }),
+      resolveRepositoryRef(
+        reactIdentity,
+        { url: "https://code.example.com/acme/react.git" },
+        reactTagCandidates
+      ),
       () => {
         commandWasRun = true
 

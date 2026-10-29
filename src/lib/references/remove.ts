@@ -9,6 +9,7 @@ import {
   PackageReferenceFilesystemError,
   RemovePackageReferencesError,
 } from "#lib/core/errors.ts"
+import { normalizePackageSpec } from "#lib/registries/index.ts"
 import {
   findPackageEntries,
   listPackageEntries,
@@ -41,9 +42,10 @@ export const listPackageReferences = Effect.fn("listPackageReferences")(function
 })
 
 export const findPackageReferenceMatches = Effect.fn("findPackageReferenceMatches")(function* (
-  spec: ParsedPackageSpec,
+  inputSpec: ParsedPackageSpec,
   options: PackageReferenceOptions = {}
 ) {
+  const spec = yield* normalizePackageSpec(inputSpec)
   const projectPath = yield* requireInitializedProject(options.projectPath)
   const lockfile = yield* readProjectLockfile(projectPath)
   const entries = findPackageEntries(lockfile, spec)
