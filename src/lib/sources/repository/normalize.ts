@@ -206,7 +206,8 @@ export const resolveDirectRepositoryRef = Effect.fn("resolveDirectRepositoryRef"
 
 export const resolveRepositoryRef = Effect.fn("resolveRepositoryRef")(function* (
   identity: PackageIdentity,
-  candidate: RepositorySourceCandidate
+  candidate: RepositorySourceCandidate,
+  tagCandidates: readonly string[]
 ) {
   const source = yield* normalizeRepositorySource(candidate)
 
@@ -219,7 +220,7 @@ export const resolveRepositoryRef = Effect.fn("resolveRepositoryRef")(function* 
 
   const remoteTagReader = yield* RemoteTagReader
   const tags = yield* remoteTagReader.list(source)
-  const ref = matchRepositoryTag(identity, tags)
+  const ref = matchRepositoryTag(tagCandidates, tags)
 
   if (Option.isNone(ref)) {
     return yield* new TagNotFoundError({

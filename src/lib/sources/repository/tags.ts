@@ -12,7 +12,6 @@ import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner"
 import * as Result from "effect/Result"
 import * as Schedule from "effect/Schedule"
 import * as Stream from "effect/Stream"
-import type { PackageIdentity } from "#lib/core/identity.ts"
 import type { NormalizedRepositorySource } from "#lib/core/source.ts"
 import { GitExecutableNotFoundError, NetworkError } from "#lib/core/errors.ts"
 
@@ -185,16 +184,11 @@ export class RemoteTagReader extends Context.Service<RemoteTagReader, RemoteTagR
   )
 }
 
-export const getTagCandidates = ({ name, version }: PackageIdentity) => [
-  `v${version}`,
-  version,
-  `${name}@${version}`,
-]
-
-export const matchRepositoryTag = (identity: PackageIdentity, availableTags: readonly string[]) => {
+export const matchRepositoryTag = (
+  tagCandidates: readonly string[],
+  availableTags: readonly string[]
+) => {
   const availableTagSet = new Set(availableTags)
 
-  return Option.fromNullishOr(
-    getTagCandidates(identity).find((candidate) => availableTagSet.has(candidate))
-  )
+  return Option.fromNullishOr(tagCandidates.find((candidate) => availableTagSet.has(candidate)))
 }

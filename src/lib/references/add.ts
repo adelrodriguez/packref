@@ -21,7 +21,11 @@ import {
   packageIdentityEquivalence,
 } from "#lib/core/identity.ts"
 import { ProjectDependencyReader } from "#lib/manifests/index.ts"
-import { resolvePackageReference } from "#lib/registries/index.ts"
+import {
+  getRegistryAdapter,
+  normalizePackageSpec,
+  resolvePackageReference,
+} from "#lib/registries/index.ts"
 import { fetchRepositorySnapshot } from "#lib/sources/repository/fetch.ts"
 import {
   resolveDirectRepositoryRef,
@@ -172,10 +176,15 @@ const fetchAndRecordResolvedPackage = Effect.fn("fetchAndRecordResolvedPackage")
   manifestRange: string | undefined,
   tracking: PackageEntry["tracking"]
 ) {
+  const adapter = yield* getRegistryAdapter(resolvedPackage.identity.registry)
   const resolvedRepository = yield* Option.match(Option.fromNullishOr(resolvedPackage.repository), {
     onNone: useTarball,
     onSome: (repository) =>
-      resolveRepositoryRef(resolvedPackage.identity, repository).pipe(
+      resolveRepositoryRef(
+        resolvedPackage.identity,
+        repository,
+        adapter.tagCandidates(resolvedPackage.identity)
+      ).pipe(
         Effect.asSome,
         Effect.catchTags({
           InvalidRepositoryUrlError: useTarball,
@@ -307,14 +316,15 @@ export const addPackageReference = Effect.fn("addPackageReference")(function* (
   options: AddPackageOptions = {}
 ) {
   const { projectPath } = yield* initializeAddProject(options)
+  const spec = yield* normalizePackageSpec(inputSpec)
 
-  if (inputSpec._tag === "repository") {
-    return yield* addRepositoryReference(inputSpec, projectPath)
+  if (spec._tag === "repository") {
+    return yield* addRepositoryReference(spec, projectPath)
   }
 
-  const manifestDependency = Predicate.isUndefined(inputSpec.specifier)
+  const manifestDependency = Predicate.isUndefined(spec.specifier)
     ? (yield* readAvailableProjectDependencies(projectPath)).find((dependency) =>
-        packageCoordinatesEquivalence(dependency, inputSpec)
+        packageCoordinatesEquivalence(dependency, spec)
       )
     : undefined
 
@@ -324,7 +334,7 @@ export const addPackageReference = Effect.fn("addPackageReference")(function* (
     return yield* materializePackageCandidateReference(resolution, projectPath)
   }
 
-  const resolvedPackage = yield* resolvePackageReference(inputSpec)
+  const resolvedPackage = yield* resolvePackageReference(spec)
 
   return yield* fetchAndRecordResolvedPackage(resolvedPackage, projectPath, undefined, "manual")
 })

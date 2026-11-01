@@ -164,3 +164,21 @@ describe("npm", () => {
     })
   })
 })
+
+describe("npm tag candidates", () => {
+  it("orders version, bare version, and name-at-version tags", () => {
+    expect(npm.tagCandidates({ name: "react", registry: "npm", version: "19.0.0" })).toEqual([
+      "v19.0.0",
+      "19.0.0",
+      "react@19.0.0",
+    ])
+  })
+
+  it("keeps the scope in name-at-version tags", () => {
+    expect(npm.tagCandidates({ name: "@effect/cli", registry: "npm", version: "0.29.0" })).toEqual([
+      "v0.29.0",
+      "0.29.0",
+      "@effect/cli@0.29.0",
+    ])
+  })
+})

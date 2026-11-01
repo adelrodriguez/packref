@@ -26,6 +26,7 @@ export const resolveVersion = (metadata: NpmPackageMetadata, requestedSpecifier:
 
 export default defineRegistry({
   name: "npm",
+  normalizeName: (name) => name,
   resolve: (spec) =>
     Effect.gen(function* () {
       const client = yield* NpmRegistryClient
@@ -73,4 +74,5 @@ export default defineRegistry({
         tarballUrl: versionMetadata.dist.tarball,
       }
     }),
+  tagCandidates: ({ name, version }) => [`v${version}`, version, `${name}@${version}`],
 })
