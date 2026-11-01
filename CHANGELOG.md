@@ -1,5 +1,11 @@
 # packref
 
+## 0.3.8
+
+### Patch Changes
+
+- a0fb489: Send a `packref/<version>` User-Agent header with each registry and tarball request.
+
 ## 0.3.7
 
 ### Patch Changes
