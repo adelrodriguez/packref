@@ -14,4 +14,5 @@ export default defineConfig({
   platform: "node",
   plugins: [Macros.rolldown()],
   sourcemap: false,
+  target: "node22.19",
 })
