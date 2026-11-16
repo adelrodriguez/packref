@@ -13,7 +13,6 @@ import { PACKAGE_DIRECTORY_NAME } from "#lib/core/packages.ts"
 import { checkIsRepositoryProvider } from "#lib/core/repository.ts"
 import { PackageSourceSchema } from "#lib/core/source.ts"
 import { PackrefHome } from "#lib/layout/home.ts"
-import { formatJson } from "#lib/shared/json.ts"
 import {
   getGlobalStorePath,
   getStoreEntryPaths as getPathsForStoreEntry,
@@ -38,7 +37,7 @@ export interface StoredEntry {
 const StoreEntryMetadataSchema = Schema.Struct({
   source: PackageSourceSchema,
 })
-const StoreEntryMetadataJsonSchema = Schema.fromJsonString(StoreEntryMetadataSchema)
+const StoreEntryMetadataJsonSchema = Schema.fromJsonString(StoreEntryMetadataSchema, { space: 2 })
 const decodeStoreEntryMetadata = Schema.decodeUnknownEffect(StoreEntryMetadataJsonSchema)
 const STORE_TRAVERSAL_CONCURRENCY = 16
 
@@ -217,9 +216,7 @@ export const materializeStoreEntry = Effect.fn("materializeStoreEntry")(function
 
   const parentPath = path.dirname(storePath)
   yield* fs.makeDirectory(parentPath, { recursive: true }).pipe(Effect.mapError(mapPlatformError))
-  const encodedMetadata = formatJson(
-    yield* Schema.encodeEffect(StoreEntryMetadataJsonSchema)({ source })
-  )
+  const encodedMetadata = `${yield* Schema.encodeEffect(StoreEntryMetadataJsonSchema)({ source })}\n`
 
   return yield* Effect.scoped(
     Effect.gen(function* () {

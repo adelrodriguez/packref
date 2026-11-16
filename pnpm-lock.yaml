@@ -121,9 +121,6 @@ importers:
       giget:
         specifier: 3.3.1
         version: 3.3.1
-      jsonc-parser:
-        specifier: 3.3.1
-        version: 3.3.1
       nanotar:
         specifier: 0.3.0
         version: 0.3.0

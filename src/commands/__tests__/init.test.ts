@@ -12,7 +12,8 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { execPath } from "node:process"
 import { spawn } from "@lydell/node-pty"
-import { parse } from "jsonc-parser"
+import * as Json5 from "effect/encoding/Json5"
+import * as Result from "effect/Result"
 import { afterEach, describe, expect, it } from "vitest"
 import type { Lockfile } from "#lib/workspace/lockfile.ts"
 import packageJson from "../../../package.json" with { type: "json" }
@@ -32,7 +33,8 @@ const makeTempDirectory = async () => {
 const readJson = async <A>(path: string) => JSON.parse(await readFile(path, "utf8")) as A
 
 // SAFETY: Each caller supplies the expected shape for test data that the test itself creates.
-const readJsonc = async <A>(path: string) => parse(await readFile(path, "utf8")) as A
+const readJsonc = async <A>(path: string) =>
+  Result.getOrThrow(Json5.parse(await readFile(path, "utf8"))) as A
 
 const readText = (path: string) => readFile(path, "utf8")
 

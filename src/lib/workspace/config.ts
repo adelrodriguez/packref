@@ -6,14 +6,13 @@ import * as Schema from "effect/Schema"
 import { ConfigParseError } from "#lib/core/errors.ts"
 import { PackrefHome } from "#lib/layout/home.ts"
 import { getGlobalConfigPath, getGlobalDirectoryPath } from "#lib/layout/paths.ts"
-import { formatJson } from "#lib/shared/json.ts"
 
 export const GlobalConfigSchema = Schema.Struct({
   projects: Schema.Array(Schema.String),
 })
 export type GlobalConfig = typeof GlobalConfigSchema.Type
 
-const GlobalConfigJsonSchema = Schema.fromJsonString(GlobalConfigSchema)
+const GlobalConfigJsonSchema = Schema.fromJsonString(GlobalConfigSchema, { space: 2 })
 const decodeGlobalConfig = Schema.decodeUnknownEffect(GlobalConfigJsonSchema)
 const encodeGlobalConfig = Schema.encodeEffect(GlobalConfigJsonSchema)
 
@@ -43,7 +42,7 @@ export const writeGlobalConfigAtPath = Effect.fn("writeGlobalConfigAtPath")(func
   config: GlobalConfig
 ) {
   const fs = yield* FileSystem.FileSystem
-  const encodedConfig = formatJson(yield* encodeGlobalConfig(config))
+  const encodedConfig = `${yield* encodeGlobalConfig(config)}\n`
 
   yield* fs.writeFileString(configPath, encodedConfig)
 })

@@ -19,6 +19,7 @@
         "allowedUnstableApis": [
           "@effect/platform-node",
           "effect/cli",
+          "effect/encoding/Json5",
           "effect/FileSystem",
           "effect/http",
           "effect/Path",

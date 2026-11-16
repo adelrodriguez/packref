@@ -13,7 +13,6 @@ import {
 } from "#lib/core/identity.ts"
 import { PackageSourceSchema } from "#lib/core/source.ts"
 import { getProjectLockfilePath } from "#lib/layout/paths.ts"
-import { formatJson } from "#lib/shared/json.ts"
 
 export const PackageEntrySchema = Schema.Struct({
   name: Schema.String,
@@ -29,7 +28,7 @@ export const LockfileSchema = Schema.Struct({
 })
 export type Lockfile = typeof LockfileSchema.Type
 
-const LockfileJsonSchema = Schema.fromJsonString(LockfileSchema)
+const LockfileJsonSchema = Schema.fromJsonString(LockfileSchema, { space: 2 })
 const decodeLockfile = Schema.decodeUnknownEffect(LockfileJsonSchema)
 const encodeLockfile = Schema.encodeEffect(LockfileJsonSchema)
 
@@ -79,7 +78,7 @@ export const writeLockfileAtPath = Effect.fn("writeLockfileAtPath")(function* (
 ) {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
-  const encodedLockfile = formatJson(yield* encodeLockfile(lockfile))
+  const encodedLockfile = `${yield* encodeLockfile(lockfile)}\n`
 
   yield* Effect.scoped(
     Effect.gen(function* () {
