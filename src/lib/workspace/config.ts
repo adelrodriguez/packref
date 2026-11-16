@@ -10,6 +10,7 @@ import { getGlobalConfigPath, getGlobalDirectoryPath } from "#lib/layout/paths.t
 export const GlobalConfigSchema = Schema.Struct({
   projects: Schema.Array(Schema.String),
 })
+
 export type GlobalConfig = typeof GlobalConfigSchema.Type
 
 const GlobalConfigJsonSchema = Schema.fromJsonString(GlobalConfigSchema, { space: 2 })

@@ -15,7 +15,7 @@
     "plugins": [
       {
         "name": "@effect/language-service",
-        "diagnostics": false,
+        "diagnostics": true,
         "allowedUnstableApis": [
           "@effect/platform-node",
           "@effect/platform-node-shared/NodeStream",

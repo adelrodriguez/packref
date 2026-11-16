@@ -18,6 +18,7 @@ const writeGlobalConfig = async (homePath: string, projects: readonly string[]) 
   await mkdir(join(homePath, ".agents", "packref"), { recursive: true })
   const contents = `${JSON.stringify({ projects }, null, 2)}\n`
   await writeFile(configPath, contents)
+
   return { configPath, contents }
 }
 
@@ -25,6 +26,7 @@ const materializeStoreEntry = async (homePath: string, name: string, version: st
   const entryPath = join(homePath, ".agents", "packref", "store", "packages", "npm", name, version)
   await mkdir(entryPath, { recursive: true })
   await writeFile(join(entryPath, "SOURCE.md"), "source")
+
   return entryPath
 }
 
@@ -47,6 +49,7 @@ describe("clean command", () => {
       projectPath,
       prompt: localConfirmationPrompt,
     })
+
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
@@ -117,6 +120,7 @@ describe("clean command", () => {
       projectPath,
       prompt: localConfirmationPrompt,
     })
+
     const lockfile = JSON.parse(await readFile(lockfilePath, "utf8"))
 
     expect(result.exitCode).toBe(0)

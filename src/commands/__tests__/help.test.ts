@@ -26,6 +26,7 @@ describe("CLI help", () => {
   it("does not expose the internal help signal", async () => {
     const projectPath = await context.makeTempDirectory()
     const homePath = await context.makeTempDirectory()
+
     const [empty, unknown] = await Promise.all([
       context.runCli({ args: [], homePath, projectPath }),
       context.runCli({ args: ["unknown"], homePath, projectPath }),

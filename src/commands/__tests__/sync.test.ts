@@ -57,6 +57,7 @@ describe("sync command", () => {
       homePath,
       projectPath,
     })
+
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
@@ -66,7 +67,7 @@ describe("sync command", () => {
     expect(result.output).toContain("npm:stale@1.0.0")
     expect(result.output).toContain("Removed npm:stale@1.0.0")
     expect(result.output).toContain("Synchronized 1 package reference")
-    expect(lockfile.packages).toEqual([manualEntry])
+    expect(lockfile).toHaveProperty("packages", [manualEntry])
   })
 
   it("ignores unreferenced manifest dependencies without prompting", async () => {
@@ -84,6 +85,7 @@ describe("sync command", () => {
       homePath,
       projectPath,
     })
+
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
@@ -91,7 +93,7 @@ describe("sync command", () => {
     expect(result.exitCode).toBe(0)
     expect(result.output).not.toContain("Select unreferenced dependencies to add")
     expect(result.output).toContain("No dependency-tracked references to update.")
-    expect(lockfile.packages).toEqual([])
+    expect(lockfile).toHaveProperty("packages", [])
   })
 
   it("previews current and target versions before applying an update", async () => {
@@ -118,9 +120,11 @@ describe("sync command", () => {
       homePath,
       projectPath,
     })
+
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
+
     const previewIndex = result.output.indexOf("npm:example 1.0.0 → 2.0.0")
     const appliedIndex = result.output.indexOf("Updated npm:example@2.0.0")
 
@@ -128,7 +132,7 @@ describe("sync command", () => {
     expect(result.output).toContain("The following package references will be updated:")
     expect(previewIndex).toBeGreaterThan(-1)
     expect(appliedIndex).toBeGreaterThan(previewIndex)
-    expect(lockfile.packages).toEqual([targetEntry])
+    expect(lockfile).toHaveProperty("packages", [targetEntry])
   })
 
   it("reports an actionable error for unsupported projects", async () => {

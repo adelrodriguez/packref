@@ -108,6 +108,7 @@ export const fetchRepositorySnapshot = Effect.fn("fetchRepositorySnapshot")(func
 ) {
   const downloader = yield* RepositoryDownloader
   const fetchSource = resolvedRepository.source.fetchSource
+
   const source: Types.Mutable<RepositorySource> = {
     host: resolvedRepository.source.host,
     type: "repository",

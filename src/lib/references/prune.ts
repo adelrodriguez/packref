@@ -36,6 +36,7 @@ export interface PruneResult {
 }
 
 const storeEntryOrder = Order.mapInput(packageIdentityOrder, (entry: StoreEntry) => entry.identity)
+
 const projectLockfileWarningOrder = Order.mapInput(
   Order.String,
   (warning: ProjectLockfileWarning) => warning.projectPath
@@ -58,6 +59,7 @@ const scanRegisteredProject = Effect.fn("prune.scanRegisteredProject")(function*
   projectPath: string
 ) {
   const fs = yield* FileSystem.FileSystem
+
   const projectExists = yield* fs
     .exists(projectPath)
     .pipe(
@@ -107,15 +109,19 @@ const scanRegisteredProject = Effect.fn("prune.scanRegisteredProject")(function*
 
 export const discoverPrunePlan = Effect.fn("discoverPrunePlan")(function* () {
   const config = yield* initializeGlobalConfig()
+
   const scans = yield* Effect.forEach(config.projects, scanRegisteredProject, {
     concurrency: PRUNE_SCAN_CONCURRENCY,
   })
+
   const referencedIdentities = new Set(
     scans.flatMap((scan) => (scan.type === "success" ? scan.identities : []))
   )
+
   const staleProjectPaths = scans
     .filter((scan) => scan.type === "stale")
     .map((scan) => scan.projectPath)
+
   const warnings = scans.flatMap((scan): readonly ProjectLockfileWarning[] => {
     if (scan.type === "malformed-lockfile" || scan.type === "missing-lockfile") {
       return [{ projectPath: scan.projectPath, type: scan.type }]

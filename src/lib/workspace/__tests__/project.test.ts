@@ -7,6 +7,7 @@ import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
 import * as PlatformError from "effect/PlatformError"
+import * as Predicate from "effect/Predicate"
 import { afterEach, describe, expect, it } from "vitest"
 import { LockfileParseError, ReflinkError } from "#lib/core/errors.ts"
 import { ensureGitignoreEntry } from "#lib/workspace/integration.ts"
@@ -24,6 +25,7 @@ const ProjectTestLayer = Layer.mergeAll(NodeServices.layer, Reflinker.layer)
 const makeTempDirectory = async () => {
   const directoryPath = await mkdtemp(join(tmpdir(), "packref-project-test-"))
   temporaryPaths.push(directoryPath)
+
   return directoryPath
 }
 
@@ -83,6 +85,7 @@ describe("project references", () => {
   it("maps target existence failures to ReflinkError", async () => {
     const projectPath = await makeTempDirectory()
     const storePath = await makeTempDirectory()
+
     const failingFileSystem = Layer.effect(
       FileSystem.FileSystem,
       Effect.map(FileSystem.FileSystem, (fs) => ({
@@ -107,7 +110,7 @@ describe("project references", () => {
           storePath,
           { type: "tarball", url: "https://registry.npmjs.org/example/-/example-1.0.0.tgz" }
         )
-      ).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, Reflinker.layer, failingFileSystem)))
+      ).pipe(Effect.provide([NodeServices.layer, Reflinker.layer, failingFileSystem]))
     )
 
     expect(failure).toBeInstanceOf(ReflinkError)
@@ -153,17 +156,21 @@ describe("project references", () => {
     const storePath = await makeTempDirectory()
     await writeFile(join(storePath, "index.ts"), "export const complete = true")
     await run(ensureDirectory(projectPath))
+
     const identity = {
       name: "example",
       registry: "npm",
       version: "1.0.0",
     }
+
     const source = {
       host: "github.com",
       type: "repository" as const,
       url: "https://github.com/example/example",
     }
+
     const referencePath = join(projectPath, ".packref", "packages", "npm", "example", "1.0.0")
+
     const failingReflinker = Layer.succeed(Reflinker)({
       reflink: (copySource, copyTarget) =>
         Effect.tryPromise({
@@ -184,7 +191,7 @@ describe("project references", () => {
     try {
       await Effect.runPromise(
         createProjectReference(projectPath, identity, storePath, source).pipe(
-          Effect.provide(Layer.mergeAll(NodeServices.layer, failingReflinker))
+          Effect.provide([NodeServices.layer, failingReflinker])
         )
       )
       throw new Error("Expected project reference creation to fail.")
@@ -213,10 +220,9 @@ describe("workspace integration", () => {
 
     const failure = await run(Effect.flip(ensureGitignoreEntry(projectPath)))
 
-    expect(failure).toMatchObject({
-      _tag: "PlatformError",
-      reason: { _tag: "BadResource", method: "readFile" },
-    })
+    expect(failure).toBeInstanceOf(PlatformError.PlatformError)
+    expect(Predicate.isTagged(failure.reason, "BadResource")).toBe(true)
+    expect(failure.reason).toMatchObject({ method: "readFile" })
   })
 })
 
@@ -224,6 +230,7 @@ describe("lockfile upsert", () => {
   it("rejects duplicate package identities", async () => {
     const projectPath = await makeTempDirectory()
     const lockfilePath = join(projectPath, "packref-lock.json")
+
     const entry = {
       name: "react",
       registry: "npm",
@@ -231,6 +238,7 @@ describe("lockfile upsert", () => {
       tracking: "manual",
       version: "19.0.0",
     }
+
     await writeFile(lockfilePath, JSON.stringify({ packages: [entry, entry] }))
 
     const failure = await run(Effect.flip(readLockfileAtPath(lockfilePath)))
@@ -243,6 +251,7 @@ describe("lockfile upsert", () => {
     const projectPath = await makeTempDirectory()
     await run(ensureDirectory(projectPath))
     await run(initializeLockfile(projectPath))
+
     const firstEntry = {
       name: "react",
       registry: "npm",
@@ -254,6 +263,7 @@ describe("lockfile upsert", () => {
       tracking: "manual" as const,
       version: "18.3.1",
     }
+
     const secondEntry = {
       ...firstEntry,
       version: "19.0.0",

@@ -52,6 +52,7 @@ const reportRegistryFallback = Effect.fn("reportSyncRegistryFallback")(function*
   if (range === undefined) {
     return
   }
+
   yield* Output.warning(
     `${name} has no installed version; resolved ${range} -> ${version} from the registry.`
   )

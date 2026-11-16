@@ -21,6 +21,7 @@ const cleanGlobalStore = Effect.fn("cleanGlobalStore")(function* () {
 
   if (!shouldClean) {
     yield* Output.outro("Global store was not cleaned")
+
     return
   }
 
@@ -36,6 +37,7 @@ const cleanGlobalStore = Effect.fn("cleanGlobalStore")(function* () {
 
 const cleanProject = Effect.fn("cleanProject")(function* () {
   const plan = yield* discoverProjectCleanPlan()
+
   const shouldClean = yield* Prompt.Confirm({
     initial: false,
     message: "Remove all package references from this project?",
@@ -43,6 +45,7 @@ const cleanProject = Effect.fn("cleanProject")(function* () {
 
   if (!shouldClean) {
     yield* Output.outro("Project references were not cleaned")
+
     return
   }
 

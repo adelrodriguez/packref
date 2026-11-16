@@ -58,9 +58,11 @@ const NpmLockfileEntrySchema = Schema.StructWithRest(
 const decodeJavascriptManifest = Schema.decodeUnknownEffect(
   Schema.fromJsonString(JavascriptPackageManifestSchema)
 )
+
 const decodeInstalledPackage = Schema.decodeUnknownEffect(
   Schema.fromJsonString(InstalledPackageSchema)
 )
+
 const decodeNpmLockfile = Schema.decodeUnknownOption(Schema.fromJsonString(NpmLockfileSchema))
 const decodeNpmLockfileEntry = Schema.decodeUnknownOption(NpmLockfileEntrySchema)
 
@@ -106,6 +108,7 @@ const unquoteYamlValue = (value: string) => value.replaceAll(/^["']|["']$/gu, ""
 
 export const resolveBunLockVersion = (rawLockfile: string, name: string) => {
   const escapedName = escapeRegularExpression(name)
+
   const match = Option.fromNullishOr(
     new RegExp(String.raw`^\s*"${escapedName}":\s*\[\s*"${escapedName}@([^"]+)"`, "mu").exec(
       rawLockfile
@@ -120,6 +123,7 @@ export const resolveYarnLockVersion = (rawLockfile: string, name: string, specif
 
   for (const block of rawLockfile.split(/\n(?=\S)/u)) {
     const [header = ""] = block.split("\n")
+
     const headerSelectors = header
       .trim()
       .replace(/:\s*$/u, "")
@@ -144,10 +148,12 @@ export const resolveYarnLockVersion = (rawLockfile: string, name: string, specif
 
 const getYamlMappingBlock = (source: string, key: string, indentation: number) => {
   const lines = source.split(/\r?\n/u)
+
   const keyPattern = new RegExp(
     String.raw`^\s{${indentation}}["']?${escapeRegularExpression(key)}["']?:\s*$`,
     "u"
   )
+
   const startIndex = lines.findIndex((line) => keyPattern.test(line))
 
   if (startIndex === -1) {
@@ -179,6 +185,7 @@ const normalizePnpmVersion = (value: string) => unquoteYamlValue(value).replace(
 const resolvePnpmDependencyFromBlock = (source: string, name: string) => {
   const escapedName = escapeRegularExpression(name)
   const lines = source.split(/\r?\n/u)
+
   const dependencyPattern = new RegExp(
     String.raw`^(?<indentation>\s+)["']?${escapedName}["']?:\s*(?<value>.*?)\s*$`,
     "u"
@@ -333,6 +340,7 @@ export class PackageManagerResolver extends Context.Service<
 
               for (const lockfile of lockfiles) {
                 const lockfilePath = path.join(directoryPath, lockfile.name)
+
                 const exists = yield* fs
                   .exists(lockfilePath)
                   .pipe(toManifestResolutionError(lockfilePath))
@@ -379,10 +387,12 @@ export class PackageManagerResolver extends Context.Service<
 
           const located = locatedLockfiles.value
           const rawProjectRelativePath = path.relative(located.directoryPath, projectPath)
+
           const projectRelativePath =
             rawProjectRelativePath.length === 0
               ? "."
               : rawProjectRelativePath.split(path.sep).join("/")
+
           const unresolved = new Set(dependencies.map((dependency) => dependency.name))
           const versions = new Map<string, string>()
 
@@ -435,6 +445,7 @@ const readNodeModulesVersion = Effect.fn("readNodeModulesVersion")(function* (
   return yield* Effect.findFirstFilter(ancestorDirectories(path, projectPath), (directoryPath) =>
     Effect.gen(function* () {
       const packageJsonPath = path.join(directoryPath, "node_modules", packageName, "package.json")
+
       const rawPackageJson = yield* fs.readFileString(packageJsonPath).pipe(
         Effect.catchFilter(Filter.reason("PlatformError", "NotFound"), () => Effect.void),
         toManifestParseError(packageJsonPath)
@@ -465,12 +476,15 @@ export const readJavascriptManifest = Effect.fn("readJavascriptManifest")(functi
   const path = yield* Path.Path
   const packageManagerResolver = yield* PackageManagerResolver
   const manifestPath = path.join(projectPath, "package.json")
+
   const rawManifest = yield* fs
     .readFileString(manifestPath)
     .pipe(toManifestParseError(manifestPath))
+
   const manifest = yield* decodeJavascriptManifest(rawManifest).pipe(
     toManifestParseError(manifestPath)
   )
+
   const dependencies = new Map<string, Omit<ManifestDependency, "exactVersion">>()
 
   for (const group of DEPENDENCY_GROUPS) {
@@ -500,6 +514,7 @@ export const readJavascriptManifest = Effect.fn("readJavascriptManifest")(functi
     dependencies.values(),
     (dependency) => {
       const lockedVersion = lockedVersions.get(dependency.name)
+
       const exactVersion =
         lockedVersion === undefined
           ? readNodeModulesVersion(projectPath, dependency.name)

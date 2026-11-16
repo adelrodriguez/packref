@@ -69,6 +69,7 @@ const readProperties = (text: string, tokens: readonly Token[]) =>
       (token, nextIndex) =>
         nextIndex > index + 2 && (token.depth === 0 || (token.depth === 1 && token.kind === ","))
     )
+
     const end = tokens[next - 1]
 
     return Option.match(readKey(text.slice(key.start, key.end)), {
@@ -105,10 +106,12 @@ export const setProperty = (text: string, name: string, value: Schema.Json) => {
   const existing = properties.find((property) => property.name === name)
   const isMultiline = first === undefined || text.slice(open.end, first.key.start).includes("\n")
   const unit = first && isMultiline ? getLineIndentation(text, first.key.start) : "  "
+
   const format = (indentation: string) =>
     isMultiline
       ? JSON.stringify(value, null, unit).replaceAll("\n", `\n${indentation}`)
       : JSON.stringify(value)
+
   const property = (indentation: string) => `${JSON.stringify(name)}: ${format(indentation)}`
 
   if (existing) {

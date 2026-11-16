@@ -5,7 +5,6 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Effect from "effect/Effect"
-import * as Layer from "effect/Layer"
 import { afterEach, describe, expect, it } from "vitest"
 import { PackrefHome } from "#lib/layout/home.ts"
 import {
@@ -20,13 +19,12 @@ const temporaryPaths: string[] = []
 const makeTempDirectory = async () => {
   const directoryPath = await mkdtemp(join(tmpdir(), "packref-store-test-"))
   temporaryPaths.push(directoryPath)
+
   return directoryPath
 }
 
 const run = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>, home: string) =>
-  Effect.runPromise(
-    effect.pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, PackrefHome.at(home))))
-  )
+  Effect.runPromise(effect.pipe(Effect.provide([NodeServices.layer, PackrefHome.at(home)])))
 
 afterEach(async () => {
   await Promise.all(
@@ -42,21 +40,25 @@ afterEach(async () => {
 describe("store", () => {
   it("checks, lists, and removes scoped and unscoped entries", async () => {
     const home = await makeTempDirectory()
+
     const react = {
       name: "react",
       registry: "npm",
       version: "19.0.0",
     }
+
     const effectCli = {
       name: "@effect/cli",
       registry: "npm",
       version: "0.70.0",
     }
+
     const repository = {
       name: "owner/repo",
       registry: "github",
       version: "abcdef1234567890abcdef1234567890abcdef12",
     }
+
     const reactPath = await run(getStoreEntryPath(react), home)
     const effectCliPath = await run(getStoreEntryPath(effectCli), home)
     const repositoryPath = await run(getStoreEntryPath(repository), home)

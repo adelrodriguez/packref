@@ -13,6 +13,7 @@ export interface ProjectCleanPlan {
 
 export const discoverProjectCleanPlan = Effect.fn("discoverProjectCleanPlan")(function* () {
   const projectPath = yield* requireInitializedProject()
+
   const entryCount = yield* readProjectLockfile(projectPath).pipe(
     Effect.map((lockfile) => lockfile.packages.length),
     Effect.orElseSucceed(() => 0)

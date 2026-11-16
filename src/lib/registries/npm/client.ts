@@ -36,6 +36,7 @@ export class NpmRegistryClient extends Context.Service<
       return {
         getPackageMetadata: Effect.fn("NpmRegistryClient.getPackageMetadata")(function* (name) {
           const url = getPackageMetadataUrl(name)
+
           const response = yield* httpClient.get(url).pipe(
             Effect.mapError(
               (cause) =>

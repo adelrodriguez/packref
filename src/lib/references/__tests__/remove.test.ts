@@ -11,6 +11,7 @@ import {
   PackageReferenceFilesystemError,
   RemovePackageReferencesError,
 } from "#lib/core/errors.ts"
+import { PackageSpec } from "#lib/core/packages.ts"
 import { findPackageReferenceMatches, removePackageReferences } from "#lib/references/remove.ts"
 import { type Lockfile, type PackageEntry, readProjectLockfile } from "#lib/workspace/lockfile.ts"
 
@@ -19,6 +20,7 @@ const temporaryPaths: string[] = []
 const makeTempDirectory = async () => {
   const directoryPath = await mkdtemp(join(tmpdir(), "packref-remove-reference-test-"))
   temporaryPaths.push(directoryPath)
+
   return directoryPath
 }
 
@@ -58,8 +60,10 @@ const materializeReference = async (projectPath: string, entry: PackageEntry) =>
     entry.name,
     entry.version
   )
+
   await mkdir(referencePath, { recursive: true })
   await writeFile(join(referencePath, "SOURCE.md"), "source")
+
   return referencePath
 }
 
@@ -86,11 +90,11 @@ describe("remove package references", () => {
     const react19Path = await materializeReference(projectPath, react19)
 
     const match = await run(
-      findPackageReferenceMatches(
-        { _tag: "registry", name: "react", registry: "npm" },
-        { projectPath }
-      )
+      findPackageReferenceMatches(PackageSpec.registry({ name: "react", registry: "npm" }), {
+        projectPath,
+      })
     )
+
     const selectedEntries = match.entries.filter((entry) => entry.version === "19.0.0")
     const result = await run(removePackageReferences(match.projectPath, selectedEntries))
 
@@ -104,6 +108,7 @@ describe("remove package references", () => {
 
   it("finds a SHA-pinned repository entry by its requested tag", async () => {
     const projectPath = await makeTempDirectory()
+
     const entry = {
       name: "owner/repo",
       registry: "github",
@@ -116,17 +121,17 @@ describe("remove package references", () => {
       tracking: "manual",
       version: "abcdef1234567890abcdef1234567890abcdef12",
     } satisfies PackageEntry
+
     await initializeProject(projectPath, [entry])
 
     const match = await run(
       findPackageReferenceMatches(
-        {
-          _tag: "repository",
+        PackageSpec.repository({
           name: "owner/repo",
           registry: "github",
           repository: { url: "owner/repo" },
           specifier: "v1.0.0",
-        },
+        }),
         { projectPath }
       )
     )
@@ -138,9 +143,10 @@ describe("remove package references", () => {
     const projectPath = await makeTempDirectory()
     const entry = makeEntry("19.0.0")
     await initializeProject(projectPath, [entry])
+
     const match = await run(
       findPackageReferenceMatches(
-        { _tag: "registry", name: "react", registry: "npm", specifier: "19.0.0" },
+        PackageSpec.registry({ name: "react", registry: "npm", specifier: "19.0.0" }),
         { projectPath }
       )
     )
@@ -198,10 +204,9 @@ describe("remove package references", () => {
 
     try {
       await run(
-        findPackageReferenceMatches(
-          { _tag: "registry", name: "react", registry: "npm" },
-          { projectPath }
-        )
+        findPackageReferenceMatches(PackageSpec.registry({ name: "react", registry: "npm" }), {
+          projectPath,
+        })
       )
       throw new Error("Expected reference lookup to fail.")
     } catch (error) {

@@ -61,9 +61,11 @@ describe("add", () => {
     expect(result.output).toContain("You've cancelled the package addition process.")
     expect(result.output).not.toContain("Operation cancelled")
     expect(result.output).not.toContain("No package references added")
+
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
+
     expect(lockfile).toEqual({ packages: [] })
   })
 

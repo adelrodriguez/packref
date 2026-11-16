@@ -48,6 +48,7 @@ const addPackage = Effect.fn("addPackage")(function* (pkg: string) {
   const result = yield* addPackageReference(spec)
 
   yield* reportAddDetails(result)
+
   return result
 })
 
@@ -59,6 +60,7 @@ const addPackageCandidate = Effect.fn("addPackageCandidate")(function* (
   const result = yield* materializePackageCandidateReference(resolution, projectPath)
 
   yield* reportAddDetails(result)
+
   return result
 })
 

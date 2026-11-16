@@ -35,6 +35,7 @@ const temporaryPaths: string[] = []
 const makeTempDirectory = async () => {
   const directoryPath = await mkdtemp(join(tmpdir(), "packref-add-test-"))
   temporaryPaths.push(directoryPath)
+
   return directoryPath
 }
 
@@ -102,6 +103,7 @@ const makeTestLayer = (services: TestServices, home: string) => {
       )
     },
   })
+
   const manifestLayer = Layer.provideMerge(
     ProjectDependencyReader.layer,
     Layer.mergeAll(NodeServices.layer, packageManagerLayer)
@@ -200,9 +202,11 @@ describe("addPackageReference", () => {
       },
       metadata: makeMetadata("example", ["1.0.0"]),
     })
+
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
+
     const expectedEntry = {
       name: "owner/repo",
       registry: "github",
@@ -214,6 +218,7 @@ describe("addPackageReference", () => {
       tracking: "manual",
       version: commitSha,
     } satisfies PackageEntry
+
     const expectedReferencePath = join(
       await realpath(projectPath),
       ".packref",
@@ -237,6 +242,7 @@ describe("addPackageReference", () => {
     const home = await makeTempDirectory()
     await writeFile(join(projectPath, "package.json"), JSON.stringify({}))
     const commitSha = "abcdef1234567890abcdef1234567890abcdef12"
+
     const services = {
       commandResult: {
         exitCode: 0,
@@ -262,9 +268,11 @@ describe("addPackageReference", () => {
       "message",
       expect.stringContaining("Remove the existing package source reference")
     )
+
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
+
     expect(lockfile).toEqual({ packages: [existing.entry] })
   })
 
@@ -275,6 +283,7 @@ describe("addPackageReference", () => {
     await writeFile(join(firstProjectPath, "package.json"), JSON.stringify({}))
     await writeFile(join(secondProjectPath, "package.json"), JSON.stringify({}))
     const commitSha = "abcdef1234567890abcdef1234567890abcdef12"
+
     const services = {
       commandResult: {
         exitCode: 0,
@@ -309,6 +318,7 @@ describe("addPackageReference", () => {
     await writeFile(join(firstProjectPath, "package.json"), JSON.stringify({}))
     await writeFile(join(secondProjectPath, "package.json"), JSON.stringify({}))
     const commitSha = "abcdef1234567890abcdef1234567890abcdef12"
+
     const services = {
       commandResult: {
         exitCode: 0,
@@ -363,6 +373,7 @@ describe("addPackageReference", () => {
       exactVersion: "1.0.0",
       metadata: makeMetadata("example", ["1.0.0"]),
     })
+
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
@@ -373,7 +384,7 @@ describe("addPackageReference", () => {
       tracking: "dependency",
       version: "1.0.0",
     })
-    expect(lockfile.packages).toEqual([result.entry])
+    expect(lockfile).toHaveProperty("packages", [result.entry])
   })
 
   it("auto-initializes and tracks a versionless manifest dependency", async () => {
@@ -392,9 +403,11 @@ describe("addPackageReference", () => {
       exactVersion: "1.0.0",
       metadata: makeMetadata("example", ["1.0.0", "2.0.0"]),
     })
+
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
+
     const config = JSON.parse(
       await readFile(join(home, ".agents", "packref", "config.json"), "utf8")
     )
@@ -402,8 +415,8 @@ describe("addPackageReference", () => {
     expect(result.entry.version).toBe("1.0.0")
     expect(result.entry.tracking).toBe("dependency")
     expect(result.manifestRange).toBeUndefined()
-    expect(lockfile.packages).toEqual([result.entry])
-    expect(config.projects).toEqual([result.projectPath])
+    expect(lockfile).toHaveProperty("packages", [result.entry])
+    expect(config).toHaveProperty("projects", [result.projectPath])
     expect(await readFile(join(result.referencePath, "SOURCE.md"), "utf8")).toBe(
       "repository source"
     )
@@ -461,6 +474,7 @@ describe("addPackageReference", () => {
         },
       })
     )
+
     const services = {
       exactVersion: "1.0.0",
       metadata: makeMetadata("example", ["1.0.0", "2.0.0"]),
@@ -488,6 +502,7 @@ describe("addPackageReference", () => {
     const home = await makeTempDirectory()
     await writeFile(join(projectPath, "package.json"), JSON.stringify({}))
     let downloadCount = 0
+
     const services = {
       commandResult: {
         exitCode: 0,
@@ -497,6 +512,7 @@ describe("addPackageReference", () => {
       metadata: makeMetadata("example", ["1.0.0", "2.0.0"]),
       repositoryDownload: (_source: string, _ref: string, destination: string) => {
         downloadCount += 1
+
         return Effect.promise(() => writeFile(join(destination, "SOURCE.md"), "source"))
       },
     }
@@ -504,6 +520,7 @@ describe("addPackageReference", () => {
     const first = await runAdd("example@1.0.0", projectPath, home, services)
     const repeated = await runAdd("example@1.0.0", projectPath, home, services)
     await runAdd("example@2.0.0", projectPath, home, services)
+
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
@@ -529,6 +546,7 @@ describe("addPackageReference", () => {
     const first = await runAdd("example@1.0.0", firstProjectPath, home, {
       metadata: makeMetadata("example", ["1.0.0"], null),
     })
+
     const repositoryMetadata = {
       ...makeMetadata("example", ["1.0.0"]),
       versions: {
@@ -545,14 +563,18 @@ describe("addPackageReference", () => {
         },
       },
     } satisfies NpmPackageMetadata
+
     let repositoryDownloadCount = 0
+
     const second = await runAdd("example@1.0.0", secondProjectPath, home, {
       metadata: repositoryMetadata,
       repositoryDownload: (_source, _ref, destination) => {
         repositoryDownloadCount += 1
+
         return Effect.promise(() => writeFile(join(destination, "SOURCE.md"), "repository source"))
       },
     })
+
     const secondLockfile = JSON.parse(
       await readFile(join(secondProjectPath, ".packref", "packref-lock.json"), "utf8")
     )
@@ -560,7 +582,7 @@ describe("addPackageReference", () => {
     expect(first.entry.source.type).toBe("tarball")
     expect(second.reusedStoreEntry).toBe(true)
     expect(second.entry.source).toEqual(first.entry.source)
-    expect(secondLockfile.packages[0]?.source).toEqual(first.entry.source)
+    expect(secondLockfile).toHaveProperty(["packages", 0, "source"], first.entry.source)
     expect(repositoryDownloadCount).toBe(0)
     expect(await readFile(join(second.referencePath, "SOURCE.md"), "utf8")).toBe("tarball source")
   })
@@ -595,11 +617,13 @@ describe("addPackageReference", () => {
     const home = await makeTempDirectory()
     await writeFile(join(projectPath, "package.json"), JSON.stringify({}))
     let tarballDownloadCount = 0
+
     const result = await runAdd("example@1.0.0", projectPath, home, {
       commandResult,
       metadata: makeMetadata("example", ["1.0.0"], repository),
       tarballDownload: () => {
         tarballDownloadCount += 1
+
         return Effect.promise(() => makeArchive([Tar.file("package/index.js", "fallback")]))
       },
     })
@@ -628,15 +652,18 @@ describe("addPackageReference", () => {
         metadata: makeMetadata("example", ["1.0.0"]),
         tarballDownload: () => {
           tarballDownloadCount += 1
+
           return Effect.succeed(new Uint8Array())
         },
       })
     ).rejects.toBeInstanceOf(NetworkError)
 
     expect(tarballDownloadCount).toBe(0)
+
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
+
     expect(lockfile).toEqual({ packages: [] })
   })
 
@@ -661,6 +688,7 @@ describe("addPackageReference", () => {
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
+
     expect(lockfile).toEqual({ packages: [] })
     expect(
       await exists(join(home, ".agents", "packref", "store", "packages", "npm", "example", "1.0.0"))
@@ -672,6 +700,7 @@ describe("addPackageReference", () => {
     const home = await makeTempDirectory()
     await writeFile(join(projectPath, "package.json"), JSON.stringify({}))
     const baseMetadata = makeMetadata("example", ["1.0.0"])
+
     const metadata = {
       ...baseMetadata,
       versions: {
@@ -698,6 +727,7 @@ describe("addPackageReference", () => {
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
+
     expect(lockfile).toEqual({ packages: [] })
     expect(
       await exists(join(home, ".agents", "packref", "store", "packages", "npm", "example", "1.0.0"))

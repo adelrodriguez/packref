@@ -22,6 +22,7 @@ const pkg = Argument.String("package").pipe(
 
 const formatHint = (entry: PackageEntry) => {
   const source = entry.source.type === "repository" ? entry.source.host : entry.source.type
+
   return entry.tracking === "manual" ? `${source} (manual)` : source
 }
 

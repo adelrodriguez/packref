@@ -7,6 +7,7 @@ export class MissingPackageVersion extends Data.TaggedError("MissingPackageVersi
 }> {
   override get message() {
     const target = this.path ? `\`${this.path}\`` : "package.json"
+
     return `Missing version field in ${target}.`
   }
 }
@@ -78,6 +79,7 @@ export class PackageNotReferencedError extends Data.TaggedError("PackageNotRefer
 }> {
   override get message() {
     const identity = `${this.registry}:${this.packageName}${this.version === undefined ? "" : `@${this.version}`}`
+
     return `Package \`${identity}\` is not referenced by this project. Run \`packref list\` to see available references.`
   }
 }
@@ -211,6 +213,7 @@ export class InstallPackageReferencesError extends Data.TaggedError(
     const identities = this.failures.map(
       ({ identity }) => `${identity.registry}:${identity.name}@${identity.version}`
     )
+
     return `Failed to install ${this.failures.length} package source reference${this.failures.length === 1 ? "" : "s"}: ${identities.join(", ")}. Fix the reported causes, then retry; completed references were kept.`
   }
 }
@@ -222,6 +225,7 @@ export class RemovePackageReferencesError extends Data.TaggedError("RemovePackag
     const identities = this.failures.map(
       ({ identity }) => `${identity.registry}:${identity.name}@${identity.version}`
     )
+
     return `Failed to remove ${this.failures.length} package source reference${this.failures.length === 1 ? "" : "s"}: ${identities.join(", ")}. Successful and already-missing references were removed from the Packref lockfile. Fix the reported causes, then retry.`
   }
 }

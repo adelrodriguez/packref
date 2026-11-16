@@ -88,16 +88,20 @@ const resolveRegistryRepositoryRef = Effect.fn("resolveRegistryRepositoryRef")(f
 const fetchLockedStoreEntry = Effect.fn("fetchLockedStoreEntry")(function* (entry: PackageEntry) {
   if (entry.source.type === "tarball") {
     const materialized = yield* fetchTarballSnapshot(entry, entry.source.url)
+
     return yield* ensureMatchingSource(entry, materialized)
   }
 
   const isDirectRepository = checkIsRepositoryProvider(entry.registry)
+
   const resolvedRepository = isDirectRepository
     ? yield* resolveDirectRepositoryRef(entry)
     : yield* resolveRegistryRepositoryRef(entry, entry.source)
+
   const materialized = yield* fetchRepositorySnapshot(entry, resolvedRepository, {
     includeDirectory: !isDirectRepository,
   })
+
   return yield* ensureMatchingSource(entry, materialized)
 })
 
@@ -119,6 +123,7 @@ const installPackageReference = Effect.fn("installPackageReference")(function* (
   }
 
   const reusedStoreEntry = yield* hasStoreEntry(entry)
+
   const storeEntry = yield* reusedStoreEntry
     ? readStoreEntry(entry).pipe(
         Effect.flatMap((storedEntry) => ensureMatchingSource(entry, storedEntry))
@@ -152,6 +157,7 @@ export const installPackageReferences = Effect.fn("installPackageReferences")(fu
       ),
     { concurrency: INSTALL_CONCURRENCY }
   )
+
   const [results, failures] = Array.partition(attempts, (attempt) =>
     attempt.type === "success"
       ? Result.succeed(attempt.result)
@@ -165,6 +171,7 @@ export const installPackageReferences = Effect.fn("installPackageReferences")(fu
   const [pending, alreadyInstalled] = Array.partition(results, (result) =>
     result.type === "already-installed" ? Result.fail(result.entry) : Result.succeed(result)
   )
+
   const [reused, fetched] = Array.partition(pending, (result) =>
     result.type === "reused" ? Result.succeed(result.entry) : Result.fail(result.entry)
   )

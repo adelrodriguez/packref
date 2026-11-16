@@ -27,6 +27,7 @@ const tarballEntry = (name: string, version: string, url: string) =>
 const materializeStoreEntry = async (homePath: string, entry: PackageEntry) => {
   const identitySegments = ["packages", entry.registry, ...entry.name.split("/"), entry.version]
   const entryPath = join(homePath, ".agents", "packref", "store", ...identitySegments)
+
   const metadataPath = join(
     homePath,
     ".agents",
@@ -36,6 +37,7 @@ const materializeStoreEntry = async (homePath: string, entry: PackageEntry) => {
     ...identitySegments.slice(0, -1),
     `${entry.version}.json`
   )
+
   await mkdir(entryPath, { recursive: true })
   await mkdir(join(metadataPath, ".."), { recursive: true })
   await writeFile(join(entryPath, "SOURCE.md"), "stored source")
@@ -86,9 +88,11 @@ describe("install command", () => {
     const projectPath = await context.makeTempDirectory()
     const homePath = await context.makeTempDirectory()
     const archive = await makeArchive([Tar.file("package/SOURCE.md", "source")])
+
     const server = createServer((_request, response) => {
       response.end(archive)
     })
+
     await new Promise<void>((resolve) => {
       server.listen(0, "127.0.0.1", resolve)
     })
@@ -100,6 +104,7 @@ describe("install command", () => {
           throw new Error("Expected the test server to listen on a TCP port")
         })
       )
+
       const entry = tarballEntry("example", "1.0.0", `http://127.0.0.1:${port}/example.tgz`)
       await initializeProject(projectPath, [entry])
 
@@ -130,11 +135,13 @@ describe("install command", () => {
   it("reports references reused from the global store", async () => {
     const projectPath = await context.makeTempDirectory()
     const homePath = await context.makeTempDirectory()
+
     const entry = tarballEntry(
       "example",
       "1.0.0",
       "https://registry.npmjs.org/example/-/example-1.0.0.tgz"
     )
+
     await initializeProject(projectPath, [entry])
     await materializeStoreEntry(homePath, entry)
 

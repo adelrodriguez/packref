@@ -1,8 +1,8 @@
 import * as Effect from "effect/Effect"
 import { describe, expect, it } from "vitest"
-import type { RegistryPackageSpec } from "#lib/core/packages.ts"
 import type { NpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
 import { PackageVersionNotFoundError } from "#lib/core/errors.ts"
+import { type RegistryPackageSpec, PackageSpec } from "#lib/core/packages.ts"
 import { NpmRegistryClient } from "#lib/registries/npm/client.ts"
 import npm from "#lib/registries/npm/resolver.ts"
 
@@ -42,12 +42,8 @@ const baseMetadata = {
   },
 } satisfies NpmPackageMetadata
 
-const spec = (specifier?: string): RegistryPackageSpec => ({
-  _tag: "registry",
-  name: "react",
-  registry: "npm",
-  specifier,
-})
+const spec = (specifier?: string): RegistryPackageSpec =>
+  PackageSpec.registry({ name: "react", registry: "npm", specifier })
 
 const runWithMetadata = <A, E>(
   effect: Effect.Effect<A, E, NpmRegistryClient>,
@@ -137,6 +133,7 @@ describe("npm", () => {
           },
         },
       } satisfies NpmPackageMetadata
+
       const resolved = await runWithMetadata(npm.resolve(spec("^19.0.0")), metadata)
 
       expect(resolved.identity.version).toBe("19.0.0")
@@ -155,6 +152,7 @@ describe("npm", () => {
           },
         },
       } satisfies NpmPackageMetadata
+
       const resolved = await runWithMetadata(npm.resolve(spec("^19.0.0")), metadata)
 
       expect(resolved.identity.version).toBe("19.1.0")

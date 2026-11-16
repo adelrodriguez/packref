@@ -78,11 +78,13 @@ export const removePackageReferences = Effect.fn("removePackageReferences")(func
   entries: readonly PackageEntry[]
 ) {
   const fs = yield* FileSystem.FileSystem
+
   const attempts = yield* Effect.forEach(
     entries,
     (entry) =>
       Effect.gen(function* () {
         const referencePath = yield* getProjectReferencePath(projectPath, entry)
+
         const referenceExists = yield* fs.exists(referencePath).pipe(
           Effect.mapError(
             (cause) =>
@@ -118,6 +120,7 @@ export const removePackageReferences = Effect.fn("removePackageReferences")(func
       ),
     { concurrency: REMOVE_CONCURRENCY }
   )
+
   const [confirmedEntries, failures] = Array.partition(attempts, (attempt) =>
     attempt.type === "failure"
       ? Result.fail({ cause: attempt.cause, identity: attempt.entry })

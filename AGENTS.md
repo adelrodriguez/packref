@@ -49,6 +49,6 @@ This project uses Adamantite for its managed formatting, linting, type checking,
 - Run `pnpm run check` to catch lint and type issues. Direct command: `adamantite check`.
 - Run `pnpm run fix` after editing files to apply formatting and safe lint fixes. Direct command: `adamantite fix`.
 - Run `pnpm run analyze` after changing dependencies, imports, or exports. Direct command: `adamantite analyze`.
-- Use `adamantite doctor` to inspect managed setup and `adamantite doctor --fix` for safe local fixes.
+- Run `adamantite doctor` to check the managed setup. It reports each finding and the repair it needs.
 
 <!-- ADAMANTITE:END -->

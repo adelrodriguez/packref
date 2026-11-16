@@ -16,6 +16,7 @@ export default Command.make("list").pipe(
 
       if (entries.length === 0) {
         yield* Output.info("No packages are currently installed.")
+
         return
       }
 
@@ -24,6 +25,7 @@ export default Command.make("list").pipe(
         identity: formatPackageIdentity(entry),
         source: entry.source.type === "repository" ? entry.source.host : entry.source.type,
       }))
+
       const identityWidth = Math.max(...rows.map((row) => row.identity.length))
       const sourceWidth = Math.max(...rows.map((row) => row.source.length))
       const lines = [yield* Output.style("gray", `Packref packages (${entries.length})`)]
@@ -34,10 +36,12 @@ export default Command.make("list").pipe(
         const { entry } = row
         const identity = `${yield* Output.style("gray", `${entry.registry}:`)}${yield* Output.style("bold", entry.name)}${yield* Output.style(["dim", "yellow"], `@${entry.version}`)}`
         const isManual = entry.tracking === "manual"
+
         const source = yield* Output.style(
           "gray",
           isManual ? row.source.padEnd(sourceWidth) : row.source
         )
+
         const manualBadge = isManual ? `  ${yield* Output.style("yellow", "(manual)")}` : ""
 
         lines.push(

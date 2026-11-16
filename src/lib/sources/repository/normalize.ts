@@ -26,6 +26,7 @@ import { matchRepositoryTag, RemoteTagReader } from "#lib/sources/repository/tag
 const COMMIT_SHA_PATTERN = /^[0-9a-f]{40}$/iu
 
 const DEFAULT_SHORTHAND_PROVIDER = "github" satisfies RepositoryProvider
+
 const SHORTHAND_PATTERN = new RegExp(
   `^(?<provider>${SUPPORTED_REPOSITORY_PROVIDERS.join("|")}):(?<repositoryPath>.+)$`,
   "u"
@@ -52,6 +53,7 @@ const makeNormalizedSource = (
   }
 
   const provider = HOST_REPOSITORY_PROVIDERS.get(host)
+
   const fetchRepositoryPath =
     provider === "sourcehut" ? repositoryPath.replace(/^~/u, "") : repositoryPath
 
@@ -105,6 +107,7 @@ const normalizeFromScpLikeUrl = (candidate: RepositorySourceCandidate, rawUrl: s
   const groups = Option.fromNullishOr(
     /^(?:[^@]+@)?(?<host>[^:]+):(?<repositoryPath>.+)$/u.exec(rawUrl)
   ).pipe(Option.flatMap((match) => Option.fromNullishOr(match.groups)))
+
   const host = Option.getOrUndefined(groups)?.host
   const repositoryPath = Option.getOrUndefined(groups)?.repositoryPath
 
@@ -119,9 +122,11 @@ export const normalizeRepositorySource = Effect.fn("normalizeRepositorySource")(
   candidate: RepositorySourceCandidate
 ) => {
   const url = candidate.url.trim().replace(/^git\+/u, "")
+
   const shorthandGroups = Option.fromNullishOr(SHORTHAND_PATTERN.exec(url)).pipe(
     Option.flatMap((match) => Option.fromNullishOr(match.groups))
   )
+
   const provider = Option.getOrUndefined(shorthandGroups)?.provider
   const shorthandPath = Option.getOrUndefined(shorthandGroups)?.repositoryPath
 
@@ -163,6 +168,7 @@ export const resolveDirectRepositoryRef = Effect.fn("resolveDirectRepositoryRef"
   const requestedRef = spec.specifier
   const tagSha = requestedRef === undefined ? undefined : refs.tags.get(requestedRef)
   const branchSha = requestedRef === undefined ? undefined : refs.heads.get(requestedRef)
+
   const resolved = yield* Match.value({ branchSha, head: refs.head, requestedRef, tagSha }).pipe(
     Match.when(
       ({ head, requestedRef }) => requestedRef === undefined && head !== undefined,

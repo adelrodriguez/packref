@@ -20,10 +20,12 @@ import {
 import { PackageManagerDetector } from "#lib/manifests/package-manager-detector.ts"
 
 const temporaryPaths: string[] = []
+
 const PackageManagerTestLayer = PackageManagerResolver.layer.pipe(
   Layer.provide(PackageManagerDetector.layer),
   Layer.provide(NodeServices.layer)
 )
+
 const ManifestTestLayer = Layer.mergeAll(
   NodeServices.layer,
   PackageManagerTestLayer,
@@ -43,6 +45,7 @@ const readProjectDependencies = Effect.fn("test.readProjectDependencies")(functi
 const makeTempDirectory = async () => {
   const directoryPath = await mkdtemp(join(tmpdir(), "packref-manifest-test-"))
   temporaryPaths.push(directoryPath)
+
   return directoryPath
 }
 
@@ -214,6 +217,7 @@ dependencies:
   version "1.2.3"
   resolved "https://registry.yarnpkg.com/@scope/name/-/name-1.2.3.tgz"
 `
+
     const berryLockfile = `
 "@scope/name@npm:^1.0.0":
   version: 1.2.4

@@ -60,6 +60,7 @@ describe("remove", () => {
     await initializeProject(projectPath, [react18, react19])
     const react18Path = await materializeReference(projectPath, react18)
     const react19Path = await materializeReference(projectPath, react19)
+
     const storedSourcePath = join(
       homePath,
       ".agents",
@@ -70,6 +71,7 @@ describe("remove", () => {
       "react",
       "18.3.1"
     )
+
     await mkdir(storedSourcePath, { recursive: true })
     await writeFile(join(storedSourcePath, "SOURCE.md"), "global source")
 

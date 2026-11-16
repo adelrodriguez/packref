@@ -17,9 +17,12 @@ import { GitExecutableNotFoundError, NetworkError } from "#lib/core/errors.ts"
 
 const HEADS_PREFIX = "refs/heads/"
 const TAGS_PREFIX = "refs/tags/"
+
 const TRANSIENT_GIT_FAILURE_PATTERN =
   /could not resolve host|connection (?:refused|reset|timed out)|failed to connect|remote end hung up unexpectedly|service unavailable|temporary failure|the requested url returned error: 5\d\d/iu
+
 const REMOTE_TAG_COMMAND_TIMEOUT = "30 seconds"
+
 const REMOTE_TAG_RETRY_SCHEDULE = Schedule.exponential("10 millis").pipe(
   Schedule.upTo({ times: 2 })
 )
@@ -58,6 +61,7 @@ export const parseGitRemoteRefsOutput = (output: string): RemoteRepositoryRefs =
     const [sha, ref] = rawLine.trim().split(/\s+/u)
 
     if (sha === undefined || ref === undefined) continue
+
     if (ref === "HEAD") head = sha
     else if (ref.startsWith(HEADS_PREFIX)) heads.set(ref.slice(HEADS_PREFIX.length), sha)
     else if (ref.startsWith(TAGS_PREFIX)) {
@@ -163,6 +167,7 @@ export class RemoteTagReader extends Context.Service<RemoteTagReader, RemoteTagR
                 }
               )
             )
+
             const [stdout, stderr, exitCode] = yield* Effect.all(
               [
                 Stream.mkString(Stream.decodeText(handle.stdout)),

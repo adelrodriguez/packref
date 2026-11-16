@@ -56,6 +56,7 @@ const decodePackageJson = Schema.decodeUnknownEffect(PackageJsonSchema)
  */
 const readDeclaredName = (packageJson: typeof PackageJsonSchema.Type) => {
   const devEngines = packageJson.devEngines?.packageManager
+
   const declared =
     packageJson.packageManager?.split("@")[0]
     ?? (devEngines === undefined ? undefined : Arr.ensure(devEngines)[0]?.name)

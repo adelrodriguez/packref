@@ -26,6 +26,7 @@ const packrefAgentsEndMarker = "<!-- PACKREF:END -->"
 const makeTempDirectory = async () => {
   const path = await mkdtemp(join(tmpdir(), "packref-test-"))
   temporaryPaths.push(path)
+
   return path
 }
 
@@ -62,6 +63,7 @@ const runInitCommand = async (
   let answeredAgentsPrompt = false
   const ignoreInput = inputs.ignore ?? "\r"
   const agentsInput = inputs.agents ?? "\r"
+
   const child = spawn(execPath, [cliPath, "init", ...(inputs.args ?? [])], {
     cols: 80,
     cwd: projectPath,
@@ -387,6 +389,7 @@ describe("init", () => {
       )
 
       const result = await runInitCommand(projectPath, homePath)
+
       const tsconfig = await readJson<{
         compilerOptions: { noEmit: boolean }
         exclude: string[]
@@ -447,10 +450,12 @@ describe("init", () => {
       )
 
       const result = await runInitCommand(projectPath, homePath)
+
       const tsconfig = await readJsonc<{
         compilerOptions: { noEmit: boolean }
         exclude: string[]
       }>(join(projectPath, "tsconfig.json"))
+
       const content = await readText(join(projectPath, "tsconfig.json"))
 
       expect(result.exitCode).toBe(0)
@@ -654,6 +659,7 @@ describe("init", () => {
   describe("lockfile", () => {
     it("preserves existing lockfile package entries", async () => {
       const projectPath = await makeTempDirectory()
+
       const existingLockfile = {
         packages: [
           {

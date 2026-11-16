@@ -30,6 +30,7 @@ const temporaryPaths: string[] = []
 const makeTempDirectory = async () => {
   const directoryPath = await mkdtemp(join(tmpdir(), "packref-sync-test-"))
   temporaryPaths.push(directoryPath)
+
   return directoryPath
 }
 
@@ -74,6 +75,7 @@ const materializeReference = async (projectPath: string, entry: PackageEntry) =>
   const referencePath = getReferencePath(projectPath, entry)
   await mkdir(referencePath, { recursive: true })
   await writeFile(join(referencePath, "SOURCE.md"), "old source")
+
   return referencePath
 }
 
@@ -108,11 +110,13 @@ const makeTestLayer = (homePath: string, services: TestServices = {}) => {
         new Map(
           dependencies.flatMap((dependency) => {
             const version = services.exactVersions?.[dependency.name]
+
             return version === undefined ? [] : [[dependency.name, version] as const]
           })
         )
       ),
   })
+
   const manifestLayer = Layer.provideMerge(
     ProjectDependencyReader.layer,
     Layer.mergeAll(NodeServices.layer, packageManagerLayer)
@@ -127,6 +131,7 @@ const makeTestLayer = (homePath: string, services: TestServices = {}) => {
       getPackageMetadata: (name) => {
         services.onMetadataRequest?.(name)
         const metadata = services.metadata?.[name]
+
         return metadata === undefined
           ? Effect.die(`Unexpected metadata request for ${name}`)
           : Effect.succeed(metadata)
@@ -159,6 +164,7 @@ const runSync = async (projectPath: string, homePath: string, services: TestServ
     Effect.gen(function* () {
       const preparation = yield* preparePackageReferenceSync({ projectPath })
       const result = yield* syncPackageReferences(preparation)
+
       return { preparation, result }
     }).pipe(Effect.provide(makeTestLayer(homePath, services)))
   )
@@ -184,6 +190,7 @@ describe("sync package references", () => {
 
     await initializeProject(projectPath, { example: "^1.0.0" }, [manualEntry, dependencyEntry])
     await materializeReference(projectPath, dependencyEntry)
+
     const { result } = await runSync(projectPath, homePath, {
       exactVersions: { example: "1.0.0" },
       onMetadataRequest: () => {
@@ -195,10 +202,12 @@ describe("sync package references", () => {
     expect(result.updated).toEqual([])
     expect(result.removed).toEqual([])
     expect(metadataRequests).toBe(0)
+
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
-    expect(lockfile.packages).toEqual([manualEntry, dependencyEntry])
+
+    expect(lockfile).toHaveProperty("packages", [manualEntry, dependencyEntry])
   })
 
   it("materializes a new exact version before removing the stale reference", async () => {
@@ -208,6 +217,7 @@ describe("sync package references", () => {
     const oldReferencePath = await materializeReference(projectPath, oldEntry)
 
     await initializeProject(projectPath, { example: "^2.0.0" }, [oldEntry])
+
     const { preparation, result } = await runSync(projectPath, homePath, {
       exactVersions: { example: "2.0.0" },
       metadata: { example: makeMetadata("example", ["2.0.0"]) },
@@ -228,10 +238,12 @@ describe("sync package references", () => {
     expect(await exists(oldReferencePath)).toBe(false)
     const newReferencePath = getReferencePath(projectPath, makeEntry("example", "2.0.0"))
     expect(await readFile(join(newReferencePath, "SOURCE.md"), "utf8")).toBe("new source")
+
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
-    expect(lockfile.packages).toEqual([
+
+    expect(lockfile).toHaveProperty("packages", [
       expect.objectContaining({ name: "example", tracking: "dependency", version: "2.0.0" }),
     ])
   })
@@ -247,10 +259,12 @@ describe("sync package references", () => {
 
     expect(result.removed).toEqual([removedEntry])
     expect(result.missingEntries).toEqual([removedEntry])
+
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
-    expect(lockfile.packages).toEqual([manualEntry])
+
+    expect(lockfile).toHaveProperty("packages", [manualEntry])
   })
 
   it("preserves extra manual versions of a dependency while updating its tracked version", async () => {
@@ -260,16 +274,18 @@ describe("sync package references", () => {
     const manualEntry = makeEntry("example", "3.0.0", "manual")
 
     await initializeProject(projectPath, { example: "^2.0.0" }, [oldEntry, manualEntry])
+
     const { result } = await runSync(projectPath, homePath, {
       exactVersions: { example: "2.0.0" },
       metadata: { example: makeMetadata("example", ["2.0.0"]) },
     })
+
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
 
     expect(result.updated).toHaveLength(1)
-    expect(lockfile.packages).toEqual([
+    expect(lockfile).toHaveProperty("packages", [
       manualEntry,
       expect.objectContaining({ name: "example", tracking: "dependency", version: "2.0.0" }),
     ])
@@ -284,6 +300,7 @@ describe("sync package references", () => {
     const manualReferencePath = await materializeReference(projectPath, manualTargetEntry)
 
     await initializeProject(projectPath, { example: "^2.0.0" }, [oldEntry, manualTargetEntry])
+
     const { preparation, result } = await runSync(projectPath, homePath, {
       exactVersions: { example: "2.0.0" },
     })
@@ -306,7 +323,8 @@ describe("sync package references", () => {
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
-    expect(lockfile.packages).toEqual([manualTargetEntry])
+
+    expect(lockfile).toHaveProperty("packages", [manualTargetEntry])
     expect(await exists(manualReferencePath)).toBe(true)
   })
 
@@ -317,6 +335,7 @@ describe("sync package references", () => {
     const referencePath = getReferencePath(projectPath, entry)
 
     await initializeProject(projectPath, { example: "^1.0.0" }, [entry])
+
     const { preparation, result } = await runSync(projectPath, homePath, {
       exactVersions: { example: "1.0.0" },
       metadata: { example: makeMetadata("example", ["1.0.0"]) },
@@ -330,10 +349,12 @@ describe("sync package references", () => {
     expect(result.unchanged).toEqual([])
     expect(result.updated[0]?.current).toEqual(entry)
     expect(await readFile(join(referencePath, "SOURCE.md"), "utf8")).toBe("new source")
+
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
-    expect(lockfile.packages).toEqual([entry])
+
+    expect(lockfile).toHaveProperty("packages", [entry])
   })
 
   it("ignores unreferenced manifest dependencies without registry work", async () => {
@@ -342,6 +363,7 @@ describe("sync package references", () => {
     let metadataRequests = 0
 
     await initializeProject(projectPath, { example: "^1.0.0" }, [])
+
     const { preparation, result } = await runSync(projectPath, homePath, {
       exactVersions: { example: "1.0.0" },
       onMetadataRequest: () => {
@@ -354,10 +376,12 @@ describe("sync package references", () => {
     expect(result.updated).toEqual([])
     expect(result.removed).toEqual([])
     expect(metadataRequests).toBe(0)
+
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
-    expect(lockfile.packages).toEqual([])
+
+    expect(lockfile).toHaveProperty("packages", [])
   })
 
   it("preserves a manual reference when the same package is a manifest dependency", async () => {
@@ -366,6 +390,7 @@ describe("sync package references", () => {
     const manualEntry = makeEntry("example", "3.0.0", "manual")
 
     await initializeProject(projectPath, { example: "^1.0.0" }, [manualEntry])
+
     const { preparation, result } = await runSync(projectPath, homePath, {
       exactVersions: { example: "1.0.0" },
     })
@@ -373,10 +398,12 @@ describe("sync package references", () => {
     expect(preparation.updates).toEqual([])
     expect(preparation.removals).toEqual([])
     expect(result.updated).toEqual([])
+
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
-    expect(lockfile.packages).toEqual([manualEntry])
+
+    expect(lockfile).toHaveProperty("packages", [manualEntry])
   })
 
   it("uses registry range resolution only when no installed version is available", async () => {
@@ -386,12 +413,14 @@ describe("sync package references", () => {
     const metadataRequests: string[] = []
 
     await initializeProject(projectPath, { example: "^2.0.0" }, [oldEntry])
+
     const { result } = await runSync(projectPath, homePath, {
       metadata: { example: makeMetadata("example", ["1.0.0", "2.0.0"]) },
       onMetadataRequest: (name) => {
         metadataRequests.push(name)
       },
     })
+
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
@@ -399,7 +428,7 @@ describe("sync package references", () => {
     expect(metadataRequests).toEqual(["example"])
     expect(result.updated[0]?.current.version).toBe("2.0.0")
     expect(result.updated[0]?.manifestRange).toBe("^2.0.0")
-    expect(lockfile.packages).toEqual([
+    expect(lockfile).toHaveProperty("packages", [
       expect.objectContaining({ name: "example", tracking: "dependency", version: "2.0.0" }),
     ])
   })
@@ -413,6 +442,7 @@ describe("sync package references", () => {
     await initializeProject(projectPath, { example: "^2.0.0" }, [oldEntry, targetEntry])
     await materializeReference(projectPath, oldEntry)
     await materializeReference(projectPath, targetEntry)
+
     const { preparation, result } = await runSync(projectPath, homePath, {
       metadata: { example: makeMetadata("example", ["1.0.0", "2.0.0"]) },
     })
@@ -446,10 +476,12 @@ describe("sync package references", () => {
 
     expect(await exists(oldReferencePath)).toBe(true)
     expect(await exists(getReferencePath(projectPath, makeEntry("example", "2.0.0")))).toBe(false)
+
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
-    expect(lockfile.packages).toEqual([oldEntry])
+
+    expect(lockfile).toHaveProperty("packages", [oldEntry])
   })
 
   it("fails for an initialized project with no supported manifest", async () => {

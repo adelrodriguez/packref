@@ -31,11 +31,13 @@ export const makeCommandTestContext = (prefix: string) => {
     makeTempDirectory: async () => {
       const directoryPath = await mkdtemp(join(tmpdir(), prefix))
       temporaryPaths.push(directoryPath)
+
       return directoryPath
     },
     runCli: async ({ args, homePath, input, projectPath, prompt }: RunCliOptions) => {
       let output = ""
       let answeredPrompt = false
+
       const child = spawn(execPath, [cliPath, ...args], {
         cols: 100,
         cwd: projectPath,
@@ -59,6 +61,7 @@ export const makeCommandTestContext = (prefix: string) => {
           child.write(input)
         }
       })
+
       const exitCode = await new Promise<number>((resolve) => {
         child.onExit(({ exitCode: code }) => {
           resolve(code)
@@ -101,6 +104,7 @@ export const materializeReference = async (projectPath: string, entry: PackageEn
 
   await mkdir(referencePath, { recursive: true })
   await writeFile(join(referencePath, "SOURCE.md"), "source")
+
   return referencePath
 }
 
