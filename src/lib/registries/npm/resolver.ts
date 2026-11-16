@@ -10,6 +10,26 @@ import { PackageVersionNotFoundError } from "#lib/core/errors.ts"
 import { NpmRegistryClient } from "#lib/registries/npm/client.ts"
 import { defineRegistry } from "#lib/registries/registry.ts"
 
+/**
+ * Parses an npm range. npm reads ranges with node-semver, which also accepts a `v` before a
+ * version, build metadata, the `~>` operator, and an empty `||` alternative that matches any
+ * version. Each of these becomes its strict SemVer form first.
+ */
+const parseNpmRange = (specifier: string) =>
+  SemVerRange.parse(
+    specifier
+      .split("||")
+      .map(
+        (alternative) =>
+          alternative
+            .replaceAll("~>", "~")
+            .replaceAll(/(?<=^|[\s=<>~^])v(?=\d)/gu, "")
+            .replaceAll(/\+[\d.A-Za-z-]*/gu, "")
+            .trim() || "*"
+      )
+      .join(" || ")
+  )
+
 export const resolveVersion = (metadata: NpmPackageMetadata, requestedSpecifier: string) => {
   if (requestedSpecifier === "latest") {
     return Option.fromNullishOr(metadata["dist-tags"].latest).pipe(
@@ -20,7 +40,7 @@ export const resolveVersion = (metadata: NpmPackageMetadata, requestedSpecifier:
   // Like `semver.valid`, an exact version may start with `v`, such as `v18.3.1`.
   return Result.match(SemVer.parse(requestedSpecifier.replace(/^v/u, "")), {
     onFailure: () =>
-      Result.getSuccess(SemVerRange.parse(requestedSpecifier)).pipe(
+      Result.getSuccess(parseNpmRange(requestedSpecifier)).pipe(
         Option.flatMap((range) =>
           SemVerRange.maxSatisfying(
             range,
@@ -30,8 +50,9 @@ export const resolveVersion = (metadata: NpmPackageMetadata, requestedSpecifier:
         ),
         Option.map(SemVer.format)
       ),
+    // Like `semver.valid`, an exact version drops its build metadata, such as `+build.5`.
     onSuccess: (exactVersion) =>
-      Option.some(SemVer.format(exactVersion)).pipe(
+      Option.some(SemVer.format(SemVer.withBuild(exactVersion, []))).pipe(
         Option.filter((version) => metadata.versions[version] !== undefined)
       ),
   })
