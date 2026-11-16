@@ -118,9 +118,6 @@ importers:
       giget:
         specifier: 3.3.1
         version: 3.3.1
-      nypm:
-        specifier: 0.6.10
-        version: 0.6.10
     devDependencies:
       '@changesets/cli':
         specifier: 3.0.3
