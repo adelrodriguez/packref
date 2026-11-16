@@ -7,14 +7,12 @@ import {
   type SyncPlan,
   type SyncResult,
 } from "#lib/references/sync.ts"
-import { Prompter } from "#terminal/prompter.ts"
+import * as Output from "#terminal/output.ts"
 import { printTitle } from "#terminal/title.ts"
 
 const reportSyncPlan = Effect.fn("reportSyncPlan")(function* (plan: SyncPlan) {
-  const prompter = yield* Prompter
-
   if (plan.updates.length > 0) {
-    yield* prompter.log.info("The following package references will be updated:")
+    yield* Output.info("The following package references will be updated:")
     yield* Effect.forEach(
       plan.updates,
       (update) => {
@@ -26,7 +24,7 @@ const reportSyncPlan = Effect.fn("reportSyncPlan")(function* (plan: SyncPlan) {
         return Effect.forEach(
           update.previous,
           (previous) =>
-            prompter.log.info(
+            Output.info(
               `  ${target.registry}:${target.name} ${previous.version} → ${target.version}`
             ),
           { discard: true }
@@ -37,10 +35,10 @@ const reportSyncPlan = Effect.fn("reportSyncPlan")(function* (plan: SyncPlan) {
   }
 
   if (plan.removals.length > 0) {
-    yield* prompter.log.info("The following package references will be removed:")
+    yield* Output.info("The following package references will be removed:")
     yield* Effect.forEach(
       plan.removals,
-      (entry) => prompter.log.info(`  ${formatPackageIdentity(entry)}`),
+      (entry) => Output.info(`  ${formatPackageIdentity(entry)}`),
       { discard: true }
     )
   }
@@ -54,20 +52,16 @@ const reportRegistryFallback = Effect.fn("reportSyncRegistryFallback")(function*
   if (range === undefined) {
     return
   }
-
-  const prompter = yield* Prompter
-  yield* prompter.log.warning(
+  yield* Output.warning(
     `${name} has no installed version; resolved ${range} -> ${version} from the registry.`
   )
 })
 
 const reportSyncResult = Effect.fn("reportSyncResult")(function* (result: SyncResult) {
-  const prompter = yield* Prompter
-
   yield* Effect.forEach(
     result.missingEntries,
     (entry) =>
-      prompter.log.warning(
+      Output.warning(
         `Reference directory for ${formatPackageIdentity(entry)} was already missing; removed its lockfile entry.`
       ),
     { discard: true }
@@ -82,19 +76,19 @@ const reportSyncResult = Effect.fn("reportSyncResult")(function* (result: SyncRe
           change.manifestRange,
           change.current.version
         )
-        yield* prompter.log.success(`Updated ${formatPackageIdentity(change.current)}`)
+        yield* Output.success(`Updated ${formatPackageIdentity(change.current)}`)
       }),
     { discard: true }
   )
 
   yield* Effect.forEach(
     result.removed,
-    (entry) => prompter.log.success(`Removed ${formatPackageIdentity(entry)}`),
+    (entry) => Output.success(`Removed ${formatPackageIdentity(entry)}`),
     { discard: true }
   )
 
   if (result.updated.length === 0 && result.removed.length === 0) {
-    yield* prompter.log.info(
+    yield* Output.info(
       result.unchanged.length === 0
         ? "No dependency-tracked references to update."
         : "All dependency-tracked references are up to date."
@@ -108,27 +102,19 @@ export default Command.make("sync").pipe(
   Command.withDescription("Update dependency-tracked references to resolved project versions"),
   Command.withHandler(() =>
     Effect.gen(function* () {
-      const prompter = yield* Prompter
-
       yield* printTitle
-      yield* prompter.intro("🔄 packref sync")
+      yield* Output.intro("🔄 packref sync")
 
-      const preparation = yield* prompter.withSpinner(() => preparePackageReferenceSync(), {
-        failure: "Failed to inspect project dependencies",
-        start: "Resolving project dependencies...",
-        success: "Resolved project dependencies",
-      })
+      const preparation = yield* preparePackageReferenceSync()
+      yield* Output.success("Resolved project dependencies")
 
       yield* reportSyncPlan(preparation)
 
-      const result = yield* prompter.withSpinner(() => syncPackageReferences(preparation), {
-        failure: "Failed to sync package references",
-        start: "Syncing package references...",
-        success: "Synced package references",
-      })
+      const result = yield* syncPackageReferences(preparation)
+      yield* Output.success("Synced package references")
       const changedCount = yield* reportSyncResult(result)
 
-      yield* prompter.outro(
+      yield* Output.outro(
         changedCount === 0
           ? "Package references already synchronized"
           : `Synchronized ${changedCount} package reference${changedCount === 1 ? "" : "s"}`

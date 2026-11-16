@@ -43,7 +43,7 @@ describe("clean command", () => {
     const result = await context.runCli({
       args: ["clean"],
       homePath,
-      input: "y\r",
+      input: "y",
       projectPath,
       prompt: localConfirmationPrompt,
     })
@@ -70,7 +70,7 @@ describe("clean command", () => {
     const result = await context.runCli({
       args: ["clean"],
       homePath,
-      input: "y\r",
+      input: "y",
       projectPath,
       prompt: localConfirmationPrompt,
     })
@@ -91,7 +91,7 @@ describe("clean command", () => {
     const result = await context.runCli({
       args: ["clean"],
       homePath,
-      input: "y\r",
+      input: "y",
       projectPath,
       prompt: localConfirmationPrompt,
     })
@@ -113,7 +113,7 @@ describe("clean command", () => {
     const result = await context.runCli({
       args: ["clean"],
       homePath,
-      input: "y\r",
+      input: "y",
       projectPath,
       prompt: localConfirmationPrompt,
     })
@@ -149,7 +149,7 @@ describe("clean command", () => {
     const result = await context.runCli({
       args: ["clean"],
       homePath,
-      input: "n\r",
+      input: "n",
       projectPath,
       prompt: localConfirmationPrompt,
     })
@@ -170,7 +170,7 @@ describe("clean command", () => {
     const result = await context.runCli({
       args: ["clean", "--global"],
       homePath,
-      input: "y\r",
+      input: "y",
       projectPath,
       prompt: globalConfirmationPrompt,
     })
@@ -190,7 +190,7 @@ describe("clean command", () => {
     const result = await context.runCli({
       args: ["clean", "-g"],
       homePath,
-      input: "y\r",
+      input: "y",
       projectPath,
       prompt: globalConfirmationPrompt,
     })
@@ -212,7 +212,7 @@ describe("clean command", () => {
     const result = await context.runCli({
       args: ["clean", "--global"],
       homePath,
-      input: "y\r",
+      input: "y",
       projectPath,
       prompt: globalConfirmationPrompt,
     })
@@ -236,7 +236,7 @@ describe("clean command", () => {
     const result = await context.runCli({
       args: ["clean", "--global"],
       homePath,
-      input: "y\r",
+      input: "y",
       projectPath,
       prompt: globalConfirmationPrompt,
     })
@@ -254,7 +254,7 @@ describe("clean command", () => {
     const result = await context.runCli({
       args: ["clean", "--global"],
       homePath,
-      input: "y\r",
+      input: "y",
       projectPath,
       prompt: globalConfirmationPrompt,
     })

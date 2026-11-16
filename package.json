@@ -48,12 +48,10 @@
     "version": "changeset version && pnpm run fix"
   },
   "dependencies": {
-    "@clack/prompts": "1.8.1",
     "@effect/platform-node": "4.1.4",
     "effect": "4.1.4",
     "giget": "3.3.1",
-    "nypm": "0.6.10",
-    "picocolors": "1.1.1"
+    "nypm": "0.6.10"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.3",

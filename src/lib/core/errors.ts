@@ -55,14 +55,6 @@ export class ConfigParseError extends Data.TaggedError("ConfigParseError")<{
   }
 }
 
-export class OperationCancelled extends Data.TaggedError("OperationCancelled")<{
-  reason?: string
-}> {
-  override get message() {
-    return this.reason ?? "Operation cancelled."
-  }
-}
-
 export class RequestedIntegrationError extends Data.TaggedError("RequestedIntegrationError")<{
   target: "AGENTS.md" | "tsconfig.json"
 }> {

@@ -336,7 +336,7 @@ describe("init", () => {
       await writeFile(join(projectPath, ".gitignore"), existingGitignore)
       await writeFile(join(projectPath, "tsconfig.json"), existingTsconfig)
 
-      const result = await runInitCommand(projectPath, homePath, { ignore: "\n\r" })
+      const result = await runInitCommand(projectPath, homePath, { ignore: "n" })
 
       const lockfile = await readJson(join(projectPath, ".packref", "packref-lock.json"))
       const config = await readJson(join(homePath, ".agents", "packref", "config.json"))
@@ -631,7 +631,7 @@ describe("init", () => {
 
       await writeFile(join(projectPath, "AGENTS.md"), existingAgents)
 
-      const result = await runInitCommand(projectPath, homePath, { agents: "\n\r" })
+      const result = await runInitCommand(projectPath, homePath, { agents: "n" })
 
       expect(result.exitCode).toBe(0)
       expect(await readText(join(projectPath, "AGENTS.md"))).toBe(existingAgents)
@@ -697,7 +697,7 @@ describe("init", () => {
 
       expect(result.exitCode).toBe(1)
       expect(result.stdout).toContain("Failed to parse Packref lockfile")
-      expect(result.stdout).toContain("Failed to create the packref-lock.json")
+      expect(result.stdout).not.toContain("Created the packref-lock.json")
       expect(await readText(join(projectPath, ".packref", "packref-lock.json"))).toBe("{")
     })
   })
@@ -715,7 +715,7 @@ describe("init", () => {
 
       expect(result.exitCode).toBe(1)
       expect(result.stdout).toContain("Failed to parse Packref config")
-      expect(result.stdout).toContain("Failed to register project in global store")
+      expect(result.stdout).not.toContain("Project registered in global store")
       expect(await readText(join(globalPath, "config.json"))).toBe("{")
     })
   })
