@@ -1,9 +1,13 @@
+import { createGunzip } from "node:zlib"
+import * as NodeStream from "@effect/platform-node/NodeStream"
 import * as Effect from "effect/Effect"
+import * as Tar from "effect/encoding/Tar"
 import * as FileSystem from "effect/FileSystem"
 import * as HttpClient from "effect/http/HttpClient"
 import * as HttpClientResponse from "effect/http/HttpClientResponse"
+import * as Option from "effect/Option"
 import * as Path from "effect/Path"
-import { parseTarGzip, type ParsedTarFileItem } from "nanotar"
+import * as Stream from "effect/Stream"
 import type { PackageIdentity } from "#lib/core/identity.ts"
 import type { TarballSource } from "#lib/core/source.ts"
 import { TarballFetchError } from "#lib/core/errors.ts"
@@ -13,52 +17,76 @@ import { materializeStoreEntry } from "#lib/store/index.ts"
 const TAR_ENTRY_WRITE_CONCURRENCY = 8
 const TAR_RETRY_COUNT = 2
 
+/**
+ * An archive entry with its body read into memory, so that it can be written after the decoder
+ * moves on to the next entry.
+ */
+interface ArchiveFile {
+  readonly data: Uint8Array
+  readonly header: Tar.Header
+  readonly relativePath: string
+}
+
 const toTarballFetchError = (url: string) => (cause: unknown) =>
   new TarballFetchError({
     cause,
     url,
   })
 
-const downloadTarball = Effect.fn("downloadTarball")(function* (url: string) {
-  const httpClient = (yield* HttpClient.HttpClient).pipe(
-    HttpClient.retryTransient({ times: TAR_RETRY_COUNT })
-  )
-  const archive = yield* httpClient.get(url).pipe(
+const readTarballEntries = (url: string) =>
+  HttpClient.HttpClient.pipe(
+    Effect.flatMap((httpClient) =>
+      httpClient.pipe(HttpClient.retryTransient({ times: TAR_RETRY_COUNT })).get(url)
+    ),
     Effect.flatMap((response) => HttpClientResponse.filterStatusOk(response)),
-    Effect.flatMap((response) => response.arrayBuffer),
-    Effect.mapError(toTarballFetchError(url))
+    HttpClientResponse.stream,
+    NodeStream.pipeThroughDuplex({ evaluate: () => createGunzip(), onError: (cause) => cause }),
+    Stream.pipeThroughChannelOrFail(Tar.decode()),
+    Stream.mapError(toTarballFetchError(url)),
+    // A body streams from the archive, so it fails with the errors of the download and the decoder.
+    Stream.map((entry) => ({
+      ...entry,
+      body: Stream.mapError(entry.body, toTarballFetchError(url)),
+    }))
   )
 
-  return new Uint8Array(archive)
-})
+/**
+ * Returns the top-level directory of an archive entry, such as `package/`, and the path of the
+ * entry below it.
+ */
+const parseEntryPath = (entryPath: string, tarballUrl: string) =>
+  Effect.gen(function* () {
+    const segments = entryPath.split("/")
+
+    if (
+      entryPath.startsWith("/")
+      || entryPath.includes("\\")
+      || segments.some((segment) => segment === "." || segment === "..")
+    ) {
+      return yield* new TarballFetchError({
+        cause: `Archive entry contains an invalid path: ${entryPath}`,
+        url: tarballUrl,
+      })
+    }
+
+    const [root = ""] = segments
+    const prefix = `${root}/`
+
+    if (!entryPath.startsWith(prefix)) {
+      return yield* new TarballFetchError({
+        cause: `Archive entry does not use the expected ${prefix} prefix: ${entryPath}`,
+        url: tarballUrl,
+      })
+    }
+
+    return { prefix, relativePath: entryPath.slice(prefix.length).replace(/\/+$/u, "") }
+  })
 
 const writeTarEntry = Effect.fn("writeTarEntry")(
-  (entry: ParsedTarFileItem, archivePrefix: string, temporaryPath: string, tarballUrl: string) =>
+  ({ data, header, relativePath }: ArchiveFile, temporaryPath: string, tarballUrl: string) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem
       const path = yield* Path.Path
-
-      const rawSegments = entry.name.split("/")
-
-      if (
-        entry.name.startsWith("/")
-        || entry.name.includes("\\")
-        || rawSegments.some((segment) => segment === "." || segment === "..")
-      ) {
-        return yield* new TarballFetchError({
-          cause: `Archive entry contains an invalid path: ${entry.name}`,
-          url: tarballUrl,
-        })
-      }
-
-      if (!entry.name.startsWith(archivePrefix)) {
-        return yield* new TarballFetchError({
-          cause: `Archive entry does not use the expected ${archivePrefix} prefix: ${entry.name}`,
-          url: tarballUrl,
-        })
-      }
-
-      const relativePath = entry.name.slice(archivePrefix.length).replace(/\/+$/u, "")
 
       if (relativePath.length === 0) {
         return
@@ -68,69 +96,32 @@ const writeTarEntry = Effect.fn("writeTarEntry")(
 
       if (!checkIsPathWithin(path, temporaryPath, targetPath)) {
         return yield* new TarballFetchError({
-          cause: `Archive entry escapes the target directory: ${entry.name}`,
+          cause: `Archive entry escapes the target directory: ${header.path}`,
           url: tarballUrl,
         })
       }
 
-      if (entry.type === "directory") {
+      if (header.type === "Directory") {
         yield* fs.makeDirectory(targetPath, { recursive: true })
         return
       }
 
-      if (entry.type !== "file" || entry.data === undefined) {
+      if (header.type !== "File") {
         return yield* new TarballFetchError({
-          cause: `Archive entry type is not supported: ${entry.type ?? "unknown"}`,
+          cause: `Archive entry type is not supported: ${header.type}`,
           url: tarballUrl,
         })
       }
 
       yield* fs.makeDirectory(path.dirname(targetPath), { recursive: true })
-      yield* fs.writeFile(targetPath, entry.data)
-
-      if (entry.attrs?.mode !== undefined) {
-        if (!/^[0-7]+$/u.test(entry.attrs.mode)) {
-          return yield* new TarballFetchError({
-            cause: `Archive entry contains an invalid mode: ${entry.attrs.mode}`,
-            url: tarballUrl,
-          })
-        }
-
-        yield* fs.chmod(targetPath, Number.parseInt(entry.attrs.mode, 8) & 0o777)
-      }
+      yield* fs.writeFile(targetPath, data)
+      yield* fs.chmod(targetPath, header.mode & 0o777)
     }).pipe(
       Effect.catchTag("PlatformError", (cause) =>
         Effect.fail(toTarballFetchError(tarballUrl)(cause))
       )
     )
 )
-
-const getArchivePrefix = (entries: readonly ParsedTarFileItem[], tarballUrl: string) =>
-  Effect.gen(function* () {
-    const roots = new Set(
-      entries
-        .map((entry) => entry.name.split("/")[0])
-        .filter((root): root is string => root !== undefined && root.length > 0)
-    )
-
-    if (roots.size !== 1) {
-      return yield* new TarballFetchError({
-        cause: "Package archive must contain exactly one top-level directory",
-        url: tarballUrl,
-      })
-    }
-
-    const root = roots.values().next().value
-
-    if (root === undefined || root === "." || root === "..") {
-      return yield* new TarballFetchError({
-        cause: "Package archive contains an invalid top-level directory",
-        url: tarballUrl,
-      })
-    }
-
-    return `${root}/`
-  })
 
 export const fetchTarballSnapshot = Effect.fn("fetchTarballSnapshot")(function* (
   identity: PackageIdentity,
@@ -145,20 +136,39 @@ export const fetchTarballSnapshot = Effect.fn("fetchTarballSnapshot")(function* 
     identity,
     source,
     (temporaryPath) =>
-      Effect.gen(function* () {
-        const archive = yield* downloadTarball(tarballUrl)
-        const entries = yield* Effect.tryPromise({
-          catch: toTarballFetchError(tarballUrl),
-          try: () => parseTarGzip(archive),
-        })
-        const archivePrefix = yield* getArchivePrefix(entries, tarballUrl)
+      readTarballEntries(tarballUrl).pipe(
+        // The decoder streams each body once, so the bodies are read in archive order.
+        Stream.mapAccumEffect(
+          () => Option.none<string>(),
+          (archivePrefix, entry) =>
+            Effect.gen(function* () {
+              const { prefix, relativePath } = yield* parseEntryPath(entry.header.path, tarballUrl)
 
-        yield* Effect.forEach(
-          entries,
-          (entry) => writeTarEntry(entry, archivePrefix, temporaryPath, tarballUrl),
-          { concurrency: TAR_ENTRY_WRITE_CONCURRENCY, discard: true }
+              if (Option.isSome(archivePrefix) && archivePrefix.value !== prefix) {
+                return yield* new TarballFetchError({
+                  cause: "Package archive must contain exactly one top-level directory",
+                  url: tarballUrl,
+                })
+              }
+
+              const data = yield* Stream.mkUint8Array(entry.body)
+
+              return [Option.some(prefix), [{ data, header: entry.header, relativePath }]] as const
+            })
+        ),
+        Stream.mapEffect((file) => writeTarEntry(file, temporaryPath, tarballUrl), {
+          concurrency: TAR_ENTRY_WRITE_CONCURRENCY,
+        }),
+        Stream.runCount,
+        Effect.filterOrFail(
+          (count) => count > 0,
+          () =>
+            new TarballFetchError({
+              cause: "Package archive must contain exactly one top-level directory",
+              url: tarballUrl,
+            })
         )
-      }),
+      ),
     toTarballFetchError(tarballUrl)
   )
 })

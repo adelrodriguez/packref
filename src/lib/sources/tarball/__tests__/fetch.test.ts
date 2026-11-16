@@ -1,17 +1,18 @@
 import type * as FileSystem from "effect/FileSystem"
 import type * as Path from "effect/Path"
-import { access, mkdtemp, readFile, readdir, rm } from "node:fs/promises"
+import { access, mkdtemp, readFile, readdir, rm, stat } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Effect from "effect/Effect"
+import * as Tar from "effect/encoding/Tar"
 import * as HttpClient from "effect/http/HttpClient"
 import * as HttpClientResponse from "effect/http/HttpClientResponse"
 import * as Layer from "effect/Layer"
-import { createTarGzip } from "nanotar"
 import { afterEach, describe, expect, it } from "vitest"
 import { TarballFetchError } from "#lib/core/errors.ts"
 import { PackrefHome } from "#lib/layout/home.ts"
+import { makeArchive } from "#lib/sources/tarball/__tests__/archive.ts"
 import { fetchTarballSnapshot } from "#lib/sources/tarball/fetch.ts"
 
 const temporaryPaths: string[] = []
@@ -81,14 +82,9 @@ afterEach(async () => {
 describe("fetchTarballSnapshot", () => {
   it("extracts package contents without the package/ prefix", async () => {
     const home = await makeTempDirectory()
-    const archive = await createTarGzip([
-      {
-        name: "package/",
-      },
-      {
-        data: "export const answer = 42",
-        name: "package/src/index.ts",
-      },
+    const archive = await makeArchive([
+      Tar.directory("package/"),
+      Tar.file("package/src/index.ts", "export const answer = 42"),
     ])
     const result = await run(fetchTarballSnapshot(identity, tarballUrl), home, () =>
       Effect.succeed(archive)
@@ -103,11 +99,8 @@ describe("fetchTarballSnapshot", () => {
 
   it("strips a crate-style top-level archive directory", async () => {
     const home = await makeTempDirectory()
-    const archive = await createTarGzip([
-      {
-        data: '[package]\nname = "example"',
-        name: "example-1.0.0/Cargo.toml",
-      },
+    const archive = await makeArchive([
+      Tar.file("example-1.0.0/Cargo.toml", '[package]\nname = "example"'),
     ])
     const result = await run(fetchTarballSnapshot(identity, tarballUrl), home, () =>
       Effect.succeed(archive)
@@ -121,15 +114,9 @@ describe("fetchTarballSnapshot", () => {
 
   it("rejects archives with multiple top-level directories", async () => {
     const home = await makeTempDirectory()
-    const archive = await createTarGzip([
-      {
-        data: "{}",
-        name: "package/package.json",
-      },
-      {
-        data: "unexpected",
-        name: "other/file.txt",
-      },
+    const archive = await makeArchive([
+      Tar.file("package/package.json", "{}"),
+      Tar.file("other/file.txt", "unexpected"),
     ])
 
     const extraction = run(fetchTarballSnapshot(identity, tarballUrl), home, () =>
@@ -145,14 +132,58 @@ describe("fetchTarballSnapshot", () => {
     expect(await readdir(packageParent)).toEqual([])
   })
 
+  it("keeps the permission bits of a file", async () => {
+    const home = await makeTempDirectory()
+    const archive = await makeArchive([
+      Tar.file("package/bin/cli.js", "#!/usr/bin/env node", { mode: 0o755 }),
+    ])
+    const result = await run(fetchTarballSnapshot(identity, tarballUrl), home, () =>
+      Effect.succeed(archive)
+    )
+
+    const { mode } = await stat(join(result.path, "bin", "cli.js"))
+
+    expect(mode & 0o777).toBe(0o755)
+  })
+
+  it.each([
+    {
+      cause: "Archive entry contains an invalid path: package/../escape.txt",
+      entry: Tar.file("package/../escape.txt", "escape"),
+    },
+    {
+      cause: "Archive entry does not use the expected package/ prefix: package",
+      entry: Tar.file("package", "no directory"),
+    },
+    {
+      cause: "Archive entry type is not supported: Symlink",
+      entry: Tar.symlink("package/link", "/etc/passwd"),
+    },
+  ])("rejects the archive entry $entry.header.path", async ({ cause, entry }) => {
+    const home = await makeTempDirectory()
+    const archive = await makeArchive([Tar.file("package/package.json", "{}"), entry])
+
+    await expect(
+      run(fetchTarballSnapshot(identity, tarballUrl), home, () => Effect.succeed(archive))
+    ).rejects.toMatchObject({ cause, url: tarballUrl })
+    const packageParent = join(home, ".agents", "packref", "store", "packages", "npm", "example")
+    expect(await readdir(packageParent)).toEqual([])
+  })
+
+  it("rejects an empty archive", async () => {
+    const home = await makeTempDirectory()
+    const archive = await makeArchive([])
+
+    await expect(
+      run(fetchTarballSnapshot(identity, tarballUrl), home, () => Effect.succeed(archive))
+    ).rejects.toMatchObject({
+      cause: "Package archive must contain exactly one top-level directory",
+    })
+  })
+
   it("reuses an existing tarball store entry", async () => {
     const home = await makeTempDirectory()
-    const archive = await createTarGzip([
-      {
-        data: "{}",
-        name: "package/package.json",
-      },
-    ])
+    const archive = await makeArchive([Tar.file("package/package.json", "{}")])
     let downloadCount = 0
     const download = () => {
       downloadCount += 1
@@ -183,12 +214,7 @@ describe("fetchTarballSnapshot", () => {
 
   it("retries transient tarball responses before it succeeds", async () => {
     const home = await makeTempDirectory()
-    const archive = await createTarGzip([
-      {
-        data: "{}",
-        name: "package/package.json",
-      },
-    ])
+    const archive = await makeArchive([Tar.file("package/package.json", "{}")])
     let requestCount = 0
 
     const result = await run(

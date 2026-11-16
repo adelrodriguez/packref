@@ -1,8 +1,8 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { createServer } from "node:http"
 import { join } from "node:path"
+import * as Tar from "effect/encoding/Tar"
 import * as Match from "effect/Match"
-import { createTarGzip } from "nanotar"
 import { afterEach, describe, expect, it } from "vitest"
 import type { PackageEntry } from "#lib/workspace/lockfile.ts"
 import {
@@ -11,6 +11,7 @@ import {
   materializeReference,
   repositoryEntry,
 } from "#commands/__tests__/helpers.ts"
+import { makeArchive } from "#lib/sources/tarball/__tests__/archive.ts"
 
 const context = makeCommandTestContext("packref-install-command-test-")
 
@@ -84,7 +85,7 @@ describe("install command", () => {
   it("reports references fetched from locked tarball metadata", async () => {
     const projectPath = await context.makeTempDirectory()
     const homePath = await context.makeTempDirectory()
-    const archive = await createTarGzip([{ data: "source", name: "package/SOURCE.md" }])
+    const archive = await makeArchive([Tar.file("package/SOURCE.md", "source")])
     const server = createServer((_request, response) => {
       response.end(archive)
     })

@@ -6,11 +6,11 @@ import { afterEach, describe, expect, it } from "vitest"
 import type * as Types from "effect/Types"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Effect from "effect/Effect"
+import * as Tar from "effect/encoding/Tar"
 import * as HttpClient from "effect/http/HttpClient"
 import * as HttpClientResponse from "effect/http/HttpClientResponse"
 import * as Layer from "effect/Layer"
 import * as Predicate from "effect/Predicate"
-import { createTarGzip } from "nanotar"
 import type { NpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
 import type { PackageEntry } from "#lib/workspace/lockfile.ts"
 import { NetworkError, ReflinkError, SnapshotFetchError } from "#lib/core/errors.ts"
@@ -27,6 +27,7 @@ import {
 import { NpmRegistryClient } from "#lib/registries/npm/client.ts"
 import { RepositoryDownloader } from "#lib/sources/repository/fetch.ts"
 import { RemoteTagReader } from "#lib/sources/repository/tags.ts"
+import { makeArchive } from "#lib/sources/tarball/__tests__/archive.ts"
 import { Reflinker } from "#lib/workspace/reflinker.ts"
 
 const temporaryPaths: string[] = []
@@ -137,14 +138,7 @@ const makeTestLayer = (services: TestServices, home: string) => {
         (
           services.tarballDownload
           ?? (() =>
-            Effect.promise(() =>
-              createTarGzip([
-                {
-                  data: "tarball source",
-                  name: "package/SOURCE.md",
-                },
-              ])
-            ))
+            Effect.promise(() => makeArchive([Tar.file("package/SOURCE.md", "tarball source")])))
         )().pipe(
           Effect.map((archive) => HttpClientResponse.fromWeb(request, new Response(archive)))
         )
@@ -606,14 +600,7 @@ describe("addPackageReference", () => {
       metadata: makeMetadata("example", ["1.0.0"], repository),
       tarballDownload: () => {
         tarballDownloadCount += 1
-        return Effect.promise(() =>
-          createTarGzip([
-            {
-              data: "fallback",
-              name: "package/index.js",
-            },
-          ])
-        )
+        return Effect.promise(() => makeArchive([Tar.file("package/index.js", "fallback")]))
       },
     })
 

@@ -3,10 +3,10 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Effect from "effect/Effect"
+import * as Tar from "effect/encoding/Tar"
 import * as HttpClient from "effect/http/HttpClient"
 import * as HttpClientResponse from "effect/http/HttpClientResponse"
 import * as Layer from "effect/Layer"
-import { createTarGzip } from "nanotar"
 import { afterEach, describe, expect, it } from "vitest"
 import type { NpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
 import type { Lockfile, PackageEntry } from "#lib/workspace/lockfile.ts"
@@ -22,6 +22,7 @@ import { preparePackageReferenceSync, syncPackageReferences } from "#lib/referen
 import { NpmRegistryClient } from "#lib/registries/npm/client.ts"
 import { RepositoryDownloader } from "#lib/sources/repository/fetch.ts"
 import { RemoteTagReader } from "#lib/sources/repository/tags.ts"
+import { makeArchive } from "#lib/sources/tarball/__tests__/archive.ts"
 import { Reflinker } from "#lib/workspace/reflinker.ts"
 
 const temporaryPaths: string[] = []
@@ -140,14 +141,7 @@ const makeTestLayer = (homePath: string, services: TestServices = {}) => {
     Layer.succeed(
       HttpClient.HttpClient,
       HttpClient.make((request) =>
-        Effect.promise(() =>
-          createTarGzip([
-            {
-              data: "new source",
-              name: "package/SOURCE.md",
-            },
-          ])
-        ).pipe(
+        Effect.promise(() => makeArchive([Tar.file("package/SOURCE.md", "new source")])).pipe(
           Effect.map((archive) =>
             HttpClientResponse.fromWeb(
               request,

@@ -18,8 +18,10 @@
         "diagnostics": false,
         "allowedUnstableApis": [
           "@effect/platform-node",
+          "@effect/platform-node-shared/NodeStream",
           "effect/cli",
           "effect/encoding/Json5",
+          "effect/encoding/Tar",
           "effect/FileSystem",
           "effect/http",
           "effect/Path",
