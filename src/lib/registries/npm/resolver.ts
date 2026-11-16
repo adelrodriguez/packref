@@ -1,7 +1,10 @@
+import * as Arr from "effect/Array"
 import * as Effect from "effect/Effect"
 import * as Match from "effect/Match"
 import * as Option from "effect/Option"
-import { maxSatisfying, valid } from "semver"
+import * as Result from "effect/Result"
+import * as SemVer from "effect/SemVer"
+import * as SemVerRange from "effect/SemVerRange"
 import type { NpmPackageMetadata } from "#lib/registries/npm/metadata.ts"
 import { PackageVersionNotFoundError } from "#lib/core/errors.ts"
 import { NpmRegistryClient } from "#lib/registries/npm/client.ts"
@@ -14,14 +17,24 @@ export const resolveVersion = (metadata: NpmPackageMetadata, requestedSpecifier:
     )
   }
 
-  return Match.value(valid(requestedSpecifier)).pipe(
-    Match.when(Match.string, (exactVersion) =>
-      Option.fromNullishOr(metadata.versions[exactVersion]).pipe(Option.as(exactVersion))
-    ),
-    Match.orElse(() =>
-      Option.fromNullishOr(maxSatisfying(Object.keys(metadata.versions), requestedSpecifier))
-    )
-  )
+  // Like `semver.valid`, an exact version may start with `v`, such as `v18.3.1`.
+  return Result.match(SemVer.parse(requestedSpecifier.replace(/^v/u, "")), {
+    onFailure: () =>
+      Result.getSuccess(SemVerRange.parse(requestedSpecifier)).pipe(
+        Option.flatMap((range) =>
+          SemVerRange.maxSatisfying(
+            range,
+            // The registry can publish a version that is not valid SemVer. A range never matches it.
+            Arr.getSuccesses(Arr.map(Object.keys(metadata.versions), SemVer.parse))
+          )
+        ),
+        Option.map(SemVer.format)
+      ),
+    onSuccess: (exactVersion) =>
+      Option.some(SemVer.format(exactVersion)).pipe(
+        Option.filter((version) => metadata.versions[version] !== undefined)
+      ),
+  })
 }
 
 export default defineRegistry({

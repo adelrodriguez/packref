@@ -9,7 +9,7 @@ import * as Path from "effect/Path"
 import * as Predicate from "effect/Predicate"
 import * as Result from "effect/Result"
 import * as Schema from "effect/Schema"
-import { valid } from "semver"
+import * as SemVer from "effect/SemVer"
 import { ManifestParseError, ManifestResolutionError } from "#lib/core/errors.ts"
 import { defineManifest, type ManifestDependency } from "#lib/manifests/manifest.ts"
 import {
@@ -20,6 +20,8 @@ import {
 const DEPENDENCY_GROUPS = ["dependencies", "devDependencies", "peerDependencies"] as const
 
 const NODE_MODULES_RESOLUTION_CONCURRENCY = 8
+
+const isVersion = (version: string) => Result.isSuccess(SemVer.parse(version))
 
 const DependencyRecordSchema = Schema.Record(Schema.String, Schema.String)
 
@@ -196,7 +198,7 @@ const resolvePnpmDependencyFromBlock = (source: string, name: string) => {
     if (inlineValue !== undefined && inlineValue.length > 0) {
       const version = normalizePnpmVersion(inlineValue)
 
-      if (valid(version) !== null) {
+      if (isVersion(version)) {
         return Option.some(version)
       }
 
@@ -225,7 +227,7 @@ const resolvePnpmDependencyFromBlock = (source: string, name: string) => {
       if (Option.isSome(versionMatch)) {
         const version = normalizePnpmVersion(versionMatch.value)
 
-        if (valid(version) !== null) {
+        if (isVersion(version)) {
           return Option.some(version)
         }
       }
@@ -440,7 +442,7 @@ export class PackageManagerResolver extends Context.Service<
                   ...dependency,
                   projectRelativePath,
                 })
-                .pipe(Option.filter((version) => valid(version) !== null))
+                .pipe(Option.filter((version) => isVersion(version)))
 
               if (Option.isSome(resolvedVersion)) {
                 versions.set(dependency.name, resolvedVersion.value)
@@ -488,9 +490,7 @@ const readNodeModulesVersion = Effect.fn("readNodeModulesVersion")(function* (
     })
   ).pipe(
     Effect.map(
-      Option.filter(
-        (version): version is string => version !== undefined && valid(version) !== null
-      )
+      Option.filter((version): version is string => version !== undefined && isVersion(version))
     )
   )
 })
