@@ -1,5 +1,19 @@
 # packref
 
+## 0.3.8
+
+### Patch Changes
+
+- d46627a: Show prompts and status lines with Effect's terminal prompts instead of Clack
+
+  Each step prints its result after it finishes, so the spinners are gone. A command that fails prints its error on standard error. In a multiple-choice prompt, the first two rows select all choices or invert the selection. Press Space to select a choice and Enter to confirm.
+
+- d46627a: Install fewer dependencies: `semver`, `jsonc-parser`, `nanotar`, `giget`, `nypm`, `@clack/prompts`, and `picocolors` are replaced by Effect and Node.js built-ins
+
+  Packref now unpacks a package tarball or repository archive while it downloads, instead of after the whole archive arrives. A repository snapshot leaves out symlinks, because a symlink can point outside the repository. Repository downloads no longer read the `GIGET_AUTH` token or keep archives in `~/.cache/giget`. The global store already keeps each snapshot.
+
+- a0fb489: Send a `packref/<version>` User-Agent header with each registry and tarball request.
+
 ## 0.3.7
 
 ### Patch Changes
