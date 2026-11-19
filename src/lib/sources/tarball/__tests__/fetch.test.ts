@@ -20,6 +20,7 @@ const temporaryPaths: string[] = []
 const makeTempDirectory = async () => {
   const directoryPath = await mkdtemp(join(tmpdir(), "packref-tarball-fetch-test-"))
   temporaryPaths.push(directoryPath)
+
   return directoryPath
 }
 
@@ -44,27 +45,25 @@ const run = <A, E>(
 ) =>
   Effect.runPromise(
     effect.pipe(
-      Effect.provide(
-        Layer.mergeAll(
-          NodeServices.layer,
-          PackrefHome.at(home),
-          Layer.succeed(
-            HttpClient.HttpClient,
-            HttpClient.make((request) =>
-              download().pipe(
-                Effect.map((archive) =>
-                  HttpClientResponse.fromWeb(
-                    request,
-                    new Response(archive, {
-                      status: getStatus(),
-                    })
-                  )
+      Effect.provide([
+        NodeServices.layer,
+        PackrefHome.at(home),
+        Layer.succeed(
+          HttpClient.HttpClient,
+          HttpClient.make((request) =>
+            download().pipe(
+              Effect.map((archive) =>
+                HttpClientResponse.fromWeb(
+                  request,
+                  new Response(archive, {
+                    status: getStatus(),
+                  })
                 )
               )
             )
           )
-        )
-      )
+        ),
+      ])
     )
   )
 
@@ -82,10 +81,12 @@ afterEach(async () => {
 describe("fetchTarballSnapshot", () => {
   it("extracts package contents without the package/ prefix", async () => {
     const home = await makeTempDirectory()
+
     const archive = await makeArchive([
       Tar.directory("package/"),
       Tar.file("package/src/index.ts", "export const answer = 42"),
     ])
+
     const result = await run(fetchTarballSnapshot(identity, tarballUrl), home, () =>
       Effect.succeed(archive)
     )
@@ -99,9 +100,11 @@ describe("fetchTarballSnapshot", () => {
 
   it("strips a crate-style top-level archive directory", async () => {
     const home = await makeTempDirectory()
+
     const archive = await makeArchive([
       Tar.file("example-1.0.0/Cargo.toml", '[package]\nname = "example"'),
     ])
+
     const result = await run(fetchTarballSnapshot(identity, tarballUrl), home, () =>
       Effect.succeed(archive)
     )
@@ -114,6 +117,7 @@ describe("fetchTarballSnapshot", () => {
 
   it("rejects archives with multiple top-level directories", async () => {
     const home = await makeTempDirectory()
+
     const archive = await makeArchive([
       Tar.file("package/package.json", "{}"),
       Tar.file("other/file.txt", "unexpected"),
@@ -134,9 +138,11 @@ describe("fetchTarballSnapshot", () => {
 
   it("keeps the permission bits of a file", async () => {
     const home = await makeTempDirectory()
+
     const archive = await makeArchive([
       Tar.file("package/bin/cli.js", "#!/usr/bin/env node", { mode: 0o755 }),
     ])
+
     const result = await run(fetchTarballSnapshot(identity, tarballUrl), home, () =>
       Effect.succeed(archive)
     )
@@ -185,8 +191,10 @@ describe("fetchTarballSnapshot", () => {
     const home = await makeTempDirectory()
     const archive = await makeArchive([Tar.file("package/package.json", "{}")])
     let downloadCount = 0
+
     const download = () => {
       downloadCount += 1
+
       return Effect.succeed(archive)
     }
 
@@ -223,6 +231,7 @@ describe("fetchTarballSnapshot", () => {
       () => Effect.succeed(archive),
       () => {
         requestCount += 1
+
         return requestCount < 3 ? 503 : 200
       }
     )
@@ -234,12 +243,14 @@ describe("fetchTarballSnapshot", () => {
   it("does not retry a 404 tarball response", async () => {
     const home = await makeTempDirectory()
     let requestCount = 0
+
     const download = run(
       fetchTarballSnapshot(identity, tarballUrl),
       home,
       () => Effect.succeed(new Uint8Array()),
       () => {
         requestCount += 1
+
         return 404
       }
     )
@@ -258,6 +269,7 @@ describe("fetchTarballSnapshot", () => {
       () => Effect.succeed(new Uint8Array()),
       () => {
         requestCount += 1
+
         return 503
       }
     )

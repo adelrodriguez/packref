@@ -23,9 +23,11 @@ export const requireInitializedProject = Effect.fn("requireInitializedProject")(
 ) {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
+
   const projectPath = yield* fs.realPath(
     requestedProjectPath === undefined ? path.resolve() : path.resolve(requestedProjectPath)
   )
+
   const directoryPath = getDirectoryPath(path, projectPath)
   const directoryExists = yield* fs.exists(directoryPath)
 
@@ -66,10 +68,12 @@ export const createProjectReference = Effect.fn("createProjectReference")(functi
   const reflinker = yield* Reflinker
   const projectDirectoryPath = getDirectoryPath(path, projectPath)
   const targetPath = yield* getPackageIdentityPath(projectDirectoryPath, identity)
+
   const referenceSourcePath =
     source.type === "repository" && source.directory !== undefined
       ? path.resolve(storePath, source.directory)
       : storePath
+
   const exists = yield* fs
     .exists(targetPath)
     .pipe(
@@ -109,6 +113,7 @@ export const createProjectReference = Effect.fn("createProjectReference")(functi
             (cause) => new ReflinkError({ cause, source: referenceSourcePath, target: targetPath })
           )
         )
+
       const temporaryReferencePath = path.join(temporaryRootPath, "reference")
 
       yield* reflinker.reflink(referenceSourcePath, temporaryReferencePath)

@@ -99,6 +99,7 @@ const writeEntry = Effect.fn("writeEntry")(
 
       if (header.type === "Directory") {
         yield* fs.makeDirectory(targetPath, { recursive: true })
+
         return
       }
 
@@ -134,6 +135,7 @@ export const extractArchive = Effect.fn("extractArchive")(function* (
           }
 
           const data = yield* Stream.mkUint8Array(entry.body)
+
           const files = options.skip.includes(entry.header.type)
             ? []
             : [{ data, header: entry.header, relativePath }]

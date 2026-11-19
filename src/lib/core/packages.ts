@@ -1,4 +1,5 @@
 import type * as Types from "effect/Types"
+import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import type { PackageIdentity } from "#lib/core/identity.ts"
 import {
@@ -14,31 +15,34 @@ import {
   type RepositoryProvider,
 } from "#lib/core/repository.ts"
 
-export interface RegistryPackageSpec {
-  readonly _tag: "registry"
-  readonly name: string
-  readonly registry: Registry
-  readonly specifier?: string
-}
-
-export interface RepositoryPackageSpec {
-  readonly _tag: "repository"
-  readonly name: string
-  readonly registry: RepositoryProvider
-  readonly repository: {
-    readonly directory?: string
-    readonly url: string
+export type ParsedPackageSpec = Data.TaggedEnum<{
+  registry: {
+    readonly name: string
+    readonly registry: Registry
+    readonly specifier?: string
   }
-  readonly specifier?: string
-}
+  repository: {
+    readonly name: string
+    readonly registry: RepositoryProvider
+    readonly repository: {
+      readonly directory?: string
+      readonly url: string
+    }
+    readonly specifier?: string
+  }
+}>
 
-export type ParsedPackageSpec = RegistryPackageSpec | RepositoryPackageSpec
+export const PackageSpec = Data.taggedEnum<ParsedPackageSpec>()
 
-type RegistryPackageSpecBuilder = Types.Mutable<RegistryPackageSpec>
-type RepositoryBuilder = Types.Mutable<RepositoryPackageSpec["repository"]>
-type RepositoryPackageSpecBuilder = Types.Mutable<Omit<RepositoryPackageSpec, "repository">> & {
-  repository: RepositoryBuilder
-}
+export type RegistryPackageSpec = Data.TaggedEnum.Value<ParsedPackageSpec, "registry">
+
+export type RepositoryPackageSpec = Data.TaggedEnum.Value<ParsedPackageSpec, "repository">
+
+type RegistryPackageSpecFields = Types.Mutable<Data.TaggedEnum.Args<ParsedPackageSpec, "registry">>
+
+type RepositoryPackageSpecFields = Types.Mutable<
+  Data.TaggedEnum.Args<ParsedPackageSpec, "repository">
+>
 
 export const PACKAGE_DIRECTORY_NAME = "packages"
 
@@ -76,12 +80,14 @@ const validatePathSegment = Effect.fn("validatePathSegment")(function* (
 const splitRepositoryRef = (value: string) => {
   const schemeIndex = value.indexOf("://")
   const scpPathIndex = schemeIndex === -1 ? value.indexOf(":") : -1
+
   const refSearchStart =
     schemeIndex === -1
       ? scpPathIndex === -1
         ? 0
         : scpPathIndex + 1
       : value.indexOf("/", schemeIndex + 3)
+
   const separatorIndex = value.indexOf("@", Math.max(0, refSearchStart))
 
   return separatorIndex === -1
@@ -193,11 +199,13 @@ const identityFromKnownHostPath = (host: string, rawPath: string): RepositoryIde
 
 const identityFromBarePath = (locator: string): RepositoryIdentity => {
   const firstSegment = locator.split("/")[0]?.toLowerCase() ?? ""
+
   const host = firstSegment.includes(".")
     ? firstSegment
     : locator.startsWith("~")
       ? "git.sr.ht"
       : "github.com"
+
   const provider = HOST_REPOSITORY_PROVIDERS.get(host)
   const path = splitLocatorPath(locator)
 
@@ -217,6 +225,7 @@ const identityFromBarePath = (locator: string): RepositoryIdentity => {
 
 const parseRepositoryIdentity = Effect.fn("parseRepositoryIdentity")((locator: string) => {
   const providerSeparator = locator.indexOf(":")
+
   const shorthandProvider =
     providerSeparator === -1 ? undefined : locator.slice(0, providerSeparator)
 
@@ -332,24 +341,21 @@ export const parsePackageSpec = Effect.fn("parsePackageSpec")(function* (input: 
       && !identity.name.startsWith("/")
       && !identity.name.endsWith("/")
     ) {
-      const repository: RepositoryBuilder = { url: identity.url }
-
-      if (identity.directory.length > 0) {
-        repository.directory = identity.directory
-      }
-
-      const packageSpec: RepositoryPackageSpecBuilder = {
-        _tag: "repository",
+      const fields: RepositoryPackageSpecFields = {
         name: identity.name,
         registry: identity.provider,
-        repository,
+        repository: { url: identity.url },
+      }
+
+      if (identity.directory.length > 0) {
+        fields.repository = { directory: identity.directory, url: identity.url }
       }
 
       if (specifier !== undefined && specifier.length > 0) {
-        packageSpec.specifier = specifier
+        fields.specifier = specifier
       }
 
-      return packageSpec satisfies RepositoryPackageSpec
+      return PackageSpec.repository(fields)
     }
 
     if (identity.provider !== undefined) {
@@ -361,6 +367,7 @@ export const parsePackageSpec = Effect.fn("parsePackageSpec")(function* (input: 
     }
 
     const firstLocatorSegment = locator.split("/")[0] ?? ""
+
     const isUnambiguousRepositoryLocator =
       /^[a-z][a-z0-9+.-]*:\/\//iu.test(locator)
       || /^[^@/:]+@[^:]+:.+$/u.test(locator)
@@ -394,53 +401,23 @@ export const parsePackageSpec = Effect.fn("parsePackageSpec")(function* (input: 
     })
   }
 
-  if (spec.startsWith("@")) {
-    const versionSeparatorIndex = spec.lastIndexOf("@")
+  // A scoped name starts with `@`, so its version separator is the last `@` after the first character.
+  const versionSeparatorIndex = spec.startsWith("@") ? spec.lastIndexOf("@") : spec.indexOf("@")
 
-    if (versionSeparatorIndex <= 0) {
-      return {
-        _tag: "registry",
-        name: spec,
-        registry,
-      } satisfies RegistryPackageSpec
-    }
-
-    const specifier = spec.slice(versionSeparatorIndex + 1)
-
-    const packageSpec: RegistryPackageSpecBuilder = {
-      _tag: "registry",
-      name: spec.slice(0, versionSeparatorIndex),
-      registry,
-    }
-
-    if (specifier.length > 0) {
-      packageSpec.specifier = specifier
-    }
-
-    return packageSpec satisfies RegistryPackageSpec
+  if (versionSeparatorIndex <= 0) {
+    return PackageSpec.registry({ name: spec, registry })
   }
 
-  const versionSeparatorIndex = spec.indexOf("@")
-
-  if (versionSeparatorIndex === -1) {
-    return {
-      _tag: "registry",
-      name: spec,
-      registry,
-    } satisfies RegistryPackageSpec
-  }
-
-  const specifier = spec.slice(versionSeparatorIndex + 1)
-
-  const packageSpec: RegistryPackageSpecBuilder = {
-    _tag: "registry",
+  const fields: RegistryPackageSpecFields = {
     name: spec.slice(0, versionSeparatorIndex),
     registry,
   }
 
+  const specifier = spec.slice(versionSeparatorIndex + 1)
+
   if (specifier.length > 0) {
-    packageSpec.specifier = specifier
+    fields.specifier = specifier
   }
 
-  return packageSpec satisfies RegistryPackageSpec
+  return PackageSpec.registry(fields)
 })

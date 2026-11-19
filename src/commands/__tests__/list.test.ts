@@ -13,6 +13,7 @@ const cliPath = resolve(import.meta.dirname, "../../index.ts")
 const makeTempDirectory = async () => {
   const directoryPath = await mkdtemp(join(tmpdir(), "packref-list-test-"))
   temporaryPaths.push(directoryPath)
+
   return directoryPath
 }
 
@@ -29,6 +30,7 @@ const runList = async (projectPath: string, homePath: string, command: "list" | 
   let output = ""
   const environment = { ...process.env }
   delete environment.NO_COLOR
+
   const child = spawn(execPath, [cliPath, command], {
     cols: 100,
     cwd: projectPath,
@@ -44,6 +46,7 @@ const runList = async (projectPath: string, homePath: string, command: "list" | 
   child.onData((data) => {
     output += data
   })
+
   const exitCode = await new Promise<number>((resolve) => {
     child.onExit(({ exitCode: code }) => {
       resolve(code)

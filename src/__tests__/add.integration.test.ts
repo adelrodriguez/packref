@@ -36,6 +36,7 @@ const ProductionServices = Layer.mergeAll(
   RemoteTagReader.layer,
   RepositoryDownloader.layer
 )
+
 const ProductionLayers = Layer.provideMerge(
   ProductionServices,
   Layer.mergeAll(NodeHttpClient.layerFetch, NodeServices.layer)
@@ -44,6 +45,7 @@ const ProductionLayers = Layer.provideMerge(
 const makeTempDirectory = async () => {
   const directoryPath = await mkdtemp(join(tmpdir(), "packref-integration-test-"))
   temporaryPaths.push(directoryPath)
+
   return directoryPath
 }
 
@@ -58,7 +60,7 @@ const runAddWithProductionAdapters = (packageSpec: string, projectPath: string, 
       const spec = yield* parsePackageSpec(packageSpec)
 
       return yield* addPackageReference(spec, { projectPath })
-    }).pipe(Effect.provide(Layer.mergeAll(ProductionLayers, PackrefHome.at(home))))
+    }).pipe(Effect.provide([ProductionLayers, PackrefHome.at(home)]))
   )
 
 afterEach(async () => {
@@ -77,6 +79,7 @@ describe("addPackageReference with production services", () => {
     const projectPath = await makeTempDirectory()
     const home = await makeTempDirectory()
     const result = await runAddWithProductionAdapters("is-number@7.0.0", projectPath, home)
+
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
@@ -84,7 +87,7 @@ describe("addPackageReference with production services", () => {
     expect(result.entry.source.type).toBe("repository")
     expect(await exists(result.referencePath)).toBe(true)
     expect(await exists(join(result.referencePath, "package.json"))).toBe(true)
-    expect(lockfile.packages).toEqual([
+    expect(lockfile).toHaveProperty("packages", [
       expect.objectContaining({
         source: expect.objectContaining({ type: "repository" }),
       }),
@@ -95,13 +98,15 @@ describe("addPackageReference with production services", () => {
     const projectPath = await makeTempDirectory()
     const home = await makeTempDirectory()
     const result = await runAddWithProductionAdapters("lsb32@0.2.0", projectPath, home)
+
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
+
     const tarballUrl = "https://registry.npmjs.org/lsb32/-/lsb32-0.2.0.tgz"
 
     expect(result.entry.source).toEqual({ type: "tarball", url: tarballUrl })
-    expect(lockfile.packages).toEqual([
+    expect(lockfile).toHaveProperty("packages", [
       expect.objectContaining({
         source: {
           type: "tarball",

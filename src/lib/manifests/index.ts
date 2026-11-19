@@ -9,6 +9,7 @@ import javascript from "#lib/manifests/javascript.ts"
 const manifestAdapters = [javascript]
 
 type DefaultManifestAdapter = (typeof manifestAdapters)[number]
+
 type DefaultManifestError =
   DefaultManifestAdapter extends ManifestAdapter<infer E, infer _R> ? E : never
 
@@ -36,6 +37,7 @@ export class ProjectDependencyReader extends Context.Service<
             projectPath: string
           ) {
             const dependencies: ManifestDependency[] = []
+
             const detectedManifest = yield* Effect.gen(function* () {
               let detected = false
 

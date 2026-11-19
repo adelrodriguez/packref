@@ -37,6 +37,7 @@ export interface StoredEntry {
 const StoreEntryMetadataSchema = Schema.Struct({
   source: PackageSourceSchema,
 })
+
 const StoreEntryMetadataJsonSchema = Schema.fromJsonString(StoreEntryMetadataSchema, { space: 2 })
 const decodeStoreEntryMetadata = Schema.decodeUnknownEffect(StoreEntryMetadataJsonSchema)
 const STORE_TRAVERSAL_CONCURRENCY = 16
@@ -73,9 +74,11 @@ export const hasStoreEntry = Effect.fn("hasStoreEntry")(function* (identity: Pac
 export const readStoreEntry = Effect.fn("readStoreEntry")(function* (identity: PackageIdentity) {
   const fs = yield* FileSystem.FileSystem
   const { entryPath, metadataPath } = yield* getStoreEntryPaths(identity)
+
   const rawMetadata = yield* fs
     .readFileString(metadataPath)
     .pipe(Effect.mapError(makeStoreFilesystemError("access", metadataPath)))
+
   const metadata = yield* decodeStoreEntryMetadata(rawMetadata).pipe(
     Effect.mapError(makeStoreCorruptedError(entryPath))
   )
@@ -105,6 +108,7 @@ export const listStoreEntries = Effect.fn("listStoreEntries")(function* () {
   const packagesRoot = path.join(storeRoot, PACKAGE_DIRECTORY_NAME)
   const semaphore = yield* Semaphore.make(STORE_TRAVERSAL_CONCURRENCY)
   const registries = yield* listDirectoryOrEmpty(packagesRoot, semaphore)
+
   const registryEntries = yield* Effect.forEach(
     registries,
     Effect.fn(function* (registry) {
@@ -167,6 +171,7 @@ export const cleanStore = Effect.fn("cleanStore")(function* () {
   const path = yield* Path.Path
   const home = yield* PackrefHome
   const storeRoot = getGlobalStorePath(path, home.path)
+
   const entryCount = yield* listStoreEntries().pipe(
     Effect.map((entries) => entries.length),
     Effect.catchTag("GlobalStoreFilesystemError", () => Effect.succeed(0))
@@ -226,6 +231,7 @@ export const materializeStoreEntry = Effect.fn("materializeStoreEntry")(function
           prefix: ".packref-",
         })
         .pipe(Effect.mapError(mapPlatformError))
+
       const temporaryPath = path.join(temporaryRootPath, "entry")
 
       yield* fs.makeDirectory(temporaryPath).pipe(Effect.mapError(mapPlatformError))

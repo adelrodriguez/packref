@@ -18,6 +18,7 @@ const reflinkRoot = reflinkRootOverride ?? tmpdir()
 const makeTempDirectory = async (root = tmpdir()) => {
   const directoryPath = await mkdtemp(join(root, "packref-reflinker-test-"))
   temporaryPaths.push(directoryPath)
+
   return directoryPath
 }
 
@@ -37,11 +38,13 @@ const run = <A, E>(effect: Effect.Effect<A, E, Reflinker>) =>
 const supportsReflink = async (root: string) => {
   try {
     const probeDirectory = await mkdtemp(join(root, "packref-reflink-probe-"))
+
     try {
       const source = join(probeDirectory, "source")
       const target = join(probeDirectory, "target")
       await writeFile(source, "probe")
       await copyFile(source, target, constants.COPYFILE_FICLONE_FORCE)
+
       return true
     } finally {
       await rm(probeDirectory, { force: true, recursive: true })
@@ -53,6 +56,7 @@ const supportsReflink = async (root: string) => {
 
 const flushToDisk = async (filePath: string) => {
   const handle = await open(filePath, "r+")
+
   try {
     await handle.sync()
   } finally {
@@ -62,12 +66,14 @@ const flushToDisk = async (filePath: string) => {
 
 const readPhysicalExtents = async (filePath: string) => {
   const { stdout } = await execFileAsync("filefrag", ["-v", filePath])
+
   return [...stdout.matchAll(/^\s*\d+:\s*\d+\.\.\s*\d+:\s*(\d+)\.\./gm)].map((match) =>
     Number(match[1])
   )
 }
 
 const reflinkSupported = await supportsReflink(reflinkRoot)
+
 const hasFilefrag = await execFileAsync("filefrag", ["-V"]).then(
   () => true,
   () => false
@@ -124,6 +130,7 @@ describe("Reflinker", () => {
     "dedicated reflink filesystem supports cloning",
     () => {
       expect(reflinkSupported).toBe(true)
+
       if (process.platform === "linux") {
         expect(hasFilefrag).toBe(true)
       }

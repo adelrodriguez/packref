@@ -34,10 +34,13 @@ const version = await getPackageVersion()
 
 const HttpClientLayer = userAgentLayer(version).pipe(Layer.provide(NodeHttpClient.layerFetch))
 const NodePlatform = Layer.mergeAll(HttpClientLayer, NodeServices.layer)
+
 const PackageManagerServices = PackageManagerResolver.layer.pipe(
   Layer.provide(PackageManagerDetector.layer)
 )
+
 const ManifestServices = Layer.provideMerge(ProjectDependencyReader.layer, PackageManagerServices)
+
 const PackrefServices = Layer.mergeAll(
   NpmRegistryClient.layer,
   ManifestServices,
@@ -59,6 +62,7 @@ NodeRuntime.runMain(program, {
   teardown: (exit, onExit) => {
     if (Exit.isSuccess(exit)) {
       onExit(Number(exit.value))
+
       return
     }
 

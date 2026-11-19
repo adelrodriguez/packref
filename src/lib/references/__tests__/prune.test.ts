@@ -5,7 +5,6 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Effect from "effect/Effect"
-import * as Layer from "effect/Layer"
 import { afterEach, describe, expect, it } from "vitest"
 import type { PackageIdentity } from "#lib/core/identity.ts"
 import { initializeProject, repositoryEntry } from "#commands/__tests__/helpers.ts"
@@ -18,16 +17,14 @@ const temporaryPaths: string[] = []
 const makeTempDirectory = async () => {
   const directoryPath = await mkdtemp(join(tmpdir(), "packref-prune-test-"))
   temporaryPaths.push(directoryPath)
+
   return directoryPath
 }
 
 const run = <A, E>(
   effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>,
   homePath: string
-) =>
-  Effect.runPromise(
-    effect.pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, PackrefHome.at(homePath))))
-  )
+) => Effect.runPromise(effect.pipe(Effect.provide([NodeServices.layer, PackrefHome.at(homePath)])))
 
 const writeGlobalConfig = async (homePath: string, projects: readonly string[]) => {
   const globalDirectoryPath = join(homePath, ".agents", "packref")
@@ -42,6 +39,7 @@ const materializeStoreEntry = async (homePath: string, identity: PackageIdentity
   const entryPath = await run(getStoreEntryPath(identity), homePath)
   await mkdir(entryPath, { recursive: true })
   await writeFile(join(entryPath, "SOURCE.md"), "source")
+
   return entryPath
 }
 
@@ -114,6 +112,7 @@ describe("prune", () => {
     const unusedPath = await materializeStoreEntry(homePath, unused)
 
     const plan = await run(discoverPrunePlan(), homePath)
+
     const result = await run(
       applyPrunePlan(
         {
@@ -155,6 +154,7 @@ describe("prune", () => {
     const unusedPath = await materializeStoreEntry(homePath, unused)
 
     const plan = await run(discoverPrunePlan(), homePath)
+
     const result = await run(
       applyPrunePlan(
         {
@@ -185,12 +185,12 @@ describe("prune", () => {
     const retainedConfig = JSON.parse(await readFile(configPath, "utf8"))
 
     expect(plan.staleProjectPaths).toEqual([staleProjectPath])
-    expect(retainedConfig.projects).toEqual([existingProjectPath, staleProjectPath])
+    expect(retainedConfig).toHaveProperty("projects", [existingProjectPath, staleProjectPath])
 
     const result = await run(applyPrunePlan(plan, true), homePath)
     const updatedConfig = JSON.parse(await readFile(configPath, "utf8"))
 
     expect(result.removedProjectPaths).toEqual([staleProjectPath])
-    expect(updatedConfig.projects).toEqual([existingProjectPath])
+    expect(updatedConfig).toHaveProperty("projects", [existingProjectPath])
   })
 })

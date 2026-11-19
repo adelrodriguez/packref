@@ -27,6 +27,7 @@ try {
 
   const tarballs = readdirSync(temporaryDirectory).filter((file) => file.endsWith(".tgz"))
   const [tarball] = tarballs
+
   if (!tarball || tarballs.length !== 1) {
     throw new Error(`Expected one package tarball, found ${tarballs.length}`)
   }
@@ -47,10 +48,12 @@ try {
         2
       )}\n`
     )
+
     if (packageManager === "pnpm") {
       // Include newly published transitive versions in the consumer check.
       writeFileSync(join(consumerDirectory, "pnpm-workspace.yaml"), "minimumReleaseAge: 0\n")
     }
+
     run(
       packageManager,
       packageManager === "npm"
@@ -65,12 +68,15 @@ try {
       packageJson.name,
       packageJson.bin.packref
     )
+
     const version = read(process.execPath, [installedCli, "--version"], consumerDirectory).trim()
+
     if (version !== `${packageJson.name} v${packageJson.version}`) {
       throw new Error(`Expected ${packageJson.name} v${packageJson.version}, received ${version}`)
     }
 
     const help = read(process.execPath, [installedCli, "--help"], consumerDirectory)
+
     if (!help.includes(packageJson.description)) {
       throw new Error("The packed CLI help does not contain the package description")
     }

@@ -16,6 +16,7 @@ const writeGlobalConfig = async (homePath: string, projects: readonly string[]) 
 
 const materializeStoreEntry = async (homePath: string) => {
   const entry = repositoryEntry("zod", "4.0.0")
+
   const entryPath = join(
     homePath,
     ".agents",
@@ -26,8 +27,10 @@ const materializeStoreEntry = async (homePath: string) => {
     entry.name,
     entry.version
   )
+
   await mkdir(entryPath, { recursive: true })
   await writeFile(join(entryPath, "SOURCE.md"), "source")
+
   return entryPath
 }
 
@@ -65,6 +68,7 @@ describe("prune command", () => {
       projectPath,
       prompt: "Remove 1 stale project registration?",
     })
+
     const config = JSON.parse(
       await readFile(join(homePath, ".agents", "packref", "config.json"), "utf8")
     )
@@ -72,7 +76,7 @@ describe("prune command", () => {
     expect(result.exitCode).toBe(0)
     expect(result.output).toContain(`Registered project at ${staleProjectPath} no longer exists.`)
     expect(result.output).toContain("Removed 1 stale project registration")
-    expect(config.projects).toEqual([])
+    expect(config).toHaveProperty("projects", [])
   })
 
   it("keeps stale project registrations when declined", async () => {
@@ -89,6 +93,7 @@ describe("prune command", () => {
       projectPath,
       prompt: "Remove 1 stale project registration?",
     })
+
     const config = JSON.parse(
       await readFile(join(homePath, ".agents", "packref", "config.json"), "utf8")
     )
@@ -98,7 +103,7 @@ describe("prune command", () => {
     expect(result.output).toContain(
       "Skipped pruning global store entries because not all registered projects could be inspected"
     )
-    expect(config.projects).toEqual([staleProjectPath])
+    expect(config).toHaveProperty("projects", [staleProjectPath])
     expect(await exists(entryPath)).toBe(true)
   })
 

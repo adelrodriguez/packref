@@ -1,4 +1,3 @@
-import type * as Types from "effect/Types"
 import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -9,7 +8,6 @@ import * as Option from "effect/Option"
 import * as PlatformError from "effect/PlatformError"
 import { afterEach, describe, expect, it } from "vitest"
 import type { PackageIdentity } from "#lib/core/identity.ts"
-import type { RepositoryPackageSpec } from "#lib/core/packages.ts"
 import type { NormalizedRepositorySource } from "#lib/core/source.ts"
 import {
   GitExecutableNotFoundError,
@@ -17,6 +15,7 @@ import {
   TagNotFoundError,
   UnsupportedRepositoryHostError,
 } from "#lib/core/errors.ts"
+import { PackageSpec } from "#lib/core/packages.ts"
 import {
   resolveDirectRepositoryRef,
   resolveRepositoryRef,
@@ -43,6 +42,7 @@ const runWithLiveRemoteTagReader = <A, E>(effect: Effect.Effect<A, E, RemoteTagR
 const makeTempDirectory = async () => {
   const directoryPath = await mkdtemp(join(tmpdir(), "packref-tags-test-"))
   temporaryPaths.push(directoryPath)
+
   return directoryPath
 }
 
@@ -134,6 +134,7 @@ describe("RemoteTagReader", () => {
 
   it("does not retry a permanent command failure", async () => {
     let commandCount = 0
+
     const error = await runWithRemoteTagCommand(Effect.flip(listRemoteTags()), () =>
       Effect.sync(() => {
         commandCount += 1
@@ -154,6 +155,7 @@ describe("RemoteTagReader", () => {
 
   it("retries a transient command failure with a bounded policy", async () => {
     let commandCount = 0
+
     const error = await runWithRemoteTagCommand(Effect.flip(listRemoteTags()), () =>
       Effect.sync(() => {
         commandCount += 1
@@ -201,6 +203,7 @@ done
 
   it("retries spawner failures with a bounded policy", async () => {
     let commandCount = 0
+
     const error = await runWithRemoteTagCommand(Effect.flip(listRemoteTags()), () =>
       Effect.sync(() => {
         commandCount += 1
@@ -248,20 +251,21 @@ done
   })
 })
 
-const resolveDirect = (specifier?: string) => {
-  const spec: Types.Mutable<RepositoryPackageSpec> = {
-    _tag: "repository",
-    name: "owner/repo",
-    registry: "github",
-    repository: { url: "github:owner/repo" },
-  }
-
-  if (specifier !== undefined) {
-    spec.specifier = specifier
-  }
-
-  return resolveDirectRepositoryRef(spec)
-}
+const resolveDirect = (specifier?: string) =>
+  resolveDirectRepositoryRef(
+    specifier === undefined
+      ? PackageSpec.repository({
+          name: "owner/repo",
+          registry: "github",
+          repository: { url: "github:owner/repo" },
+        })
+      : PackageSpec.repository({
+          name: "owner/repo",
+          registry: "github",
+          repository: { url: "github:owner/repo" },
+          specifier,
+        })
+  )
 
 describe("resolveDirectRepositoryRef", () => {
   const output = `
@@ -272,6 +276,7 @@ describe("resolveDirectRepositoryRef", () => {
 5555555555555555555555555555555555555555\trefs/tags/release/next
 6666666666666666666666666666666666666666\trefs/tags/release/next^{}
 `
+
   const command = () => Effect.succeed({ exitCode: 0, stderr: "", stdout: output })
 
   it.each([
@@ -375,6 +380,7 @@ describe("resolveRepositoryRef", () => {
 
   it("skips tag discovery for unsupported repository hosts", async () => {
     let commandWasRun = false
+
     const resolution = runWithRemoteTagCommand(
       resolveRepositoryRef(
         reactIdentity,

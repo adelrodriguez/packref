@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import { describe, expect, it } from "vitest"
+import { ManifestResolutionError } from "#lib/core/errors.ts"
 import { ProjectDependencyReader } from "#lib/manifests/index.ts"
 import { PackageManagerResolver } from "#lib/manifests/javascript.ts"
 import { defineManifest, type ManifestAdapter } from "#lib/manifests/manifest.ts"
@@ -107,9 +108,11 @@ describe("ProjectDependencyReader", () => {
           ]
         }),
     })
+
     const layer = ProjectDependencyReader.layerWithAdapters([cargo]).pipe(
       Layer.provide(Layer.succeed(CargoManifestEnvironment)({ dependencyName: "cargo-package" }))
     )
+
     const dependencies = Option.getOrThrow(
       await Effect.runPromise(readProjectDependencies().pipe(Effect.provide(layer)))
     )
@@ -119,10 +122,13 @@ describe("ProjectDependencyReader", () => {
     const failingLayer = ProjectDependencyReader.layerWithAdapters([cargo]).pipe(
       Layer.provide(Layer.succeed(CargoManifestEnvironment)({ dependencyName: "" }))
     )
-    await expect(
-      Effect.runPromise(readProjectDependencies().pipe(Effect.provide(failingLayer)))
-    ).rejects.toMatchObject({
-      _tag: "ManifestResolutionError",
+
+    const failure = await Effect.runPromise(
+      Effect.flip(readProjectDependencies().pipe(Effect.provide(failingLayer)))
+    )
+
+    expect(failure).toBeInstanceOf(ManifestResolutionError)
+    expect(failure).toMatchObject({
       cause: expect.any(CargoManifestError),
       path: "/project",
     })
@@ -132,6 +138,7 @@ describe("ProjectDependencyReader", () => {
     const noManifest = await Effect.runPromise(
       readProjectDependencies().pipe(Effect.provide(readerLayer([ignored])))
     )
+
     const emptyManifest = await Effect.runPromise(
       readProjectDependencies().pipe(
         Effect.provide(

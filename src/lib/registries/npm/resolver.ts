@@ -88,6 +88,7 @@ export default defineRegistry({
       }
 
       const repository = versionMetadata.repository ?? metadata.repository
+
       const normalizedRepository = Option.fromNullishOr(repository).pipe(
         Option.map(
           Match.type<string | Exclude<typeof repository, string | undefined>>().pipe(

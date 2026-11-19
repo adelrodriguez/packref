@@ -11,6 +11,7 @@ import { NpmRegistryClient } from "#lib/registries/npm/client.ts"
 describe("NpmRegistryClient", () => {
   it("encodes the full scoped package name in metadata requests", async () => {
     let requestedUrl: string | undefined
+
     const httpClientLayer = Layer.succeed(
       HttpClient.HttpClient,
       HttpClient.make((request) => {
@@ -49,6 +50,7 @@ describe("NpmRegistryClient", () => {
 
   it("applies the request timeout to each retry attempt", async () => {
     let requests = 0
+
     const httpClientLayer = Layer.succeed(
       HttpClient.HttpClient,
       HttpClient.make((request) => {
@@ -81,6 +83,7 @@ describe("NpmRegistryClient", () => {
     await Effect.runPromise(
       Effect.gen(function* () {
         const client = yield* NpmRegistryClient
+
         const request = yield* Effect.forkChild(client.getPackageMetadata("example"), {
           startImmediately: true,
         })
@@ -88,12 +91,10 @@ describe("NpmRegistryClient", () => {
         yield* TestClock.adjust("31 seconds")
         yield* Fiber.join(request)
       }).pipe(
-        Effect.provide(
-          Layer.mergeAll(
-            NpmRegistryClient.layer.pipe(Layer.provide(httpClientLayer)),
-            TestClock.layer()
-          )
-        )
+        Effect.provide([
+          NpmRegistryClient.layer.pipe(Layer.provide(httpClientLayer)),
+          TestClock.layer(),
+        ])
       )
     )
 
@@ -102,6 +103,7 @@ describe("NpmRegistryClient", () => {
 
   it("retries one transient HTTP failure", async () => {
     let requests = 0
+
     const httpClientLayer = Layer.succeed(
       HttpClient.HttpClient,
       HttpClient.make((request) => {

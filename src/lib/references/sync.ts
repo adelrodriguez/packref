@@ -144,9 +144,11 @@ const prepareDependency = Effect.fn("sync.prepareDependency")(function* (
   }
 
   const resolution = yield* resolvePackageCandidateReference(dependency)
+
   const current = packageEntries.find((entry) =>
     packageIdentityEquivalence(entry, resolution.resolvedPackage.identity)
   )
+
   const staleEntries = trackedEntries.filter(
     (entry) => !packageIdentityEquivalence(entry, resolution.resolvedPackage.identity)
   )
@@ -191,14 +193,17 @@ export const preparePackageReferenceSync = Effect.fn("preparePackageReferenceSyn
   const lockfile = yield* readProjectLockfile(projectPath)
   const entries = listPackageEntries(lockfile)
   const manifestPackages = new Set(dependencies.map((dependency) => packageKey(dependency)))
+
   const removals = entries.filter(
     (entry) => entry.tracking === "dependency" && !manifestPackages.has(packageKey(entry))
   )
+
   const preparedDependencies = yield* Effect.forEach(
     dependencies,
     (dependency) => prepareDependency(projectPath, entries, dependency),
     { concurrency: SYNC_PREPARE_CONCURRENCY }
   )
+
   const [updates, unchanged] = Array.partition(
     preparedDependencies.filter((prepared) => prepared.type !== "none"),
     (prepared) =>
@@ -256,6 +261,7 @@ export const syncPackageReferences = Effect.fn("syncPackageReferences")(function
       plan.projectPath,
       update.tracking
     )
+
     const staleRemoval = yield* removeEntries(plan.projectPath, update.previous)
 
     missingEntries.push(...staleRemoval.missingEntries)

@@ -13,6 +13,8 @@ import type { RepositorySource } from "#lib/core/source.ts"
 import type { PackageEntry } from "#lib/workspace/lockfile.ts"
 import { exists, initializeProject } from "#commands/__tests__/helpers.ts"
 import {
+  LockfileParseError,
+  NotInitializedError,
   InstallPackageReferencesError,
   StoreSourceMismatchError,
   TarballFetchError,
@@ -31,6 +33,7 @@ const temporaryPaths: string[] = []
 const makeTempDirectory = async () => {
   const directoryPath = await mkdtemp(join(tmpdir(), "packref-install-test-"))
   temporaryPaths.push(directoryPath)
+
   return directoryPath
 }
 
@@ -86,6 +89,7 @@ const getReferencePath = (projectPath: string, entry: PackageEntry) =>
 const materializeStoredEntry = async (home: string, entry: PackageEntry) => {
   const segments = getIdentitySegments(entry)
   const entryPath = join(home, ".agents", "packref", "store", ...segments)
+
   const metadataPath = join(
     home,
     ".agents",
@@ -95,10 +99,12 @@ const materializeStoredEntry = async (home: string, entry: PackageEntry) => {
     ...segments.slice(0, -1),
     `${entry.version}.json`
   )
+
   await mkdir(entryPath, { recursive: true })
   await mkdir(join(metadataPath, ".."), { recursive: true })
   await writeFile(join(entryPath, "SOURCE.md"), `${entry.name}@${entry.version}`)
   await writeFile(metadataPath, `${JSON.stringify({ source: entry.source }, null, 2)}\n`)
+
   return entryPath
 }
 
@@ -129,6 +135,7 @@ const makeTestLayer = (home: string, inputControls: TestControls) => {
         controls.repositoryRefs?.push(ref)
         const nextDownloadCount = controls.repositoryDownloads + 1
         controls.repositoryDownloads = nextDownloadCount
+
         return Effect.promise(async () => {
           await mkdir(join(destination, "packages", "example"), { recursive: true })
           await writeFile(join(destination, "README.md"), "repository root")
@@ -193,13 +200,14 @@ describe("installPackageReferences", () => {
     const before = await readFile(lockfilePath, "utf8")
 
     const result = await runInstall(projectPath, home)
+
     const config = JSON.parse(
       await readFile(join(home, ".agents", "packref", "config.json"), "utf8")
     )
 
     expect(result).toMatchObject({ alreadyInstalled: [], fetched: [], reused: [] })
     expect(result.projectPath).toBe(await realpath(projectPath))
-    expect(config.projects).toEqual([await realpath(projectPath)])
+    expect(config).toHaveProperty("projects", [await realpath(projectPath)])
     expect(await readFile(lockfilePath, "utf8")).toBe(before)
   })
 
@@ -233,6 +241,7 @@ describe("installPackageReferences", () => {
     async ({ requestedRef, version }) => {
       const projectPath = await makeTempDirectory()
       const home = await makeTempDirectory()
+
       const source: TestRepositorySource = {
         host: "github.com",
         type: "repository",
@@ -248,6 +257,7 @@ describe("installPackageReferences", () => {
         registry: "github",
         source,
       } satisfies PackageEntry
+
       const repositoryRefs: string[] = []
       const controls = { repositoryDownloads: 0, repositoryRefs, tarballDownloads: 0 }
       await initializeProject(projectPath, [entry])
@@ -328,11 +338,13 @@ describe("installPackageReferences", () => {
   it("installs manual, dependency-tracked, scoped, and multiple-version entries", async () => {
     const projectPath = await makeTempDirectory()
     const home = await makeTempDirectory()
+
     const entries = [
       tarballEntry("@scope/pkg", "1.0.0", "manual"),
       tarballEntry("example", "1.0.0", "dependency"),
       tarballEntry("example", "2.0.0", "manual"),
     ]
+
     await initializeProject(projectPath, entries.toReversed())
     await Promise.all(entries.map((entry) => materializeStoredEntry(home, entry)))
 
@@ -352,12 +364,14 @@ describe("installPackageReferences", () => {
     const projectPath = await makeTempDirectory()
     const home = await makeTempDirectory()
     const lockedEntry = tarballEntry("example", "1.0.0")
+
     const storedEntry = tarballEntry(
       "example",
       "1.0.0",
       "manual",
       "https://registry.npmjs.org/example/-/different.tgz"
     )
+
     await initializeProject(projectPath, [lockedEntry])
     await materializeStoredEntry(home, storedEntry)
 
@@ -384,6 +398,7 @@ describe("installPackageReferences", () => {
     await initializeProject(projectPath, [first, second])
     const lockfilePath = join(projectPath, ".packref", "packref-lock.json")
     const before = await readFile(lockfilePath, "utf8")
+
     const failingControls = {
       failedTarballUrls: [second.source.url],
       repositoryDownloads: 0,
@@ -458,7 +473,7 @@ describe("installPackageReferences", () => {
       notInitialized = error
     }
 
-    expect(notInitialized).toMatchObject({ _tag: "NotInitializedError" })
+    expect(notInitialized).toBeInstanceOf(NotInitializedError)
 
     await mkdir(join(projectPath, ".packref"), { recursive: true })
     await writeFile(join(projectPath, ".packref", "packref-lock.json"), "{")
@@ -471,19 +486,21 @@ describe("installPackageReferences", () => {
       malformed = error
     }
 
-    expect(malformed).toMatchObject({ _tag: "LockfileParseError" })
+    expect(malformed).toBeInstanceOf(LockfileParseError)
   })
 
   it("rejects duplicate lockfile identities before materializing either source", async () => {
     const projectPath = await makeTempDirectory()
     const home = await makeTempDirectory()
     const first = tarballEntry("example", "1.0.0")
+
     const second = tarballEntry(
       "example",
       "1.0.0",
       "manual",
       "https://registry.npmjs.org/example/-/different.tgz"
     )
+
     const controls = { repositoryDownloads: 0, tarballDownloads: 0 }
     await initializeProject(projectPath, [first, second])
 
@@ -495,8 +512,8 @@ describe("installPackageReferences", () => {
       duplicate = error
     }
 
+    expect(duplicate).toBeInstanceOf(LockfileParseError)
     expect(duplicate).toMatchObject({
-      _tag: "LockfileParseError",
       cause: expect.objectContaining({
         message: "Duplicate package identity: npm:example@1.0.0",
       }),

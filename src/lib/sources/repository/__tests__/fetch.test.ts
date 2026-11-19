@@ -22,6 +22,7 @@ const temporaryPaths: string[] = []
 const makeTempDirectory = async () => {
   const directoryPath = await mkdtemp(join(tmpdir(), "packref-repository-fetch-test-"))
   temporaryPaths.push(directoryPath)
+
   return directoryPath
 }
 
@@ -53,15 +54,13 @@ const run = <A, E>(
 ) =>
   Effect.runPromise(
     effect.pipe(
-      Effect.provide(
-        Layer.mergeAll(
-          NodeServices.layer,
-          PackrefHome.at(home),
-          Layer.succeed(RepositoryDownloader)({
-            download,
-          })
-        )
-      )
+      Effect.provide([
+        NodeServices.layer,
+        PackrefHome.at(home),
+        Layer.succeed(RepositoryDownloader)({
+          download,
+        }),
+      ])
     )
   )
 
@@ -79,6 +78,7 @@ afterEach(async () => {
 describe("fetchRepositorySnapshot", () => {
   it("downloads into a temporary directory and atomically installs the store entry", async () => {
     const home = await makeTempDirectory()
+
     const result = await run(
       fetchRepositorySnapshot(identity, repository),
       home,
@@ -97,8 +97,10 @@ describe("fetchRepositorySnapshot", () => {
   it("reuses an existing store entry without downloading again", async () => {
     const home = await makeTempDirectory()
     let downloadCount = 0
+
     const download = (_source: string, _ref: string, destination: string) => {
       downloadCount += 1
+
       return Effect.promise(() => writeFile(join(destination, "index.ts"), "export {}"))
     }
 
@@ -139,10 +141,12 @@ describe("fetchRepositorySnapshot", () => {
 
 const downloadArchive = async (source: string, ref: string, archive: Uint8Array, status = 200) => {
   const destination = await makeTempDirectory()
+
   const requests: Array<{
     readonly headers: Readonly<Record<string, string>>
     readonly url: string
   }> = []
+
   const httpClientLayer = Layer.succeed(
     HttpClient.HttpClient,
     HttpClient.make((request) => {
@@ -209,6 +213,7 @@ describe("RepositoryDownloader", () => {
       Tar.symlink("repo-v1.0.0/packages/app/README.md", "../../README.md"),
       Tar.symlink("repo-v1.0.0/secret", "/etc/passwd"),
     ])
+
     const { destination, result } = await downloadArchive("github:owner/repo", "v1.0.0", archive)
 
     expect(Exit.isSuccess(result)).toBe(true)
@@ -218,9 +223,9 @@ describe("RepositoryDownloader", () => {
   it("fails with SnapshotFetchError when the host does not have the archive", async () => {
     const { result } = await downloadArchive("github:owner/repo", "v9.9.9", new Uint8Array(), 404)
 
-    expect(Exit.isFailure(result) && Cause.squash(result.cause)).toMatchObject({
-      _tag: "SnapshotFetchError",
-      source: "github:owner/repo#v9.9.9",
-    })
+    const failure = Exit.isFailure(result) && Cause.squash(result.cause)
+
+    expect(failure).toBeInstanceOf(SnapshotFetchError)
+    expect(failure).toMatchObject({ source: "github:owner/repo#v9.9.9" })
   })
 })

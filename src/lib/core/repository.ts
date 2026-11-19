@@ -4,6 +4,7 @@ export const SUPPORTED_REPOSITORY_PROVIDERS = [
   "gitlab",
   "sourcehut",
 ] as const
+
 export type RepositoryProvider = (typeof SUPPORTED_REPOSITORY_PROVIDERS)[number]
 
 export const REPOSITORY_PROVIDER_HOSTS = {

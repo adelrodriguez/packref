@@ -1,29 +1,6 @@
 {
   "packages": [
     {
-      "name": "nanotar",
-      "registry": "npm",
-      "source": {
-        "host": "github.com",
-        "type": "repository",
-        "url": "https://github.com/unjs/nanotar"
-      },
-      "tracking": "dependency",
-      "version": "0.3.0"
-    },
-    {
-      "name": "@clack/prompts",
-      "registry": "npm",
-      "source": {
-        "directory": "packages/prompts",
-        "host": "github.com",
-        "type": "repository",
-        "url": "https://github.com/bombshell-dev/clack"
-      },
-      "tracking": "dependency",
-      "version": "1.8.1"
-    },
-    {
       "name": "adamantite",
       "registry": "npm",
       "source": {
@@ -32,7 +9,7 @@
         "url": "https://github.com/adelrodriguez/adamantite"
       },
       "tracking": "dependency",
-      "version": "0.44.0"
+      "version": "0.47.0"
     },
     {
       "name": "effect",
@@ -44,7 +21,7 @@
         "url": "https://github.com/Effect-TS/effect"
       },
       "tracking": "dependency",
-      "version": "4.0.5"
+      "version": "4.1.4"
     }
   ]
 }

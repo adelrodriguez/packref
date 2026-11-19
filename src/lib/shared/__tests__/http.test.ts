@@ -8,6 +8,7 @@ import { userAgentLayer } from "#lib/shared/http.ts"
 describe("userAgentLayer", () => {
   it("identifies packref and its version on every request", async () => {
     let userAgent: string | undefined
+
     const httpClientLayer = Layer.succeed(
       HttpClient.HttpClient,
       HttpClient.make((request) => {

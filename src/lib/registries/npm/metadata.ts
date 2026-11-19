@@ -41,6 +41,7 @@ export const NpmPackageMetadataSchema = Schema.StructWithRest(
   }),
   [Schema.Record(Schema.String, Schema.Unknown)]
 )
+
 export type NpmPackageMetadata = typeof NpmPackageMetadataSchema.Type
 
 export const decodeNpmPackageMetadata = Schema.decodeUnknownEffect(NpmPackageMetadataSchema)

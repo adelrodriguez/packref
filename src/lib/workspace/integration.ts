@@ -13,10 +13,12 @@ import { getPackageVersion } from "#version.macro.ts" with { type: "macro" }
 const LEGACY_PACKREF_IGNORE_ENTRIES = new Set([".packref", ".packref/"])
 const PACKREF_PACKAGES_IGNORE_ENTRY = ".packref/packages/"
 const PACKREF_TEMP_LOCKFILE_IGNORE_ENTRY = ".packref/.packref-lock-*.tmp"
+
 const PACKREF_IGNORE_ENTRIES = [
   PACKREF_PACKAGES_IGNORE_ENTRY,
   PACKREF_TEMP_LOCKFILE_IGNORE_ENTRY,
 ] as const
+
 const PACKREF_IGNORE_ENTRY_SET = new Set<string>(PACKREF_IGNORE_ENTRIES)
 const GITIGNORE_NAME = ".gitignore"
 const TSCONFIG_NAME = "tsconfig.json"
@@ -135,6 +137,7 @@ export const ensureTsconfigExclude = Effect.fn("ensureTsconfigExclude")(
     }
 
     yield* fs.writeFileString(tsconfigPath, next.value)
+
     return "updated"
   },
   Effect.catchTag("SchemaError", () => Effect.succeed("malformed"))
@@ -157,6 +160,7 @@ export const writeAgentsSection = Effect.fn("writeAgentsSection")(function* (pro
       agentsPath,
       nextContent.endsWith("\n") ? nextContent : `${nextContent}\n`
     )
+
     return "updated"
   }
 
@@ -167,5 +171,6 @@ export const writeAgentsSection = Effect.fn("writeAgentsSection")(function* (pro
   const separator = content.length === 0 ? "" : content.endsWith("\n") ? "\n" : "\n\n"
 
   yield* fs.writeFileString(agentsPath, `${content}${separator}${PACKREF_AGENTS_SECTION}`)
+
   return "updated"
 })

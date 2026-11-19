@@ -30,15 +30,18 @@ describe("add command with the npm registry", () => {
     expect(await exists(join(projectPath, ".packref", "packages", "npm", "lsb32", "0.2.0"))).toBe(
       true
     )
+
     const lockfile = JSON.parse(
       await readFile(join(projectPath, ".packref", "packref-lock.json"), "utf8")
     )
-    expect(lockfile.packages).toHaveLength(1)
-    expect(lockfile.packages[0]).toMatchObject({
-      name: "lsb32",
-      registry: "npm",
-      tracking: "dependency",
-      version: "0.2.0",
-    })
+
+    expect(lockfile).toHaveProperty("packages", [
+      expect.objectContaining({
+        name: "lsb32",
+        registry: "npm",
+        tracking: "dependency",
+        version: "0.2.0",
+      }),
+    ])
   }, 180_000)
 })

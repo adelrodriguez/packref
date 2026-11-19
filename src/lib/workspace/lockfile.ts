@@ -21,11 +21,13 @@ export const PackageEntrySchema = Schema.Struct({
   tracking: Schema.Union([Schema.Literal("manual"), Schema.Literal("dependency")]),
   version: Schema.String,
 })
+
 export type PackageEntry = typeof PackageEntrySchema.Type
 
 export const LockfileSchema = Schema.Struct({
   packages: Schema.Array(PackageEntrySchema),
 })
+
 export type Lockfile = typeof LockfileSchema.Type
 
 const LockfileJsonSchema = Schema.fromJsonString(LockfileSchema, { space: 2 })
@@ -42,6 +44,7 @@ const packageIdentityKey = (identity: PackageIdentity) =>
 export const readLockfileAtPath = Effect.fn("readLockfileAtPath")(function* (lockfilePath: string) {
   const fs = yield* FileSystem.FileSystem
   const rawLockfile = yield* fs.readFileString(lockfilePath)
+
   const lockfile = yield* decodeLockfile(rawLockfile).pipe(
     Effect.mapError(
       (cause) =>
@@ -135,13 +138,16 @@ export const upsertPackageEntry = Effect.fn("upsertPackageEntry")(function* (
   const path = yield* Path.Path
   const lockfilePath = getProjectLockfilePath(path, projectPath)
   const lockfile = yield* initializeLockfile(projectPath)
+
   const existingIndex = lockfile.packages.findIndex((candidate) =>
     packageIdentityEquivalence(candidate, entry)
   )
+
   const packages =
     existingIndex === -1
       ? [...lockfile.packages, entry]
       : lockfile.packages.map((candidate, index) => (index === existingIndex ? entry : candidate))
+
   const updatedLockfile = {
     packages,
   } satisfies Lockfile
@@ -158,9 +164,11 @@ export const removePackageEntries = Effect.fn("removePackageEntries")(function* 
   const path = yield* Path.Path
   const lockfilePath = getProjectLockfilePath(path, projectPath)
   const lockfile = yield* readLockfileAtPath(lockfilePath)
+
   const packages = lockfile.packages.filter(
     (entry) => !Array.containsWith(packageIdentityEquivalence)(identities, entry)
   )
+
   const updatedLockfile = {
     packages,
   } satisfies Lockfile
