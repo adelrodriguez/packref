@@ -26,7 +26,7 @@ export class NpmRegistryClient extends Context.Service<
     this,
     Effect.gen(function* () {
       const httpClient = (yield* HttpClient.HttpClient).pipe(
-        HttpClient.transformResponse(Effect.timeout(NPM_REQUEST_TIMEOUT)),
+        HttpClient.timeout(NPM_REQUEST_TIMEOUT),
         HttpClient.retryTransient({
           schedule: Schedule.exponential("100 millis"),
           times: 1,
