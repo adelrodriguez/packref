@@ -1,6 +1,7 @@
 import * as Array from "effect/Array"
 import * as Argument from "effect/cli/Argument"
 import * as Command from "effect/cli/Command"
+import * as Prompt from "effect/cli/Prompt"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import type { PackageEntry } from "#lib/workspace/lockfile.ts"
@@ -11,7 +12,7 @@ import {
   listPackageReferences,
   removePackageReferences,
 } from "#lib/references/remove.ts"
-import { Prompter } from "#terminal/prompter.ts"
+import * as Output from "#terminal/output.ts"
 import { printTitle } from "#terminal/title.ts"
 
 const pkg = Argument.String("package").pipe(
@@ -30,20 +31,18 @@ interface ReferenceSelection {
 }
 
 const selectNamedReferences = Effect.fn("selectNamedReferences")(function* (pkg: string) {
-  const prompter = yield* Prompter
   const spec = yield* parsePackageSpec(pkg)
   const match = yield* findPackageReferenceMatches(spec)
 
   const entries = yield* match.entries.length === 1
     ? Effect.succeed(match.entries)
-    : prompter.multiselect({
-        message: `Select versions of ${spec.registry}:${spec.name} to remove`,
-        options: match.entries.map((candidate) => ({
-          hint: formatHint(candidate),
-          label: candidate.version,
+    : Prompt.MultiSelect({
+        choices: match.entries.map((candidate) => ({
+          description: formatHint(candidate),
+          title: candidate.version,
           value: candidate,
         })),
-        required: false,
+        message: `Select versions of ${spec.registry}:${spec.name} to remove`,
       })
 
   return Array.match(entries, {
@@ -57,52 +56,47 @@ const selectNamedReferences = Effect.fn("selectNamedReferences")(function* (pkg:
 })
 
 const selectAllReferences = Effect.fn("selectAllReferences")(function* () {
-  const prompter = yield* Prompter
   const references = yield* listPackageReferences()
 
   return yield* Array.match(references.entries, {
     onEmpty: () =>
-      prompter.log.info("No packages are currently installed.").pipe(Effect.as(Option.none())),
+      Output.info("No packages are currently installed.").pipe(Effect.as(Option.none())),
     onNonEmpty: (entries) =>
-      prompter
-        .multiselect({
-          message: "Select packages to remove",
-          options: entries.map((candidate) => ({
-            hint: formatHint(candidate),
-            label: formatPackageIdentity(candidate),
-            value: candidate,
-          })),
-          required: false,
-        })
-        .pipe(
-          Effect.map((selectedEntries) =>
-            Array.match(selectedEntries, {
-              onEmpty: Option.none,
-              onNonEmpty: (selectedEntries) =>
-                Option.some({
-                  entries: selectedEntries,
-                  projectPath: references.projectPath,
-                } satisfies ReferenceSelection),
-            })
-          )
-        ),
+      Prompt.MultiSelect({
+        choices: entries.map((candidate) => ({
+          description: formatHint(candidate),
+          title: formatPackageIdentity(candidate),
+          value: candidate,
+        })),
+        message: "Select packages to remove",
+      }).pipe(
+        Effect.map((selectedEntries) =>
+          Array.match(selectedEntries, {
+            onEmpty: Option.none,
+            onNonEmpty: (selectedEntries) =>
+              Option.some({
+                entries: selectedEntries,
+                projectPath: references.projectPath,
+              } satisfies ReferenceSelection),
+          })
+        )
+      ),
   })
 })
 
 const removeSelectedReferences = Effect.fn("removeSelectedReferences")(function* (
   selection: ReferenceSelection
 ) {
-  const prompter = yield* Prompter
   const result = yield* removePackageReferences(selection.projectPath, selection.entries)
 
   for (const entry of result.missingEntries) {
-    yield* prompter.log.warning(
+    yield* Output.warning(
       `Reference directory for ${formatPackageIdentity(entry)} was already missing; removed its lockfile entry.`
     )
   }
 
   for (const entry of result.removedEntries) {
-    yield* prompter.log.success(`Removed ${formatPackageIdentity(entry)}`)
+    yield* Output.success(`Removed ${formatPackageIdentity(entry)}`)
   }
 
   return result.removedEntries.length
@@ -113,10 +107,8 @@ export default Command.make("remove", { pkg }).pipe(
   Command.withDescription("Remove package source references by name, version, or selection"),
   Command.withHandler(({ pkg }) =>
     Effect.gen(function* () {
-      const prompter = yield* Prompter
-
       yield* printTitle
-      yield* prompter.intro(
+      yield* Output.intro(
         `📦 packref remove${Option.match(pkg, { onNone: () => "", onSome: (value) => ` ${value}` })}`
       )
 
@@ -130,19 +122,15 @@ export default Command.make("remove", { pkg }).pipe(
         onSome: removeSelectedReferences,
       })
 
-      yield* prompter.outro(
+      yield* Output.outro(
         removedCount === 0
           ? "No package references removed"
           : `Removed ${removedCount} package reference${removedCount === 1 ? "" : "s"}`
       )
     }).pipe(
-      Effect.catchTags({
-        OperationCancelled: () =>
-          Effect.gen(function* () {
-            const prompter = yield* Prompter
-            yield* prompter.cancel("You've cancelled the package removal process.")
-          }),
-      })
+      Effect.catchTag("QuitError", () =>
+        Output.cancel("You've cancelled the package removal process.")
+      )
     )
   )
 )

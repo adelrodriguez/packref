@@ -1,9 +1,10 @@
 import * as Command from "effect/cli/Command"
 import * as Flag from "effect/cli/Flag"
+import * as Prompt from "effect/cli/Prompt"
 import * as Effect from "effect/Effect"
 import { applyProjectCleanPlan, discoverProjectCleanPlan } from "#lib/references/clean.ts"
 import { cleanStore } from "#lib/store/index.ts"
-import { Prompter } from "#terminal/prompter.ts"
+import * as Output from "#terminal/output.ts"
 import { printTitle } from "#terminal/title.ts"
 
 const global = Flag.Boolean("global").pipe(
@@ -13,24 +14,20 @@ const global = Flag.Boolean("global").pipe(
 )
 
 const cleanGlobalStore = Effect.fn("cleanGlobalStore")(function* () {
-  const prompter = yield* Prompter
-  const shouldClean = yield* prompter.confirm({
-    initialValue: false,
+  const shouldClean = yield* Prompt.Confirm({
+    initial: false,
     message: "Remove all entries from the global Packref store?",
   })
 
   if (!shouldClean) {
-    yield* prompter.outro("Global store was not cleaned")
+    yield* Output.outro("Global store was not cleaned")
     return
   }
 
-  const removedEntryCount = yield* prompter.withSpinner(() => cleanStore(), {
-    failure: "Failed to clean the global store",
-    start: "Removing global store entries...",
-    success: "Finished cleaning the global store",
-  })
+  const removedEntryCount = yield* cleanStore()
+  yield* Output.success("Finished cleaning the global store")
 
-  yield* prompter.outro(
+  yield* Output.outro(
     removedEntryCount === 0
       ? "No global store entries found"
       : `Removed ${removedEntryCount} global store entr${removedEntryCount === 1 ? "y" : "ies"}`
@@ -38,25 +35,21 @@ const cleanGlobalStore = Effect.fn("cleanGlobalStore")(function* () {
 })
 
 const cleanProject = Effect.fn("cleanProject")(function* () {
-  const prompter = yield* Prompter
   const plan = yield* discoverProjectCleanPlan()
-  const shouldClean = yield* prompter.confirm({
-    initialValue: false,
+  const shouldClean = yield* Prompt.Confirm({
+    initial: false,
     message: "Remove all package references from this project?",
   })
 
   if (!shouldClean) {
-    yield* prompter.outro("Project references were not cleaned")
+    yield* Output.outro("Project references were not cleaned")
     return
   }
 
-  const removedEntryCount = yield* prompter.withSpinner(() => applyProjectCleanPlan(plan), {
-    failure: "Failed to clean project references",
-    start: "Removing project references...",
-    success: "Finished cleaning project references",
-  })
+  const removedEntryCount = yield* applyProjectCleanPlan(plan)
+  yield* Output.success("Finished cleaning project references")
 
-  yield* prompter.outro(
+  yield* Output.outro(
     removedEntryCount === 0
       ? "No project references found"
       : `Removed ${removedEntryCount} project reference${removedEntryCount === 1 ? "" : "s"}`
@@ -67,19 +60,11 @@ export default Command.make("clean", { global }).pipe(
   Command.withDescription("Clear current-project references or the entire global store"),
   Command.withHandler(({ global }) =>
     Effect.gen(function* () {
-      const prompter = yield* Prompter
-
       yield* printTitle
-      yield* prompter.intro(`🧹 packref clean${global ? " --global" : ""}`)
+      yield* Output.intro(`🧹 packref clean${global ? " --global" : ""}`)
       yield* global ? cleanGlobalStore() : cleanProject()
     }).pipe(
-      Effect.catchTags({
-        OperationCancelled: () =>
-          Effect.gen(function* () {
-            const prompter = yield* Prompter
-            yield* prompter.cancel("You've cancelled the clean process.")
-          }),
-      })
+      Effect.catchTag("QuitError", () => Output.cancel("You've cancelled the clean process."))
     )
   )
 )

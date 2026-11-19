@@ -3,16 +3,15 @@ import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Filter from "effect/Filter"
 import * as Layer from "effect/Layer"
-import * as Match from "effect/Match"
 import * as Option from "effect/Option"
 import * as Path from "effect/Path"
-import * as Predicate from "effect/Predicate"
 import * as Result from "effect/Result"
 import * as Schema from "effect/Schema"
-import { valid } from "semver"
+import * as SemVer from "effect/SemVer"
 import { ManifestParseError, ManifestResolutionError } from "#lib/core/errors.ts"
 import { defineManifest, type ManifestDependency } from "#lib/manifests/manifest.ts"
 import {
+  ancestorDirectories,
   PackageManagerDetector,
   type PackageManagerName,
 } from "#lib/manifests/package-manager-detector.ts"
@@ -20,6 +19,8 @@ import {
 const DEPENDENCY_GROUPS = ["dependencies", "devDependencies", "peerDependencies"] as const
 
 const NODE_MODULES_RESOLUTION_CONCURRENCY = 8
+
+const isVersion = (version: string) => Result.isSuccess(SemVer.parse(version))
 
 const DependencyRecordSchema = Schema.Record(Schema.String, Schema.String)
 
@@ -196,7 +197,7 @@ const resolvePnpmDependencyFromBlock = (source: string, name: string) => {
     if (inlineValue !== undefined && inlineValue.length > 0) {
       const version = normalizePnpmVersion(inlineValue)
 
-      if (valid(version) !== null) {
+      if (isVersion(version)) {
         return Option.some(version)
       }
 
@@ -225,7 +226,7 @@ const resolvePnpmDependencyFromBlock = (source: string, name: string) => {
       if (Option.isSome(versionMatch)) {
         const version = normalizePnpmVersion(versionMatch.value)
 
-        if (valid(version) !== null) {
+        if (isVersion(version)) {
           return Option.some(version)
         }
       }
@@ -309,43 +310,6 @@ const packageManagerLockfileStrategies = new Map<
   ],
 ])
 
-const getLockfiles = (
-  managerName: PackageManagerName,
-  detectedLockfile: string | readonly string[] | undefined
-) => {
-  const strategy = packageManagerLockfileStrategies.get(managerName)
-  const lockfileNames = Match.value(detectedLockfile).pipe(
-    Match.when(Predicate.isUndefined, () =>
-      strategy === undefined ? [] : strategy.lockfiles.map((lockfile) => lockfile.name)
-    ),
-    Match.when(Match.string, (name) => [name]),
-    Match.orElse((names) => [...names])
-  )
-
-  return lockfileNames.map(
-    (name) => strategy?.lockfiles.find((lockfile) => lockfile.name === name) ?? { name }
-  )
-}
-
-const ancestorDirectories = (path: Path.Path, startPath: string) => {
-  const directories: string[] = []
-  let directoryPath = startPath
-
-  while (directoryPath.length > 0) {
-    directories.push(directoryPath)
-
-    const parentPath = path.dirname(directoryPath)
-
-    if (parentPath === directoryPath) {
-      break
-    }
-
-    directoryPath = parentPath
-  }
-
-  return directories
-}
-
 export class PackageManagerResolver extends Context.Service<
   PackageManagerResolver,
   PackageManagerResolverService
@@ -396,19 +360,20 @@ export class PackageManagerResolver extends Context.Service<
           projectPath: string,
           dependencies: readonly LockedVersionDependency[]
         ) {
-          const manager = yield* packageManagerDetector.detect(projectPath)
+          const strategy = (yield* packageManagerDetector.detect(projectPath)).pipe(
+            Option.flatMapNullishOr((name) => packageManagerLockfileStrategies.get(name))
+          )
 
-          if (manager === undefined) {
+          if (Option.isNone(strategy)) {
             return new Map<string, string>()
           }
 
-          const strategy = packageManagerLockfileStrategies.get(manager.name)
           const locatedLockfiles = yield* findNearestLockfiles(
             projectPath,
-            getLockfiles(manager.name, manager.lockFile)
+            strategy.value.lockfiles
           )
 
-          if (strategy === undefined || Option.isNone(locatedLockfiles)) {
+          if (Option.isNone(locatedLockfiles)) {
             return new Map<string, string>()
           }
 
@@ -435,12 +400,12 @@ export class PackageManagerResolver extends Context.Service<
                 continue
               }
 
-              const resolvedVersion = strategy
+              const resolvedVersion = strategy.value
                 .resolve(rawLockfile, {
                   ...dependency,
                   projectRelativePath,
                 })
-                .pipe(Option.filter((version) => valid(version) !== null))
+                .pipe(Option.filter((version) => isVersion(version)))
 
               if (Option.isSome(resolvedVersion)) {
                 versions.set(dependency.name, resolvedVersion.value)
@@ -488,9 +453,7 @@ const readNodeModulesVersion = Effect.fn("readNodeModulesVersion")(function* (
     })
   ).pipe(
     Effect.map(
-      Option.filter(
-        (version): version is string => version !== undefined && valid(version) !== null
-      )
+      Option.filter((version): version is string => version !== undefined && isVersion(version))
     )
   )
 })

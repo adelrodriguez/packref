@@ -109,7 +109,7 @@ describe("remove", () => {
     const react18Path = await materializeReference(projectPath, react18)
     const react19Path = await materializeReference(projectPath, react19)
 
-    const result = await runRemove(projectPath, homePath, "react", "\u001B[B \r")
+    const result = await runRemove(projectPath, homePath, "react", "\u001B[B\u001B[B\u001B[B \r")
 
     expect(result.exitCode).toBe(0)
     expect(result.output).toContain("Select versions of npm:react to remove")
@@ -166,7 +166,7 @@ describe("remove", () => {
     const reactPath = await materializeReference(projectPath, react)
     const zodPath = await materializeReference(projectPath, zod)
 
-    const result = await runRemove(projectPath, homePath, undefined, "\u001B[B \r")
+    const result = await runRemove(projectPath, homePath, undefined, "\u001B[B\u001B[B\u001B[B \r")
 
     expect(result.exitCode).toBe(0)
     expect(result.output).toContain("Select packages to remove")

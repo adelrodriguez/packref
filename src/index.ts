@@ -22,7 +22,7 @@ import { userAgentLayer } from "#lib/shared/http.ts"
 import { RepositoryDownloader } from "#lib/sources/repository/fetch.ts"
 import { RemoteTagReader } from "#lib/sources/repository/tags.ts"
 import { Reflinker } from "#lib/workspace/reflinker.ts"
-import { Prompter } from "#terminal/prompter.ts"
+import * as Output from "#terminal/output.ts"
 import { getPackageVersion } from "#version.macro.ts" with { type: "macro" }
 
 const main = Command.make("packref").pipe(
@@ -41,7 +41,6 @@ const ManifestServices = Layer.provideMerge(ProjectDependencyReader.layer, Packa
 const PackrefServices = Layer.mergeAll(
   NpmRegistryClient.layer,
   ManifestServices,
-  Prompter.layer,
   Reflinker.layer,
   RemoteTagReader.layer,
   RepositoryDownloader.layer
@@ -52,15 +51,7 @@ const AppLayer = Layer.provideMerge(PackrefServices, NodePlatform)
 const program = Command.run(main, { version }).pipe(
   Effect.as(0),
   Effect.catchTag("ShowHelp", (error) => Effect.succeed(error.errors.length === 0 ? 0 : 1)),
-  Effect.catch((error) =>
-    Effect.gen(function* () {
-      const prompter = yield* Prompter
-
-      yield* prompter.log.error(error.message)
-
-      return 1
-    })
-  ),
+  Effect.catch((error) => Output.failure(error.message).pipe(Effect.as(1))),
   Effect.provide(AppLayer)
 )
 

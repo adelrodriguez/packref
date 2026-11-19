@@ -1,5 +1,6 @@
 import * as Command from "effect/cli/Command"
 import * as Flag from "effect/cli/Flag"
+import * as Prompt from "effect/cli/Prompt"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
@@ -14,7 +15,7 @@ import {
 } from "#lib/workspace/integration.ts"
 import { initializeLockfile } from "#lib/workspace/lockfile.ts"
 import { ensureDirectory } from "#lib/workspace/project.ts"
-import { Prompter } from "#terminal/prompter.ts"
+import * as Output from "#terminal/output.ts"
 import { printTitle } from "#terminal/title.ts"
 
 const nonInteractive = Flag.Boolean("non-interactive").pipe(
@@ -48,7 +49,6 @@ export default Command.make("init", { agents, ignore, nonInteractive }).pipe(
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem
       const path = yield* Path.Path
-      const prompter = yield* Prompter
       const projectPath = yield* fs.realPath(path.resolve())
 
       if (!nonInteractive && (ignore || agents)) {
@@ -57,65 +57,47 @@ export default Command.make("init", { agents, ignore, nonInteractive }).pipe(
 
       yield* printTitle
 
-      yield* prompter.intro(`🚚 packref init${nonInteractive ? " --non-interactive" : ""}`)
-      yield* prompter.log.info(`Preparing project at ${projectPath}`)
+      yield* Output.intro(`🚚 packref init${nonInteractive ? " --non-interactive" : ""}`)
+      yield* Output.info(`Preparing project at ${projectPath}`)
 
       const shouldAddIgnoreEntries = nonInteractive
         ? ignore
-        : yield* prompter.confirm({
-            initialValue: true,
+        : yield* Prompt.Confirm({
+            initial: true,
             message: "Ignore generated Packref references and exclude `.packref` from TypeScript?",
           })
 
       const shouldAddAgentsGuidance = nonInteractive
         ? agents
-        : yield* prompter.confirm({
-            initialValue: true,
+        : yield* Prompt.Confirm({
+            initial: true,
             message:
               "Add a guidance section to AGENTS.md so coding agents know how to use Packref?",
           })
 
-      yield* prompter.withSpinner(() => ensureDirectory(projectPath), {
-        failure: "Failed to prepare project directory",
-        start: "Ensuring project directory exists...",
-        success: "Project directory is ready",
-      })
+      yield* ensureDirectory(projectPath)
+      yield* Output.success("Project directory is ready")
 
-      const lockfile = yield* prompter.withSpinner(() => initializeLockfile(projectPath), {
-        failure: "Failed to create the packref-lock.json",
-        start: "Creating the packref-lock.json...",
-        success: "Created the packref-lock.json",
-      })
+      const lockfile = yield* initializeLockfile(projectPath)
+      yield* Output.success("Created the packref-lock.json")
 
-      yield* prompter.withSpinner(() => registerProject(projectPath), {
-        failure: "Failed to register project in global store",
-        start: "Registering project in global store...",
-        success: "Project registered in global store",
-      })
+      yield* registerProject(projectPath)
+      yield* Output.success("Project registered in global store")
 
       if (shouldAddIgnoreEntries) {
-        yield* prompter.withSpinner(() => ensureGitignoreEntry(projectPath), {
-          failure: "Failed to update .gitignore",
-          start: "Updating .gitignore...",
-          success: ".gitignore is ready",
-        })
+        yield* ensureGitignoreEntry(projectPath)
+        yield* Output.success(".gitignore is ready")
 
-        const tsconfigResult = yield* prompter.withSpinner(
-          () => ensureTsconfigExclude(projectPath),
-          {
-            failure: "Failed to update tsconfig.json",
-            start: "Updating tsconfig.json...",
-            success: (result) =>
-              Match.value(result).pipe(
-                Match.when("missing", () => "No tsconfig.json found"),
-                Match.when("malformed", () => "Could not update tsconfig.json"),
-                Match.orElse(() => "tsconfig.json is ready")
-              ),
-          }
+        const tsconfigResult = yield* ensureTsconfigExclude(projectPath)
+
+        yield* Match.value(tsconfigResult).pipe(
+          Match.when("missing", () => Output.info("No tsconfig.json found")),
+          Match.when("malformed", () => Effect.void),
+          Match.orElse(() => Output.success("tsconfig.json is ready"))
         )
 
         if (tsconfigResult === "malformed") {
-          yield* prompter.log.warning(
+          yield* Output.warning(
             "Could not update tsconfig.json because it is malformed. Add `.packref` to `exclude` manually."
           )
 
@@ -126,18 +108,14 @@ export default Command.make("init", { agents, ignore, nonInteractive }).pipe(
       }
 
       if (shouldAddAgentsGuidance) {
-        const agentsResult = yield* prompter.withSpinner(() => writeAgentsSection(projectPath), {
-          failure: "Failed to update AGENTS.md",
-          start: "Updating AGENTS.md...",
-          success: (result) =>
-            Match.value(result).pipe(
-              Match.when("malformed", () => "Could not update AGENTS.md"),
-              Match.orElse(() => "AGENTS.md is ready")
-            ),
-        })
+        const agentsResult = yield* writeAgentsSection(projectPath)
+
+        if (agentsResult === "updated") {
+          yield* Output.success("AGENTS.md is ready")
+        }
 
         if (agentsResult === "malformed") {
-          yield* prompter.log.warning(
+          yield* Output.warning(
             "Could not update AGENTS.md because Packref markers are incomplete. Remove the stale PACKREF marker and run packref init again."
           )
 
@@ -148,21 +126,17 @@ export default Command.make("init", { agents, ignore, nonInteractive }).pipe(
       }
 
       if (lockfile.packages.length > 0) {
-        yield* prompter.log.info(
+        yield* Output.info(
           `Found ${lockfile.packages.length} locked reference${lockfile.packages.length === 1 ? "" : "s"}. Run \`packref install\` to materialize missing source trees.`
         )
       }
 
-      yield* prompter.log.success(`Initialized packref in ${projectPath}`)
-      yield* prompter.outro("🎉 You're ready to start using Packref!")
+      yield* Output.success(`Initialized packref in ${projectPath}`)
+      yield* Output.outro("🎉 You're ready to start using Packref!")
     }).pipe(
-      Effect.catchTags({
-        OperationCancelled: () =>
-          Effect.gen(function* () {
-            const prompter = yield* Prompter
-            yield* prompter.cancel("You've cancelled the initialization process.")
-          }),
-      })
+      Effect.catchTag("QuitError", () =>
+        Output.cancel("You've cancelled the initialization process.")
+      )
     )
   )
 )

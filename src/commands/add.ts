@@ -1,6 +1,7 @@
 import * as Array from "effect/Array"
 import * as Argument from "effect/cli/Argument"
 import * as Command from "effect/cli/Command"
+import * as Prompt from "effect/cli/Prompt"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import * as Predicate from "effect/Predicate"
@@ -14,7 +15,7 @@ import {
   resolvePackageCandidateReference,
   type AddPackageResult,
 } from "#lib/references/add.ts"
-import { Prompter } from "#terminal/prompter.ts"
+import * as Output from "#terminal/output.ts"
 import { printTitle } from "#terminal/title.ts"
 
 const pkg = Argument.String("package").pipe(
@@ -25,10 +26,12 @@ const pkg = Argument.String("package").pipe(
 )
 
 const reportAddDetails = Effect.fn("reportAddDetails")(function* (result: AddPackageResult) {
-  const prompter = yield* Prompter
+  yield* Output.success(
+    `Added ${formatPackageIdentity(result.entry)} from ${result.entry.source.type}`
+  )
 
   if (Predicate.isNotUndefined(result.manifestRange)) {
-    yield* prompter.log.warning(
+    yield* Output.warning(
       `${result.entry.name} has no installed version (no lockfile entry or node_modules copy); `
         + `resolved ${result.manifestRange} -> ${result.entry.version} from the registry. `
         + "Run your package manager's install, then `packref sync`, to pin the installed version."
@@ -36,18 +39,13 @@ const reportAddDetails = Effect.fn("reportAddDetails")(function* (result: AddPac
   }
 
   if (result.reusedStoreEntry) {
-    yield* prompter.log.info("Reused the existing global store entry")
+    yield* Output.info("Reused the existing global store entry")
   }
 })
 
 const addPackage = Effect.fn("addPackage")(function* (pkg: string) {
-  const prompter = yield* Prompter
   const spec = yield* parsePackageSpec(pkg)
-  const result = yield* prompter.withSpinner(() => addPackageReference(spec), {
-    failure: `Failed to add ${pkg}`,
-    start: `Resolving and fetching ${pkg}...`,
-    success: ({ entry }) => `Added ${formatPackageIdentity(entry)} from ${entry.source.type}`,
-  })
+  const result = yield* addPackageReference(spec)
 
   yield* reportAddDetails(result)
   return result
@@ -57,49 +55,31 @@ const addPackageCandidate = Effect.fn("addPackageCandidate")(function* (
   dependency: ManifestDependency,
   projectPath: string
 ) {
-  const prompter = yield* Prompter
-  const label = `${dependency.registry}:${dependency.name}`
-  const result = yield* prompter.withSpinner(
-    (spinner) =>
-      Effect.gen(function* () {
-        const resolution = yield* resolvePackageCandidateReference(dependency)
-        const identity = resolution.resolvedPackage.identity
-
-        yield* spinner.message(`Fetching and materializing ${formatPackageIdentity(identity)}...`)
-
-        return yield* materializePackageCandidateReference(resolution, projectPath)
-      }),
-    {
-      failure: `Failed to add ${label}`,
-      start: `Resolving ${label}...`,
-      success: ({ entry }) => `Added ${formatPackageIdentity(entry)} from ${entry.source.type}`,
-    }
-  )
+  const resolution = yield* resolvePackageCandidateReference(dependency)
+  const result = yield* materializePackageCandidateReference(resolution, projectPath)
 
   yield* reportAddDetails(result)
   return result
 })
 
 const addSelectedPackages = Effect.fn("addSelectedPackages")(function* () {
-  const prompter = yield* Prompter
   const candidates = yield* findPackageCandidates()
 
   return yield* Array.match(candidates.dependencies, {
     onEmpty: () =>
       Effect.gen(function* () {
-        yield* prompter.log.info("No project dependencies are available to add.")
-        yield* prompter.outro("No package references added")
+        yield* Output.info("No project dependencies are available to add.")
+        yield* Output.outro("No package references added")
       }),
     onNonEmpty: (dependencies) =>
       Effect.gen(function* () {
-        const selectedPackages = yield* prompter.multiselect({
-          message: "Select packages to add",
-          options: dependencies.map((dependency) => ({
-            hint: `${dependency.group}, ${dependency.exactVersion ?? dependency.specifier}`,
-            label: `${dependency.registry}:${dependency.name}`,
+        const selectedPackages = yield* Prompt.MultiSelect({
+          choices: dependencies.map((dependency) => ({
+            description: `${dependency.group}, ${dependency.exactVersion ?? dependency.specifier}`,
+            title: `${dependency.registry}:${dependency.name}`,
             value: dependency,
           })),
-          required: false,
+          message: "Select packages to add",
         })
 
         yield* Effect.forEach(
@@ -108,7 +88,7 @@ const addSelectedPackages = Effect.fn("addSelectedPackages")(function* () {
           { discard: true }
         )
 
-        yield* prompter.outro(
+        yield* Output.outro(
           Array.match(selectedPackages, {
             onEmpty: () => "No package references added",
             onNonEmpty: (packages) =>
@@ -120,9 +100,8 @@ const addSelectedPackages = Effect.fn("addSelectedPackages")(function* () {
 })
 
 const addNamedPackage = Effect.fn("addNamedPackage")(function* (pkg: string) {
-  const prompter = yield* Prompter
   const result = yield* addPackage(pkg)
-  yield* prompter.outro(`Reference available at ${result.referencePath}`)
+  yield* Output.outro(`Reference available at ${result.referencePath}`)
 })
 
 export default Command.make("add", { pkg }).pipe(
@@ -131,10 +110,8 @@ export default Command.make("add", { pkg }).pipe(
   ),
   Command.withHandler(({ pkg }) =>
     Effect.gen(function* () {
-      const prompter = yield* Prompter
-
       yield* printTitle
-      yield* prompter.intro(
+      yield* Output.intro(
         `📦 packref add${Option.match(pkg, { onNone: () => "", onSome: (value) => ` ${value}` })}`
       )
       yield* Option.match(pkg, {
@@ -142,13 +119,9 @@ export default Command.make("add", { pkg }).pipe(
         onSome: addNamedPackage,
       })
     }).pipe(
-      Effect.catchTags({
-        OperationCancelled: () =>
-          Effect.gen(function* () {
-            const prompter = yield* Prompter
-            yield* prompter.cancel("You've cancelled the package addition process.")
-          }),
-      })
+      Effect.catchTag("QuitError", () =>
+        Output.cancel("You've cancelled the package addition process.")
+      )
     )
   )
 )

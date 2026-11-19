@@ -12,7 +12,8 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { execPath } from "node:process"
 import { spawn } from "@lydell/node-pty"
-import { parse } from "jsonc-parser"
+import * as Json5 from "effect/encoding/Json5"
+import * as Result from "effect/Result"
 import { afterEach, describe, expect, it } from "vitest"
 import type { Lockfile } from "#lib/workspace/lockfile.ts"
 import packageJson from "../../../package.json" with { type: "json" }
@@ -32,7 +33,8 @@ const makeTempDirectory = async () => {
 const readJson = async <A>(path: string) => JSON.parse(await readFile(path, "utf8")) as A
 
 // SAFETY: Each caller supplies the expected shape for test data that the test itself creates.
-const readJsonc = async <A>(path: string) => parse(await readFile(path, "utf8")) as A
+const readJsonc = async <A>(path: string) =>
+  Result.getOrThrow(Json5.parse(await readFile(path, "utf8"))) as A
 
 const readText = (path: string) => readFile(path, "utf8")
 
@@ -334,7 +336,7 @@ describe("init", () => {
       await writeFile(join(projectPath, ".gitignore"), existingGitignore)
       await writeFile(join(projectPath, "tsconfig.json"), existingTsconfig)
 
-      const result = await runInitCommand(projectPath, homePath, { ignore: "\n\r" })
+      const result = await runInitCommand(projectPath, homePath, { ignore: "n" })
 
       const lockfile = await readJson(join(projectPath, ".packref", "packref-lock.json"))
       const config = await readJson(join(homePath, ".agents", "packref", "config.json"))
@@ -629,7 +631,7 @@ describe("init", () => {
 
       await writeFile(join(projectPath, "AGENTS.md"), existingAgents)
 
-      const result = await runInitCommand(projectPath, homePath, { agents: "\n\r" })
+      const result = await runInitCommand(projectPath, homePath, { agents: "n" })
 
       expect(result.exitCode).toBe(0)
       expect(await readText(join(projectPath, "AGENTS.md"))).toBe(existingAgents)
@@ -695,7 +697,7 @@ describe("init", () => {
 
       expect(result.exitCode).toBe(1)
       expect(result.stdout).toContain("Failed to parse Packref lockfile")
-      expect(result.stdout).toContain("Failed to create the packref-lock.json")
+      expect(result.stdout).not.toContain("Created the packref-lock.json")
       expect(await readText(join(projectPath, ".packref", "packref-lock.json"))).toBe("{")
     })
   })
@@ -713,7 +715,7 @@ describe("init", () => {
 
       expect(result.exitCode).toBe(1)
       expect(result.stdout).toContain("Failed to parse Packref config")
-      expect(result.stdout).toContain("Failed to register project in global store")
+      expect(result.stdout).not.toContain("Project registered in global store")
       expect(await readText(join(globalPath, "config.json"))).toBe("{")
     })
   })

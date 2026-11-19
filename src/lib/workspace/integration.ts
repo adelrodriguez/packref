@@ -1,10 +1,12 @@
 import * as Effect from "effect/Effect"
+import * as Json5 from "effect/encoding/Json5"
 import * as FileSystem from "effect/FileSystem"
 import * as Filter from "effect/Filter"
 import * as Option from "effect/Option"
 import * as Path from "effect/Path"
+import * as Result from "effect/Result"
 import * as Schema from "effect/Schema"
-import { applyEdits, modify, type ParseError, parse } from "jsonc-parser"
+import { setProperty } from "#lib/shared/jsonc.ts"
 
 import { getPackageVersion } from "#version.macro.ts" with { type: "macro" }
 
@@ -113,24 +115,26 @@ export const ensureTsconfigExclude = Effect.fn("ensureTsconfigExclude")(
     }
 
     const existing = optionalExisting.value
-    const parseErrors: ParseError[] = []
-    const decoded = parse(existing, parseErrors, { allowTrailingComma: true })
+    // TypeScript reads tsconfig.json with comments and trailing commas, which JSON5 also allows.
+    const decoded = Json5.parse(existing)
 
-    if (parseErrors.length > 0) {
+    if (Result.isFailure(decoded)) {
       return "malformed"
     }
 
-    const parsed = yield* decodeTsconfig(decoded)
+    const parsed = yield* decodeTsconfig(decoded.success)
 
     if (parsed.exclude?.some((entry) => checkIsPackrefEntry(entry))) {
       return "updated"
     }
 
-    const edits = modify(existing, ["exclude"], [...(parsed.exclude ?? []), ".packref"], {
-      formattingOptions: { insertSpaces: true, tabSize: 2 },
-    })
+    const next = setProperty(existing, "exclude", [...(parsed.exclude ?? []), ".packref"])
 
-    yield* fs.writeFileString(tsconfigPath, applyEdits(existing, edits))
+    if (Option.isNone(next)) {
+      return "malformed"
+    }
+
+    yield* fs.writeFileString(tsconfigPath, next.value)
     return "updated"
   },
   Effect.catchTag("SchemaError", () => Effect.succeed("malformed"))

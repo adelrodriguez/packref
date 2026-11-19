@@ -99,6 +99,26 @@ describe("npm", () => {
       expect(resolved.identity.version).toBe("19.1.0")
     })
 
+    // npm reads ranges with node-semver, which accepts more than the strict SemVer grammar.
+    it.each([
+      { expected: "19.1.0", specifier: "^v19.0.0" },
+      { expected: "19.1.0", specifier: ">=v19.0.0 <=v19.1.0" },
+      { expected: "19.0.0", specifier: "=v19.0.0" },
+      { expected: "19.1.0", specifier: ">=19.0.0+build.1" },
+      { expected: "19.0.0", specifier: "~>19.0.0" },
+      { expected: "19.1.0", specifier: "^18.0.0 ||" },
+    ])("resolves the node-semver range $specifier", async ({ expected, specifier }) => {
+      const resolved = await runWithMetadata(npm.resolve(spec(specifier)))
+
+      expect(resolved.identity.version).toBe(expected)
+    })
+
+    it("drops build metadata from an exact version", async () => {
+      const resolved = await runWithMetadata(npm.resolve(spec("18.3.1+build.5")))
+
+      expect(resolved.identity.version).toBe("18.3.1")
+    })
+
     it("excludes prereleases from ranges that do not request them", async () => {
       const metadata = {
         ...baseMetadata,
@@ -120,6 +140,30 @@ describe("npm", () => {
       const resolved = await runWithMetadata(npm.resolve(spec("^19.0.0")), metadata)
 
       expect(resolved.identity.version).toBe("19.0.0")
+    })
+
+    it("ignores published versions that are not valid SemVer when it resolves a range", async () => {
+      const metadata = {
+        ...baseMetadata,
+        versions: {
+          ...baseMetadata.versions,
+          "19.2": {
+            dist: {
+              tarball: "https://registry.npmjs.org/react/-/react-19.2.tgz",
+            },
+            version: "19.2",
+          },
+        },
+      } satisfies NpmPackageMetadata
+      const resolved = await runWithMetadata(npm.resolve(spec("^19.0.0")), metadata)
+
+      expect(resolved.identity.version).toBe("19.1.0")
+    })
+
+    it("returns PackageVersionNotFoundError for a specifier that is not a version or range", async () => {
+      await expect(runWithMetadata(npm.resolve(spec("next")))).rejects.toBeInstanceOf(
+        PackageVersionNotFoundError
+      )
     })
 
     it("returns PackageVersionNotFoundError for missing version metadata", async () => {

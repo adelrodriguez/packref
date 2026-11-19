@@ -20,7 +20,7 @@ describe("add command with the npm registry", () => {
     const result = await context.runCli({
       args: ["add"],
       homePath,
-      input: " \r",
+      input: "\u001B[B\u001B[B \r",
       projectPath,
       prompt: "Select packages to add",
     })

@@ -61,7 +61,7 @@ describe("prune command", () => {
     const result = await context.runCli({
       args: ["prune"],
       homePath,
-      input: "y\r",
+      input: "y",
       projectPath,
       prompt: "Remove 1 stale project registration?",
     })
@@ -85,7 +85,7 @@ describe("prune command", () => {
     const result = await context.runCli({
       args: ["prune"],
       homePath,
-      input: "n\r",
+      input: "n",
       projectPath,
       prompt: "Remove 1 stale project registration?",
     })
